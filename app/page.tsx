@@ -5,90 +5,52 @@ import { AnimatePresence, motion } from "framer-motion"
 import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import family from "@/data/worlds/family.json"
-import travel from "@/data/worlds/travel.json"
+import basic_verbs from "@/data/worlds/basic_verbs.json"
 
-const WORLDS = [family, travel] as const
 
+//CHange to change world order
+const WORLDS = [basic_verbs,family] as unknown as {
+  id: string
+  title: string
+  chunking: { pairsPerGame: number }
+  pool: VocabPair[]
+}[]
+
+type CardImage =
+  | { type: "emoji"; value: string }
+  | { type: "image"; src: string; alt?: string }
+
+type ConjugationSection = {
+  title: string
+  rows: [string, string][] // [pronoun, form]
+}
+
+type Conjugation = {
+  infinitive?: string
+  translation?: string
+  sections: ConjugationSection[]
+}
 
 type VocabPair = {
   id: string
   es: string
   de: string
-  emoji: string
+  image: CardImage
   explanation?: string
+  pos?: "verb" | "noun" | "adj" | "other"
+  conjugation?: Conjugation
 }
 
 type CardModel = {
-  key: string // unique per card
+  key: string
   pairId: string
-  kind: "word" | "emoji"
-  front: {
-    // what we show when flipped
-    title?: string // big text (word OR emoji)
-    subtitle?: string // smaller text under emoji
-  }
+  kind: "word" | "image"
+  front: { title?: string; subtitle?: string }
+  imageSrc?: string
+  imageAlt?: string
 }
 
 
-
-const VOCAB: VocabPair[] = [
-  { 
-    id: "ir", 
-    es: "ir", 
-    de: "gehen", 
-    emoji: "🚶", 
-    explanation: "Indica movimiento hacia un lugar. Es un verbo muy irregular. Ejemplo: 'Voy a la biblioteca para estudiar'." 
-  },
-  { 
-    id: "comer", 
-    es: "comer", 
-    de: "essen", 
-    emoji: "🍕", 
-    explanation: "Acción de ingerir alimentos. En España, también significa específicamente almorzar al mediodía. Ejemplo: 'Mañana vamos a comer pizza'." 
-  },
-  { 
-    id: "beber", 
-    es: "beber", 
-    de: "trinken", 
-    emoji: "🥤", 
-    explanation: "Ingerir un líquido. En América Latina se usa con más frecuencia el verbo 'tomar'. Ejemplo: 'Es importante beber mucha agua'." 
-  },
-  { 
-    id: "dormir", 
-    es: "dormir", 
-    de: "schlafen", 
-    emoji: "😴", 
-    explanation: "Verbo con cambio de raíz (o-ue). Se usa para la acción de descansar durante la noche. Ejemplo: 'Siempre duermo ocho horas'." 
-  },
-  { 
-    id: "leer", 
-    es: "leer", 
-    de: "lesen", 
-    emoji: "📖", 
-    explanation: "Pasar la vista por un texto comprendiendo los signos. Ejemplo: 'Me encanta leer antes de irme a dormir'." 
-  },
-  { 
-    id: "hablar", 
-    es: "hablar", 
-    de: "sprechen", 
-    emoji: "🗣️", 
-    explanation: "Comunicarse con palabras. Es un verbo regular acabado en -ar. Ejemplo: 'Hablo español con mis amigos de Madrid'." 
-  },
-  { 
-    id: "correr", 
-    es: "correr", 
-    de: "rennen", 
-    emoji: "🏃", 
-    explanation: "Desplazarse rápidamente con pasos largos. Se usa tanto para deporte como para urgencias. Ejemplo: 'Tengo que correr para llegar al tren'." 
-  },
-  { 
-    id: "comprar", 
-    es: "comprar", 
-    de: "kaufen", 
-    emoji: "🛒", 
-    explanation: "Obtener algo a cambio de dinero. Ejemplo: 'Quiero comprar un regalo para el cumpleaños de mi hermano'." 
-  },
-]
 
 // If you ever want to swap sides:
 // - word card shows German, emoji card shows Spanish (under emoji)
@@ -106,23 +68,57 @@ function buildDeck(pairs: VocabPair[]): CardModel[] {
       front: { title: word },
     }
 
-    const emojiCard: CardModel = {
-      key: `${p.id}-emoji`,
+    const imageCard: CardModel = {
+      key: `${p.id}-image`,
       pairId: p.id,
-      kind: "emoji",
-      front: { title: p.emoji, subtitle: other },
+      kind: "image",
+      front: {
+        title: p.image.type === "emoji" ? p.image.value : undefined,
+        subtitle: other,
+      },
+      imageSrc: p.image.type === "image" ? p.image.src : undefined,
+      imageAlt: p.image.type === "image" ? p.image.alt : undefined,
     }
 
-    return [wordCard, emojiCard]
+    return [wordCard, imageCard]
   })
 }
+
 
 function shuffle<T>(arr: T[]) {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
+
+//VOCAB MEMORY
 export default function VocabMemory() {
-  const baseDeck = useMemo(() => buildDeck(VOCAB), [])
+  const [pendingResolution, setPendingResolution] = useState<{
+    keys: [string, string]
+    pairId: string
+    isMatch: boolean
+  } | null>(null)
+
+  const [worldId, setWorldId] = useState<string>(WORLDS[0].id)
+  const [levelIndex, setLevelIndex] = useState<number>(0)
+
+  const [isWorldsOpen, setIsWorldsOpen] = useState(false)
+  const [isLevelsOpen, setIsLevelsOpen] = useState(false)
+  
+  const [pendingWorldId, setPendingWorldId] = useState<string | null>(null)
+
+  const currentWorld = useMemo(() => {
+    return WORLDS.find((w) => w.id === worldId) ?? WORLDS[0]
+  }, [worldId])
+
+  const VOCAB = useMemo(() => {
+    const k = currentWorld.chunking.pairsPerGame
+    const start = levelIndex * k
+    return currentWorld.pool.slice(start, start + k)
+  }, [currentWorld, levelIndex])
+    
+  
+
+  const baseDeck = useMemo(() => buildDeck(VOCAB), [VOCAB])
   const [cards, setCards] = useState<CardModel[]>([])
   const [flippedKeys, setFlippedKeys] = useState<string[]>([])
   const [matchedPairIds, setMatchedPairIds] = useState<Set<string>>(new Set())
@@ -134,23 +130,31 @@ export default function VocabMemory() {
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [justMatchedKeys, setJustMatchedKeys] = useState<string[]>([])
   const [showWinOverlay, setShowWinOverlay] = useState(false)
-  const [worldId, setWorldId] = useState<string>(WORLDS[0].id)
-  const [isWorldsOpen, setIsWorldsOpen] = useState(false)
 
 
 
 
   useEffect(() => {
-    restart()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // shuffle a new deck from the new world vocab
+    setCards(shuffle(baseDeck))
+
+    // reset game state
+    setFlippedKeys([])          // or setFlipped([])
+    setMatchedPairIds(new Set())
+    setMatchedOrder([])
+    setCarouselIndex(0)
+    setMoves(0)
+    setIsWon(false)
+    setShowWinOverlay(false)
+  }, [worldId, baseDeck])
 
   useEffect(() => {
     if (matchedPairIds.size === VOCAB.length && VOCAB.length > 0) {
       setIsWon(true)
       setShowWinOverlay(true)
     }
-  }, [matchedPairIds])
+  }, [matchedPairIds, VOCAB.length])
+
 
 
   const restart = () => {
@@ -167,14 +171,33 @@ export default function VocabMemory() {
 
 
   const isCardFaceUp = (cardKey: string) => {
-    const c = cards.find(x => x.key === cardKey)
+    const c = cards.find((x) => x.key === cardKey)
     if (!c) return false
     return flippedKeys.includes(cardKey) || matchedPairIds.has(c.pairId)
   }
 
+  const resolvePending = () => {
+    if (!pendingResolution) return
+
+    const { pairId, isMatch } = pendingResolution
+
+    if (isMatch) {
+      setMatchedPairIds((prev) => new Set([...prev, pairId]))
+      setMatchedOrder((prev) => {
+        const updated = [...prev, pairId]
+        setCarouselIndex(updated.length - 1)
+        return updated
+      })
+    }
+
+    setFlippedKeys([])
+    setPendingResolution(null)
+  }
 
   const handleCardClick = (cardKey: string) => {
-    const c = cards.find(x => x.key === cardKey)
+    if (pendingResolution) return
+
+    const c = cards.find((x) => x.key === cardKey)
     if (!c) return
     if (isWon) return
     if (matchedPairIds.has(c.pairId)) return
@@ -187,51 +210,45 @@ export default function VocabMemory() {
     if (next.length === 2) {
       setMoves((m) => m + 1)
 
-      const a = cards.find(x => x.key === next[0])!
-      const b = cards.find(x => x.key === next[1])!
+      const a = cards.find((x) => x.key === next[0])!
+      const b = cards.find((x) => x.key === next[1])!
       const isMatch = a.pairId === b.pairId && a.key !== b.key
+
+      setPendingResolution({
+        keys: [a.key, b.key],
+        pairId: a.pairId,
+        isMatch,
+      })
 
       if (isMatch) {
         setJustMatchedKeys([a.key, b.key])
-        window.setTimeout(() => setJustMatchedKeys([]), 2000)
-
-        const pairId = a.pairId
-
-        setMatchedPairIds((prev) => new Set([...prev, pairId]))
-
-        setMatchedOrder((prev) => {
-          const updated = [...prev, pairId]
-          // jump carousel to the newest found pair
-          setCarouselIndex(updated.length - 1)
-          return updated
-        })
-
-        setFlippedKeys([])
-      } else {
-        window.setTimeout(() => setFlippedKeys([]), 900)
+        window.setTimeout(() => setJustMatchedKeys([]), 900)
       }
     }
   }
+  useEffect(() => {
+    setLevelIndex(0)
+  }, [worldId])
+
+  const levelsCount = useMemo(() => {
+    const k = currentWorld.chunking.pairsPerGame
+    return Math.ceil(currentWorld.pool.length / k)
+  }, [currentWorld])
+
 
   const activePair = useMemo(() => {
   if (!activePairId) return null
   return VOCAB.find((v) => v.id === activePairId) ?? null
-  }, [activePairId])
+  }, [activePairId, VOCAB])
 
   const carouselPair = useMemo(() => {
     if (matchedOrder.length === 0) return null
     const pairId = matchedOrder[Math.min(carouselIndex, matchedOrder.length - 1)]
     return VOCAB.find(v => v.id === pairId) ?? null
-  }, [matchedOrder, carouselIndex])
+  }, [matchedOrder, carouselIndex, VOCAB])
 
-  const visibleCards = useMemo(
-    () => cards.filter(c => !matchedPairIds.has(c.pairId)),
-    [cards, matchedPairIds]
-  )
-
-  const currentWorld = useMemo(() => {
-    return WORLDS.find((w) => w.id === worldId) ?? WORLDS[0]
-  }, [worldId])
+  const worldTitle = currentWorld.title
+  const levelLabel = `Nivel ${levelIndex + 1}`
 
 
   return (
@@ -251,7 +268,16 @@ export default function VocabMemory() {
 
               {isMenuOpen && (
                 <div className="mt-3 space-y-2 text-sm text-neutral-200">
-                  <button className="block w-full text-left hover:text-white">Mundos</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWorldsOpen(true)   // open worlds overlay
+                    setIsMenuOpen(false)   // close hamburger menu
+                  }}
+                  className="block w-full text-left hover:text-white"
+                >
+                  Mundos
+                </button>
                   <button className="block w-full text-left hover:text-white">Gestion</button>
                   <button className="block w-full text-left hover:text-white">🔒 Locked</button>
                 </div>
@@ -266,6 +292,9 @@ export default function VocabMemory() {
               <div className="flex items-end justify-between gap-4 mb-6">
                 <div>
                   <h1 className="text-3xl font-semibold tracking-tight">vocado</h1>
+                  <div className="mt-1 text-sm text-neutral-300">
+                    {worldTitle} — {levelLabel}
+                  </div>
                   <p className="text-sm text-neutral-300 mt-1">
                     Empareja las palabras en{" "}
                     <span className="font-medium text-neutral-100">español</span> con las palabras en{" "}
@@ -287,11 +316,19 @@ export default function VocabMemory() {
             </div>
           </div>
 
-          {/* CENTER BOARD (row 2) */}
+            {/* CENTER BOARD (row 2) */}
           <div className="col-span-12 md:col-span-7 md:col-start-3 md:row-start-2">
             <div className="w-full max-w-3xl">
-              <div className="bg-neutral-900/40 backdrop-blur rounded-2xl p-5 shadow-sm border border-neutral-800">
-                {/* IMPORTANT: put the grid back */}
+              <div
+                className="bg-neutral-900/40 backdrop-blur rounded-2xl p-5 shadow-sm border border-neutral-800"
+                onClickCapture={(e) => {
+                  if (pendingResolution) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    resolvePending()
+                  }
+                }}
+              >
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {cards.map((card) => (
                     <MemoryCard
@@ -300,11 +337,12 @@ export default function VocabMemory() {
                       flipped={isCardFaceUp(card.key)}
                       cleared={matchedPairIds.has(card.pairId)}
                       celebrate={justMatchedKeys.includes(card.key)}
-
                       onClick={() => handleCardClick(card.key)}
                     />
                   ))}
                 </div>
+ 
+
                 <div className="mt-4 text-xs text-neutral-400">
                   Progreso: {matchedPairIds.size}/{VOCAB.length} parejas encontradas
                 </div>
@@ -337,7 +375,17 @@ export default function VocabMemory() {
                     </button>
 
                     <div className="flex-1 rounded-xl border border-neutral-800 bg-neutral-950/30 p-4 text-center">
-                      <div className="text-5xl">{carouselPair.emoji}</div>
+                    <div className="flex justify-center">
+                      {carouselPair.image.type === "emoji" ? (
+                        <div className="text-5xl">{carouselPair.image.value}</div>
+                      ) : (
+                        <img
+                          src={carouselPair.image.src}
+                          alt={carouselPair.image.alt ?? "vocab image"}
+                          className="h-20 w-20 object-contain"
+                        />
+                      )}
+                    </div>
 
                       <div className="mt-3 text-sm">
                         <span className="text-neutral-400">Español:</span>{" "}
@@ -369,8 +417,16 @@ export default function VocabMemory() {
 
                   {/* Explanation */}
                   <div className="text-sm font-medium text-neutral-100">Explicación</div>
-                  <div className="mt-2 text-xs text-neutral-300 leading-relaxed">
-                    {carouselPair.explanation ?? "No explanation added yet."}
+                  <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-neutral-800 bg-neutral-950/20 p-3">
+                    <div className="text-xs text-neutral-300 leading-relaxed">
+                      {carouselPair.explanation ?? "No explanation added yet."}
+                    </div>
+
+                    {carouselPair.conjugation && (
+                      <div className="mt-4">
+                        <ConjugationCard conjugation={carouselPair.conjugation} />
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -383,12 +439,11 @@ export default function VocabMemory() {
 
         </div>
       </div>
-
       <AnimatePresence>
         {showWinOverlay && (
           <WinningScreen
             moves={moves}
-            subtitle={`¡Parejas encontradas! Revísalas abajo.`}
+            subtitle={`All cards revealed — ${VOCAB.length} pairs matched.`}
             onClose={() => setShowWinOverlay(false)}
             onRestart={restart}
             matchedOrder={matchedOrder}
@@ -399,9 +454,142 @@ export default function VocabMemory() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isWorldsOpen && (
+          <WorldsOverlay
+            worlds={WORLDS as any}
+            activeWorldId={worldId}
+            onClose={() => setIsWorldsOpen(false)}
+            onSelectWorld={(id) => {
+              setPendingWorldId(id)     // remember which world user clicked
+              setIsWorldsOpen(false)    // close first overlay
+              setIsLevelsOpen(true)     // open levels overlay
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isLevelsOpen && pendingWorldId && (
+          <LevelsOverlay
+            world={WORLDS.find(w => w.id === pendingWorldId)!}
+            activeLevelIndex={pendingWorldId === worldId ? levelIndex : -1}
+            onClose={() => {
+              setIsLevelsOpen(false)
+              setPendingWorldId(null)
+            }}
+            onSelectLevel={(idx) => {
+              setWorldId(pendingWorldId)  // load the world
+              setLevelIndex(idx)          // load subworld
+              setIsLevelsOpen(false)
+              setPendingWorldId(null)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+
     </div>
   )
 }
+function LevelsOverlay({
+  world,
+  activeLevelIndex,
+  onClose,
+  onSelectLevel,
+}: {
+  world: { id: string; title: string; chunking: { pairsPerGame: number }; pool: VocabPair[] }
+  activeLevelIndex: number
+  onClose: () => void
+  onSelectLevel: (levelIndex: number) => void
+}) {
+  const levels = useMemo(() => {
+    const k = world.chunking.pairsPerGame
+    const n = Math.ceil(world.pool.length / k)
+    return Array.from({ length: n }, (_, i) => {
+      const start = i * k
+      const end = Math.min(world.pool.length, start + k)
+      return { i, start, end }
+    })
+  }, [world])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <motion.div
+        className="w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-neutral-50">
+              {world.title} — Levels
+            </h2>
+            <p className="text-sm text-neutral-300 mt-2">
+              Choose a subworld (chunk of {world.chunking.pairsPerGame} pairs).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-3 max-h-[55vh] overflow-auto pr-1">
+          {levels.map((lvl) => {
+            const active = lvl.i === activeLevelIndex && world.id === world.id
+            return (
+              <button
+                key={lvl.i}
+                type="button"
+                onClick={() => onSelectLevel(lvl.i)}
+                className={[
+                  "w-full text-left rounded-2xl border p-4 transition",
+                  "bg-neutral-900/40 hover:bg-neutral-900/60",
+                  active ? "border-neutral-300" : "border-neutral-800",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold text-neutral-50">
+                    Nivel {lvl.i + 1}
+                  </div>
+                  <div className="text-xs text-neutral-300">
+                    {lvl.start + 1}–{lvl.end} / {world.pool.length}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+
 function ParticleBurst() {
   const particles = Array.from({ length: 18 }, (_, i) => {
     const angle = (i / 18) * Math.PI * 2
@@ -487,7 +675,7 @@ function MemoryCard({
           >
             {/* your image back here */}
             <img
-              src="/card-back.png"
+              src="/card/card-back.png"
               alt="card back"
               className="w-35 h-25 opacity-80"
             />
@@ -509,10 +697,23 @@ function MemoryCard({
               </div>
             ) : (
               <div className="px-2 text-center flex flex-col items-center">
-                <div className="text-4xl leading-none">{model.front.title}</div>
-                <div className="mt-2 text-sm font-medium">{model.front.subtitle}</div>
+                {model.imageSrc ? (
+                  <img
+                    src={model.imageSrc}
+                    alt={model.imageAlt ?? ""}
+                    className="w-20 h-20 object-contain"
+                  />
+                ) : (
+                  <div className="text-4xl leading-none">
+                    {model.front.title}
+                  </div>
+                )}
+                <div className="mt-2 text-sm font-medium">
+                  {model.front.subtitle}
+                </div>
               </div>
             )}
+
           </div>
         </motion.div>
       )}
@@ -536,7 +737,7 @@ function WinningScreen({
   matchedOrder: string[]
   carouselIndex: number
   setCarouselIndex: React.Dispatch<React.SetStateAction<number>>
-  carouselPair: { emoji: string; es: string; de: string; explanation?: string } | null
+  carouselPair: VocabPair | null
 }) {
   return (
     <motion.div
@@ -581,7 +782,17 @@ function WinningScreen({
                 </button>
 
                 <div className="flex-1 rounded-xl border border-neutral-800 bg-neutral-950/30 p-4 text-center">
-                  <div className="text-5xl">{carouselPair.emoji}</div>
+                  <div className="flex justify-center">
+                    {carouselPair.image.type === "emoji" ? (
+                      <div className="text-5xl">{carouselPair.image.value}</div>
+                    ) : (
+                      <img
+                        src={carouselPair.image.src}
+                        alt={carouselPair.image.alt ?? "vocab image"}
+                        className="h-20 w-20 object-contain"
+                      />
+                    )}
+                  </div>
 
                   <div className="mt-3 text-sm">
                     <span className="text-neutral-400">Espa:</span>{" "}
@@ -627,3 +838,138 @@ function WinningScreen({
   )
 }
 
+
+
+function WorldsOverlay({
+  worlds,
+  activeWorldId,
+  onClose,
+  onSelectWorld,
+}: {
+  worlds: Array<{ id: string; title: string; description?: string }>
+  activeWorldId: string
+  onClose: () => void
+  onSelectWorld: (id: string) => void
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <motion.div
+        className="w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-neutral-50">🌎 Mundos</h2>
+            <p className="text-sm text-neutral-300 mt-2">
+              Selecciona un mundo para cargar un nuevo conjunto de vocabulario.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-3 max-h-[55vh] overflow-auto pr-1">
+          {worlds.map((w) => {
+            const active = w.id === activeWorldId
+            return (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => onSelectWorld(w.id)}
+                className={[
+                  "w-full text-left rounded-2xl border p-4 transition",
+                  "bg-neutral-900/40 hover:bg-neutral-900/60",
+                  active ? "border-neutral-300" : "border-neutral-800",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold text-neutral-50">
+                    {w.title}
+                  </div>
+                  {active && (
+                    <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
+                      Active
+                    </span>
+                  )}
+                </div>
+
+                {w.description && (
+                  <div className="mt-1 text-sm text-neutral-300">
+                    {w.description}
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            Close
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function ConjugationCard({ conjugation }: { conjugation: any }) {
+  return (
+    <div className="space-y-4">
+      {(conjugation.infinitive || conjugation.translation) && (
+        <div className="text-xs text-neutral-300">
+          {conjugation.infinitive && (
+            <>
+              <span className="text-neutral-400">Infinitivo:</span>{" "}
+              <span className="font-semibold text-neutral-100">{conjugation.infinitive}</span>
+            </>
+          )}
+          {conjugation.translation && (
+            <>
+              <span className="mx-2 text-neutral-700">•</span>
+              <span className="text-neutral-400">Deutsch:</span>{" "}
+              <span className="font-semibold text-neutral-100">{conjugation.translation}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {conjugation.sections?.map((sec: any) => (
+        <div key={sec.title} className="rounded-xl border border-neutral-800 bg-neutral-950/20">
+          <div className="px-3 py-2 text-xs font-semibold text-neutral-100 border-b border-neutral-800">
+            {sec.title}
+          </div>
+
+          <div className="divide-y divide-neutral-800">
+            {sec.rows?.map((row: [string, string], idx: number) => (
+              <div key={idx} className="grid grid-cols-2 gap-2 px-3 py-2 text-xs">
+                <div className="text-neutral-200">{row[0]}</div>
+                <div className="text-neutral-50 font-semibold">{row[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
