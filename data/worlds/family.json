@@ -1,6 +1,7 @@
 {
   "id": "family",
   "title": "Familia",
+  "mode": "vocab",
   "pool": [
     { "id": "arbol", "es": "El árbol genealógico", "de": "Der Stammbaum", "image": { "type": "image", "src": "/worlds/family/arbol.png", "alt": "family-tree" }, "explanation": "Representación gráfica de los antepasados y descendientes de una persona." },
     { "id": "padres", "es": "Los padres", "de": "Die Eltern", "image": { "type": "image", "src": "/worlds/family/padres.png", "alt": "parents" }, "explanation": "El padre y la madre de una persona." },
@@ -44,6 +45,6 @@
   ],
   "chunking": {
     "mode": "sequential",
-    "pairsPerGame": 8
+    "itemsPerGame": 8
   }
 }

@@ -1,0 +1,80 @@
+{
+  "id": "phrases-basic",
+  "title": "Phrases — Basic",
+  "description": "Build Spanish phrases in the correct order.",
+  "mode": "phrase",
+  "chunking": { "itemsPerGame": 1 },
+  "pool": [
+    {
+      "id": "p1",
+      "motherTongue": "Me gusta correr",
+      "tokens": [
+        { "id": "t1", "text": "Ich", "type": "pronoun" },
+        { "id": "t2", "text": "mag", "type": "verb" },
+        { "id": "t3", "text": "rennen", "type": "verb" }
+      ],
+      "explanation": "Usa el verbo 'mögen' (gustar) conjugado seguido del infinitivo 'rennen' al final."
+    },
+    {
+      "id": "p2",
+      "motherTongue": "Nosotros comemos una manzana",
+      "tokens": [
+        { "id": "t1", "text": "Wir", "type": "pronoun" },
+        { "id": "t2", "text": "essen", "type": "verb" },
+        { "id": "t3", "text": "einen", "type": "other" },
+        { "id": "t4", "text": "Apfel", "type": "noun" }
+      ],
+      "explanation": "'Apfel' es masculino. En acusativo (objeto directo), el artículo 'ein' cambia a 'einen'."
+    },
+    {
+      "id": "p3",
+      "motherTongue": "Él lee un libro",
+      "tokens": [
+        { "id": "t1", "text": "Er", "type": "pronoun" },
+        { "id": "t2", "text": "liest", "type": "verb" },
+        { "id": "t3", "text": "ein", "type": "other" },
+        { "id": "t4", "text": "Buch", "type": "noun" }
+      ],
+      "explanation": "El verbo 'lesen' es irregular (e -> ie). 'Buch' es neutro, por lo que 'ein' no cambia en acusativo."
+    },
+    {
+      "id": "p4",
+      "motherTongue": "Ustedes beben agua",
+      "tokens": [
+        { "id": "t1", "text": "Sie", "type": "pronoun" },
+        { "id": "t2", "text": "trinken", "type": "verb" },
+        { "id": "t3", "text": "Wasser", "type": "noun" }
+      ],
+      "explanation": "'Sie' con mayúscula se usa para 'Usted' o 'Ustedes'. Los sustantivos incontables como 'Wasser' no suelen llevar artículo."
+    },
+    {
+      "id": "p5",
+      "motherTongue": "Yo compro una pizza",
+      "tokens": [
+        { "id": "t1", "text": "Ich", "type": "pronoun" },
+        { "id": "t2", "text": "kaufe", "type": "verb" },
+        { "id": "t3", "text": "eine", "type": "other" },
+        { "id": "t4", "text": "Pizza", "type": "noun" }
+      ],
+      "explanation": "'Pizza' es femenino. El artículo femenino 'eine' se mantiene igual en nominativo y acusativo."
+    },
+    {
+      "id": "p6",
+      "motherTongue": "Ella habla español",
+      "tokens": [
+        { "id": "t1", "text": "Sie", "type": "pronoun" },
+        { "id": "t2", "text": "spricht", "type": "verb" },
+        { "id": "t3", "text": "Spanisch", "type": "noun" }
+      ],
+      "explanation": "El verbo 'sprechen' es irregular (e -> i). Al hablar idiomas, no se utiliza artículo antes del nombre del idioma."
+    }
+  ],
+  "distractions": [
+    { "id": "d1", "text": "Mein", "type": "other" },
+    { "id": "d2", "text": "viel", "type": "adj" },
+    { "id": "d3", "text": "gehen", "type": "other" },
+    { "id": "d4", "text": "du", "type": "pronoun" },
+    { "id": "d5", "text": "sehr", "type": "other" },
+    { "id": "d6", "text": "Brot", "type": "noun" }
+  ]
+}

@@ -1,298 +1,635 @@
 {
   "id": "verbs-basics",
   "title": "Verbos Básicos",
+  "mode": "vocab",
   "pool": [
     {
-      "id": "ir",
-      "es": "ir",
-      "de": "gehen",
-      "image": { "type": "emoji", "value": "🚶" },
-      "explanation": "Indica movimiento hacia un lugar. Es un verbo muy irregular. Ejemplo: 'Voy a la biblioteca para estudiar'.",
+      "id": "sein",
+      "es": "ser/estar",
+      "de": "sein",
+      "image": { "type": "emoji", "value": "🌟" },
+      "explanation": "El verbo más importante. Se usa para identificar cosas o estados. Es muy irregular.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "gehen",
-        "translation": "ir",
+        "infinitive": "sein",
+        "translation": "ser/estar",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "gehe"],
-              ["du", "gehst"],
-              ["er/sie/es", "geht"],
-              ["wir", "gehen"],
-              ["ihr", "geht"],
-              ["sie/Sie", "gehen"]
-            ]
+            "rows": [["ich", "bin"], ["du", "bist"], ["er/sie/es", "ist"], ["wir", "sind"], ["ihr", "seid"], ["sie/Sie", "sind"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin gewesen"], ["du", "bist gewesen"], ["er/sie/es", "ist gewesen"], ["wir", "sind gewesen"], ["ihr", "seid gewesen"], ["sie/Sie", "sind gewesen"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "ging"],
-              ["du", "gingst"],
-              ["er/sie/es", "ging"],
-              ["wir", "gingen"],
-              ["ihr", "gingt"],
-              ["sie/Sie", "gingen"]
-            ]
+            "rows": [["ich", "war"], ["du", "warst"], ["er/sie/es", "war"], ["wir", "waren"], ["ihr", "wart"], ["sie/Sie", "waren"]]
           }
         ]
       }
     },
     {
-      "id": "comer",
-      "es": "comer",
-      "de": "essen",
-      "image": { "type": "emoji", "value": "🍕" },
-      "explanation": "Acción de ingerir alimentos. En España, también significa específicamente almorzar al mediodía. Ejemplo: 'Mañana vamos a comer pizza'.",
+      "id": "haben",
+      "es": "tener",
+      "de": "haben",
+      "image": { "type": "emoji", "value": "🤲" },
+      "explanation": "Indica posesión. También es el verbo auxiliar para formar el pasado (Perfekt) de la mayoría de verbos.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "essen",
-        "translation": "comer",
+        "infinitive": "haben",
+        "translation": "tener",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "esse"],
-              ["du", "isst"],
-              ["er/sie/es", "isst"],
-              ["wir", "essen"],
-              ["ihr", "esst"],
-              ["sie/Sie", "essen"]
-            ]
+            "rows": [["ich", "habe"], ["du", "hast"], ["er/sie/es", "hat"], ["wir", "haben"], ["ihr", "habt"], ["sie/Sie", "haben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gehabt"], ["du", "hast gehabt"], ["er/sie/es", "hat gehabt"], ["wir", "haben gehabt"], ["ihr", "habt gehabt"], ["sie/Sie", "haben gehabt"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "aß"],
-              ["du", "aßest"],
-              ["er/sie/es", "aß"],
-              ["wir", "aßen"],
-              ["ihr", "aßt"],
-              ["sie/Sie", "aßen"]
-            ]
+            "rows": [["ich", "hatte"], ["du", "hattest"], ["er/sie/es", "hatte"], ["wir", "hatten"], ["ihr", "hattet"], ["sie/Sie", "hatten"]]
           }
         ]
       }
     },
     {
-      "id": "beber",
-      "es": "beber",
-      "de": "trinken",
-      "image": { "type": "emoji", "value": "🥤" },
-      "explanation": "Ingerir un líquido. En América Latina se usa con más frecuencia el verbo 'tomar'. Ejemplo: 'Es importante beber mucha agua'.",
+      "id": "werden",
+      "es": "llegar a ser/volverse",
+      "de": "werden",
+      "image": { "type": "emoji", "value": "🦋" },
+      "explanation": "Indica un cambio o transformación. También se usa para formar el futuro.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "trinken",
-        "translation": "beber",
+        "infinitive": "werden",
+        "translation": "llegar a ser",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "trinke"],
-              ["du", "trinkst"],
-              ["er/sie/es", "trinkt"],
-              ["wir", "trinken"],
-              ["ihr", "trinkt"],
-              ["sie/Sie", "trinken"]
-            ]
+            "rows": [["ich", "werde"], ["du", "wirst"], ["er/sie/es", "wird"], ["wir", "werden"], ["ihr", "werdet"], ["sie/Sie", "werden"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin geworden"], ["du", "bist geworden"], ["er/sie/es", "ist geworden"], ["wir", "sind geworden"], ["ihr", "seid geworden"], ["sie/Sie", "sind geworden"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "trank"],
-              ["du", "trankst"],
-              ["er/sie/es", "trank"],
-              ["wir", "tranken"],
-              ["ihr", "trankt"],
-              ["sie/Sie", "tranken"]
-            ]
+            "rows": [["ich", "wurde"], ["du", "wurdest"], ["er/sie/es", "wurde"], ["wir", "wurden"], ["ihr", "wurdet"], ["sie/Sie", "wurden"]]
           }
         ]
       }
     },
     {
-      "id": "dormir",
-      "es": "dormir",
-      "de": "schlafen",
-      "image": { "type": "emoji", "value": "😴" },
-      "explanation": "Verbo con cambio de raíz (o-ue). Se usa para la acción de descansar durante la noche. Ejemplo: 'Siempre duermo ocho horas'.",
+      "id": "machen",
+      "es": "hacer",
+      "de": "machen",
+      "image": { "type": "emoji", "value": "🔨" },
+      "explanation": "Un verbo comodín. Significa crear, realizar o hacer algo. Muy frecuente.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "schlafen",
-        "translation": "dormir",
+        "infinitive": "machen",
+        "translation": "hacer",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "schlafe"],
-              ["du", "schläfst"],
-              ["er/sie/es", "schläft"],
-              ["wir", "schlafen"],
-              ["ihr", "schlaft"],
-              ["sie/Sie", "schlafen"]
-            ]
+            "rows": [["ich", "mache"], ["du", "machst"], ["er/sie/es", "macht"], ["wir", "machen"], ["ihr", "macht"], ["sie/Sie", "machen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gemacht"], ["du", "hast gemacht"], ["er/sie/es", "hat gemacht"], ["wir", "haben gemacht"], ["ihr", "habt gemacht"], ["sie/Sie", "haben gemacht"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "schlief"],
-              ["du", "schliefst"],
-              ["er/sie/es", "schlief"],
-              ["wir", "schliefen"],
-              ["ihr", "schlieft"],
-              ["sie/Sie", "schliefen"]
-            ]
+            "rows": [["ich", "machte"], ["du", "machtest"], ["er/sie/es", "machte"], ["wir", "machten"], ["ihr", "machtet"], ["sie/Sie", "machten"]]
           }
         ]
       }
     },
     {
-      "id": "leer",
-      "es": "leer",
-      "de": "lesen",
-      "image": { "type": "emoji", "value": "📖" },
-      "explanation": "Pasar la vista por un texto comprendiendo los signos. Ejemplo: 'Me encanta leer antes de irme a dormir'.",
+      "id": "sagen",
+      "es": "decir",
+      "de": "sagen",
+      "image": { "type": "emoji", "value": "💬" },
+      "explanation": "Expresar algo verbalmente. Es un verbo regular.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "lesen",
-        "translation": "leer",
+        "infinitive": "sagen",
+        "translation": "decir",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "lese"],
-              ["du", "liest"],
-              ["er/sie/es", "liest"],
-              ["wir", "lesen"],
-              ["ihr", "lest"],
-              ["sie/Sie", "lesen"]
-            ]
+            "rows": [["ich", "sage"], ["du", "sagst"], ["er/sie/es", "sagt"], ["wir", "sagen"], ["ihr", "sagt"], ["sie/Sie", "sagen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gesagt"], ["du", "hast gesagt"], ["er/sie/es", "hat gesagt"], ["wir", "haben gesagt"], ["ihr", "habt gesagt"], ["sie/Sie", "haben gesagt"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "las"],
-              ["du", "lasest"],
-              ["er/sie/es", "las"],
-              ["wir", "lasen"],
-              ["ihr", "last"],
-              ["sie/Sie", "lasen"]
-            ]
+            "rows": [["ich", "sagte"], ["du", "sagtest"], ["er/sie/es", "sagte"], ["wir", "sagten"], ["ihr", "sagtet"], ["sie/Sie", "sagten"]]
           }
         ]
       }
     },
     {
-      "id": "hablar",
-      "es": "hablar",
-      "de": "sprechen",
-      "image": { "type": "emoji", "value": "🗣️" },
-      "explanation": "Comunicarse con palabras. Es un verbo regular acabado en -ar. Ejemplo: 'Hablo español con mis amigos de Madrid'.",
+      "id": "koennen",
+      "es": "poder/saber hacer",
+      "de": "können",
+      "image": { "type": "emoji", "value": "💪" },
+      "explanation": "Verbo modal. Indica capacidad o posibilidad. Ejemplo: 'Puedo nadar'.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "sprechen",
-        "translation": "hablar",
+        "infinitive": "können",
+        "translation": "poder",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "spreche"],
-              ["du", "sprichst"],
-              ["er/sie/es", "spricht"],
-              ["wir", "sprechen"],
-              ["ihr", "sprecht"],
-              ["sie/Sie", "sprechen"]
-            ]
+            "rows": [["ich", "kann"], ["du", "kannst"], ["er/sie/es", "kann"], ["wir", "können"], ["ihr", "könnt"], ["sie/Sie", "können"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gekonnt"], ["du", "hast gekonnt"], ["er/sie/es", "hat gekonnt"], ["wir", "haben gekonnt"], ["ihr", "habt gekonnt"], ["sie/Sie", "haben gekonnt"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "sprach"],
-              ["du", "sprachst"],
-              ["er/sie/es", "sprach"],
-              ["wir", "sprachen"],
-              ["ihr", "spracht"],
-              ["sie/Sie", "sprachen"]
-            ]
+            "rows": [["ich", "konnte"], ["du", "konntest"], ["er/sie/es", "konnte"], ["wir", "konnten"], ["ihr", "konntet"], ["sie/Sie", "konnten"]]
           }
         ]
       }
     },
     {
-      "id": "correr",
-      "es": "correr",
-      "de": "rennen",
-      "image": { "type": "emoji", "value": "🏃" },
-      "explanation": "Desplazarse rápidamente con pasos largos. Se usa tanto para deporte como para urgencias. Ejemplo: 'Tengo que correr para llegar al tren'.",
+      "id": "wollen",
+      "es": "querer",
+      "de": "wollen",
+      "image": { "type": "emoji", "value": "🎯" },
+      "explanation": "Verbo modal. Indica un deseo fuerte o una intención.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "rennen",
-        "translation": "correr",
+        "infinitive": "wollen",
+        "translation": "querer",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "renne"],
-              ["du", "rennst"],
-              ["er/sie/es", "rennt"],
-              ["wir", "rennen"],
-              ["ihr", "rennt"],
-              ["sie/Sie", "rennen"]
-            ]
+            "rows": [["ich", "will"], ["du", "willst"], ["er/sie/es", "will"], ["wir", "wollen"], ["ihr", "wollt"], ["sie/Sie", "wollen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gewollt"], ["du", "hast gewollt"], ["er/sie/es", "hat gewollt"], ["wir", "haben gewollt"], ["ihr", "habt gewollt"], ["sie/Sie", "haben gewollt"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "rannte"],
-              ["du", "ranntest"],
-              ["er/sie/es", "rannte"],
-              ["wir", "rannten"],
-              ["ihr", "ranntet"],
-              ["sie/Sie", "rannten"]
-            ]
+            "rows": [["ich", "wollte"], ["du", "wolltest"], ["er/sie/es", "wollte"], ["wir", "wollten"], ["ihr", "wolltet"], ["sie/Sie", "wollten"]]
           }
         ]
       }
     },
     {
-      "id": "comprar",
-      "es": "comprar",
-      "de": "kaufen",
-      "image": { "type": "emoji", "value": "🛒" },
-      "explanation": "Obtener algo a cambio de dinero. Ejemplo: 'Quiero comprar un regalo para el cumpleaños de mi hermano'.",
+      "id": "muessen",
+      "es": "tener que",
+      "de": "müssen",
+      "image": { "type": "emoji", "value": "⚠️" },
+      "explanation": "Verbo modal. Indica obligación o necesidad.",
       "pos": "verb",
       "conjugation": {
-        "infinitive": "kaufen",
-        "translation": "comprar",
+        "infinitive": "müssen",
+        "translation": "tener que",
         "sections": [
           {
             "title": "Präsens",
-            "rows": [
-              ["ich", "kaufe"],
-              ["du", "kaufst"],
-              ["er/sie/es", "kauft"],
-              ["wir", "kaufen"],
-              ["ihr", "kauft"],
-              ["sie/Sie", "kaufen"]
-            ]
+            "rows": [["ich", "muss"], ["du", "musst"], ["er/sie/es", "muss"], ["wir", "müssen"], ["ihr", "müsst"], ["sie/Sie", "müssen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gemusst"], ["du", "hast gemusst"], ["er/sie/es", "hat gemusst"], ["wir", "haben gemusst"], ["ihr", "habt gemusst"], ["sie/Sie", "haben gemusst"]]
           },
           {
             "title": "Präteritum",
-            "rows": [
-              ["ich", "kaufte"],
-              ["du", "kauftest"],
-              ["er/sie/es", "kaufte"],
-              ["wir", "kauften"],
-              ["ihr", "kauftet"],
-              ["sie/Sie", "kauften"]
-            ]
+            "rows": [["ich", "musste"], ["du", "musstest"], ["er/sie/es", "musste"], ["wir", "mussten"], ["ihr", "musstet"], ["sie/Sie", "mussten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "sehen",
+      "es": "ver",
+      "de": "sehen",
+      "image": { "type": "emoji", "value": "👀" },
+      "explanation": "Percibir con los ojos. Es un verbo fuerte (e cambia a ie).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "sehen",
+        "translation": "ver",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "sehe"], ["du", "siehst"], ["er/sie/es", "sieht"], ["wir", "sehen"], ["ihr", "seht"], ["sie/Sie", "sehen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gesehen"], ["du", "hast gesehen"], ["er/sie/es", "hat gesehen"], ["wir", "haben gesehen"], ["ihr", "habt gesehen"], ["sie/Sie", "haben gesehen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "sah"], ["du", "sahst"], ["er/sie/es", "sah"], ["wir", "sahen"], ["ihr", "saht"], ["sie/Sie", "sahen"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "kommen",
+      "es": "venir",
+      "de": "kommen",
+      "image": { "type": "emoji", "value": "👋" },
+      "explanation": "Desplazarse hacia aquí. Usa 'sein' en el pasado.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "kommen",
+        "translation": "venir",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "komme"], ["du", "kommst"], ["er/sie/es", "kommt"], ["wir", "kommen"], ["ihr", "kommt"], ["sie/Sie", "kommen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin gekommen"], ["du", "bist gekommen"], ["er/sie/es", "ist gekommen"], ["wir", "sind gekommen"], ["ihr", "seid gekommen"], ["sie/Sie", "sind gekommen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "kam"], ["du", "kamst"], ["er/sie/es", "kam"], ["wir", "kamen"], ["ihr", "kamt"], ["sie/Sie", "kamen"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "geben",
+      "es": "dar",
+      "de": "geben",
+      "image": { "type": "emoji", "value": "🎁" },
+      "explanation": "Entregar algo. Se usa en la expresión 'es gibt' (hay).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "geben",
+        "translation": "dar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "gebe"], ["du", "gibst"], ["er/sie/es", "gibt"], ["wir", "geben"], ["ihr", "gebt"], ["sie/Sie", "geben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gegeben"], ["du", "hast gegeben"], ["er/sie/es", "hat gegeben"], ["wir", "haben gegeben"], ["ihr", "habt gegeben"], ["sie/Sie", "haben gegeben"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "gab"], ["du", "gabst"], ["er/sie/es", "gab"], ["wir", "gaben"], ["ihr", "gabt"], ["sie/Sie", "gaben"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "finden",
+      "es": "encontrar",
+      "de": "finden",
+      "image": { "type": "emoji", "value": "🔍" },
+      "explanation": "Hallar algo o tener una opinión sobre algo ('Lo encuentro bueno').",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "finden",
+        "translation": "encontrar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "finde"], ["du", "findest"], ["er/sie/es", "findet"], ["wir", "finden"], ["ihr", "findet"], ["sie/Sie", "finden"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gefunden"], ["du", "hast gefunden"], ["er/sie/es", "hat gefunden"], ["wir", "haben gefunden"], ["ihr", "habt gefunden"], ["sie/Sie", "haben gefunden"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "fand"], ["du", "fandest"], ["er/sie/es", "fand"], ["wir", "fanden"], ["ihr", "fandet"], ["sie/Sie", "fanden"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "wissen",
+      "es": "saber",
+      "de": "wissen",
+      "image": { "type": "emoji", "value": "💡" },
+      "explanation": "Tener conocimiento de un hecho. Es irregular en presente.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "wissen",
+        "translation": "saber",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "weiß"], ["du", "weißt"], ["er/sie/es", "weiß"], ["wir", "wissen"], ["ihr", "wisst"], ["sie/Sie", "wissen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gewusst"], ["du", "hast gewusst"], ["er/sie/es", "hat gewusst"], ["wir", "haben gewusst"], ["ihr", "habt gewusst"], ["sie/Sie", "haben gewusst"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "wusste"], ["du", "wusstest"], ["er/sie/es", "wusste"], ["wir", "wussten"], ["ihr", "wusstet"], ["sie/Sie", "wussten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "glauben",
+      "es": "creer",
+      "de": "glauben",
+      "image": { "type": "emoji", "value": "🤔" },
+      "explanation": "Pensar que algo es verdad o tener fe. Verbo regular.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "glauben",
+        "translation": "creer",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "glaube"], ["du", "glaubst"], ["er/sie/es", "glaubt"], ["wir", "glauben"], ["ihr", "glaubt"], ["sie/Sie", "glauben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe geglaubt"], ["du", "hast geglaubt"], ["er/sie/es", "hat geglaubt"], ["wir", "haben geglaubt"], ["ihr", "habt geglaubt"], ["sie/Sie", "haben geglaubt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "glaubte"], ["du", "glaubtest"], ["er/sie/es", "glaubte"], ["wir", "glaubten"], ["ihr", "glaubtet"], ["sie/Sie", "glaubten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lernen",
+      "es": "aprender/estudiar",
+      "de": "lernen",
+      "image": { "type": "emoji", "value": "📚" },
+      "explanation": "Adquirir conocimientos. Muy usado en la escuela.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "lernen",
+        "translation": "aprender",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "lerne"], ["du", "lernst"], ["er/sie/es", "lernt"], ["wir", "lernen"], ["ihr", "lernt"], ["sie/Sie", "lernen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gelernt"], ["du", "hast gelernt"], ["er/sie/es", "hat gelernt"], ["wir", "haben gelernt"], ["ihr", "habt gelernt"], ["sie/Sie", "haben gelernt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "lernte"], ["du", "lerntest"], ["er/sie/es", "lernte"], ["wir", "lernten"], ["ihr", "lerntet"], ["sie/Sie", "lernten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "arbeiten",
+      "es": "trabajar",
+      "de": "arbeiten",
+      "image": { "type": "emoji", "value": "💼" },
+      "explanation": "Realizar un trabajo. Ojo: Se añade una 'e' extra en conjugaciones (du arbeit-e-st) para facilitar la pronunciación.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "arbeiten",
+        "translation": "trabajar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "arbeite"], ["du", "arbeitest"], ["er/sie/es", "arbeitet"], ["wir", "arbeiten"], ["ihr", "arbeitet"], ["sie/Sie", "arbeiten"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gearbeitet"], ["du", "hast gearbeitet"], ["er/sie/es", "hat gearbeitet"], ["wir", "haben gearbeitet"], ["ihr", "habt gearbeitet"], ["sie/Sie", "haben gearbeitet"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "arbeitete"], ["du", "arbeitetest"], ["er/sie/es", "arbeitete"], ["wir", "arbeiteten"], ["ihr", "arbeitetet"], ["sie/Sie", "arbeiteten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "spielen",
+      "es": "jugar/tocar",
+      "de": "spielen",
+      "image": { "type": "emoji", "value": "🎮" },
+      "explanation": "Jugar un juego o tocar un instrumento musical.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "spielen",
+        "translation": "jugar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "spiele"], ["du", "spielst"], ["er/sie/es", "spielt"], ["wir", "spielen"], ["ihr", "spielt"], ["sie/Sie", "spielen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gespielt"], ["du", "hast gespielt"], ["er/sie/es", "hat gespielt"], ["wir", "haben gespielt"], ["ihr", "habt gespielt"], ["sie/Sie", "haben gespielt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "spielte"], ["du", "spieltest"], ["er/sie/es", "spielte"], ["wir", "spielten"], ["ihr", "spieltet"], ["sie/Sie", "spielten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "fragen",
+      "es": "preguntar",
+      "de": "fragen",
+      "image": { "type": "emoji", "value": "❓" },
+      "explanation": "Hacer una pregunta. Es completamente regular.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "fragen",
+        "translation": "preguntar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "frage"], ["du", "fragst"], ["er/sie/es", "fragt"], ["wir", "fragen"], ["ihr", "fragt"], ["sie/Sie", "fragen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gefragt"], ["du", "hast gefragt"], ["er/sie/es", "hat gefragt"], ["wir", "haben gefragt"], ["ihr", "habt gefragt"], ["sie/Sie", "haben gefragt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "fragte"], ["du", "fragtest"], ["er/sie/es", "fragte"], ["wir", "fragten"], ["ihr", "fragtet"], ["sie/Sie", "fragten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "hoeren",
+      "es": "oír/escuchar",
+      "de": "hören",
+      "image": { "type": "emoji", "value": "👂" },
+      "explanation": "Percibir sonidos o escuchar música/radio.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "hören",
+        "translation": "oír",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "höre"], ["du", "hörst"], ["er/sie/es", "hört"], ["wir", "hören"], ["ihr", "hört"], ["sie/Sie", "hören"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gehört"], ["du", "hast gehört"], ["er/sie/es", "hat gehört"], ["wir", "haben gehört"], ["ihr", "habt gehört"], ["sie/Sie", "haben gehört"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "hörte"], ["du", "hörtest"], ["er/sie/es", "hörte"], ["wir", "hörten"], ["ihr", "hörtet"], ["sie/Sie", "hörten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "sitzen",
+      "es": "estar sentado",
+      "de": "sitzen",
+      "image": { "type": "emoji", "value": "🪑" },
+      "explanation": "Estar en posición de asiento. Verbo fuerte (cambio de vocal en pasado).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "sitzen",
+        "translation": "estar sentado",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "sitze"], ["du", "sitzt"], ["er/sie/es", "sitzt"], ["wir", "sitzen"], ["ihr", "sitzt"], ["sie/Sie", "sitzen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gesessen"], ["du", "hast gesessen"], ["er/sie/es", "hat gesessen"], ["wir", "haben gesessen"], ["ihr", "habt gesessen"], ["sie/Sie", "haben gesessen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "saß"], ["du", "saßest"], ["er/sie/es", "saß"], ["wir", "saßen"], ["ihr", "saßt"], ["sie/Sie", "saßen"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "nehmen",
+      "es": "tomar/coger",
+      "de": "nehmen",
+      "image": { "type": "emoji", "value": "🖐️" },
+      "explanation": "Agarrar algo. Es un verbo fuerte con cambio de vocal en el presente (e -> i).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "nehmen",
+        "translation": "tomar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "nehme"], ["du", "nimmst"], ["er/sie/es", "nimmt"], ["wir", "nehmen"], ["ihr", "nehmt"], ["sie/Sie", "nehmen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe genommen"], ["du", "hast genommen"], ["er/sie/es", "hat genommen"], ["wir", "haben genommen"], ["ihr", "habt genommen"], ["sie/Sie", "haben genommen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "nahm"], ["du", "nahmst"], ["er/sie/es", "nahm"], ["wir", "nahmen"], ["ihr", "nahmt"], ["sie/Sie", "nahmen"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "schreiben",
+      "es": "escribir",
+      "de": "schreiben",
+      "image": { "type": "emoji", "value": "✍️" },
+      "explanation": "Redactar un texto. El cambio de vocal (ei -> ie) es típico en muchos verbos alemanes.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "schreiben",
+        "translation": "escribir",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "schreibe"], ["du", "schreibst"], ["er/sie/es", "schreibt"], ["wir", "schreiben"], ["ihr", "schreibt"], ["sie/Sie", "schreiben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe geschrieben"], ["du", "hast geschrieben"], ["er/sie/es", "hat geschrieben"], ["wir", "haben geschrieben"], ["ihr", "habt geschrieben"], ["sie/Sie", "haben geschrieben"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "schrieb"], ["du", "schriebst"], ["er/sie/es", "schrieb"], ["wir", "schrieben"], ["ihr", "schriebt"], ["sie/Sie", "schrieben"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lieben",
+      "es": "amar",
+      "de": "lieben",
+      "image": { "type": "emoji", "value": "❤️" },
+      "explanation": "Sentir amor. Es un verbo regular y fácil de aprender.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "lieben",
+        "translation": "amar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "liebe"], ["du", "liebst"], ["er/sie/es", "liebt"], ["wir", "lieben"], ["ihr", "liebt"], ["sie/Sie", "lieben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe geliebt"], ["du", "hast geliebt"], ["er/sie/es", "hat geliebt"], ["wir", "haben geliebt"], ["ihr", "habt geliebt"], ["sie/Sie", "haben geliebt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "liebte"], ["du", "liebtest"], ["er/sie/es", "liebte"], ["wir", "liebten"], ["ihr", "liebtet"], ["sie/Sie", "liebten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "verstehen",
+      "es": "entender",
+      "de": "verstehen",
+      "image": { "type": "emoji", "value": "🧠" },
+      "explanation": "Comprender algo. Ojo: El prefijo 'ver-' es inseparable, por lo que el participio NO lleva 'ge-'.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "verstehen",
+        "translation": "entender",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "verstehe"], ["du", "verstehst"], ["er/sie/es", "versteht"], ["wir", "verstehen"], ["ihr", "versteht"], ["sie/Sie", "verstehen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe verstanden"], ["du", "hast verstanden"], ["er/sie/es", "hat verstanden"], ["wir", "haben verstanden"], ["ihr", "habt verstanden"], ["sie/Sie", "haben verstanden"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "verstand"], ["du", "verstandest"], ["er/sie/es", "verstand"], ["wir", "verstanden"], ["ihr", "verstandet"], ["sie/Sie", "verstanden"]]
           }
         ]
       }
     }
-  ],
+],
   "chunking": {
     "mode": "sequential",
-    "pairsPerGame": 8
+    "itemsPerGame": 8
   }
 }

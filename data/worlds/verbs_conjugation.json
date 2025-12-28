@@ -1,0 +1,182 @@
+{
+  "id": "verbs_basics_praesens",
+  "title": "Verben: Sein, Haben, Machen, Gehen (Präsens)",
+  "mode": "vocab",
+  "pool": [
+    { 
+      "id": "sein_1ps", 
+      "es": "Ich (sein)", 
+      "de": "bin", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular (Ego)." 
+    },
+    { 
+      "id": "sein_2ps", 
+      "es": "Du (sein)", 
+      "de": "bist", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular (informell)." 
+    },
+    { 
+      "id": "sein_3ps", 
+      "es": "Er / Sie / Es (sein)", 
+      "de": "ist", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "sein_1pp", 
+      "es": "Wir (sein)", 
+      "de": "sind", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "sein_2pp", 
+      "es": "Ihr (sein)", 
+      "de": "seid", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural (informell)." 
+    },
+    { 
+      "id": "sein_3pp", 
+      "es": "Sie (sein)", 
+      "de": "sind", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural oder Höflichkeitsform." 
+    },
+    
+    { 
+      "id": "haben_1ps", 
+      "es": "Ich (haben)", 
+      "de": "habe", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular." 
+    },
+    { 
+      "id": "haben_2ps", 
+      "es": "Du (haben)", 
+      "de": "hast", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular." 
+    },
+    { 
+      "id": "haben_3ps", 
+      "es": "Er / Sie / Es (haben)", 
+      "de": "hat", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "haben_1pp", 
+      "es": "Wir (haben)", 
+      "de": "haben", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "haben_2pp", 
+      "es": "Ihr (haben)", 
+      "de": "habt", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural." 
+    },
+    { 
+      "id": "haben_3pp", 
+      "es": "Sie (haben)", 
+      "de": "haben", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural / Höflich." 
+    },
+
+    { 
+      "id": "machen_1ps", 
+      "es": "Ich (machen)", 
+      "de": "mache", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular." 
+    },
+    { 
+      "id": "machen_2ps", 
+      "es": "Du (machen)", 
+      "de": "machst", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular." 
+    },
+    { 
+      "id": "machen_3ps", 
+      "es": "Er / Sie / Es (machen)", 
+      "de": "macht", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "machen_1pp", 
+      "es": "Wir (machen)", 
+      "de": "machen", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "machen_2pp", 
+      "es": "Ihr (machen)", 
+      "de": "macht", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural." 
+    },
+    { 
+      "id": "machen_3pp", 
+      "es": "Sie (machen)", 
+      "de": "machen", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural / Höflich." 
+    },
+
+    { 
+      "id": "gehen_1ps", 
+      "es": "Ich (gehen)", 
+      "de": "gehe", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular." 
+    },
+    { 
+      "id": "gehen_2ps", 
+      "es": "Du (gehen)", 
+      "de": "gehst", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular." 
+    },
+    { 
+      "id": "gehen_3ps", 
+      "es": "Er / Sie / Es (gehen)", 
+      "de": "geht", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "gehen_1pp", 
+      "es": "Wir (gehen)", 
+      "de": "gehen", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "gehen_2pp", 
+      "es": "Ihr (gehen)", 
+      "de": "geht", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural." 
+    },
+    { 
+      "id": "gehen_3pp", 
+      "es": "Sie (gehen)", 
+      "de": "gehen", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural / Höflich." 
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 6
+  }
+}
