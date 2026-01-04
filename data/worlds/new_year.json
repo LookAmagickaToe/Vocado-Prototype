@@ -1,0 +1,310 @@
+{
+  "id": "new_year_vocab",
+  "title": "Año Nuevo & Silvester",
+  "description": "Vocabulario para celebrar el Año Nuevo en español y alemán.",
+  "ui": {
+    "header": {
+      "instruction": "Empareja las palabras en {primaryLang} con {secondaryLang}."
+    },
+    "review": {
+      "title": "Revisión",
+      "primaryLabel": "Español:",
+      "secondaryLabel": "Alemán:",
+      "explanationTitle": "Explicación",
+      "conjugationTitle": "Conjugación"
+    },
+    "win": {
+      "title": "¡Feliz Año Nuevo! 🎆",
+      "movesLabel": "Movimientos:",
+      "restart": "Jugar de nuevo",
+      "next": "Siguiente"
+    }
+  },
+  "mode": "vocab",
+  "pool": [
+    { 
+      "id": "nochevieja", 
+      "es": "La Nochevieja", 
+      "de": "Das Silvester", 
+      "image": { "type": "emoji", "value": "🎆" }, 
+      "explanation": "La última noche del año (31 de diciembre)." 
+    },
+    { 
+      "id": "ano_nuevo", 
+      "es": "El Año Nuevo", 
+      "de": "Das Neujahr", 
+      "image": { "type": "emoji", "value": "🌅" }, 
+      "explanation": "El primer día del año (1 de enero)." 
+    },
+    { 
+      "id": "medianoche", 
+      "es": "La medianoche", 
+      "de": "Die Mitternacht", 
+      "image": { "type": "emoji", "value": "🕛" }, 
+      "explanation": "El momento exacto en que cambia el año (00:00)." 
+    },
+    { 
+      "id": "uvas", 
+      "es": "Las doce uvas", 
+      "de": "Die zwölf Weintrauben", 
+      "image": { "type": "emoji", "value": "🍇" }, 
+      "explanation": "Tradición española de comer 12 uvas en los últimos segundos del año." 
+    },
+    { 
+      "id": "brindis", 
+      "es": "El brindis", 
+      "de": "Der Toast / Das Anstoßen", 
+      "image": { "type": "emoji", "value": "🥂" }, 
+      "explanation": "Chocar las copas para desear salud y suerte." 
+    },
+    { 
+      "id": "fuegos", 
+      "es": "Los fuegos artificiales", 
+      "de": "Das Feuerwerk", 
+      "image": { "type": "emoji", "value": "🎇" }, 
+      "explanation": "Explosiones de luz y color en el cielo." 
+    },
+    { 
+      "id": "champan", 
+      "es": "El champán / El cava", 
+      "de": "Der Sekt / Der Champagner", 
+      "image": { "type": "emoji", "value": "🍾" }, 
+      "explanation": "Bebida espumosa típica para celebrar." 
+    },
+    { 
+      "id": "cohete", 
+      "es": "El cohete", 
+      "de": "Die Rakete", 
+      "image": { "type": "emoji", "value": "🚀" }, 
+      "explanation": "Pirotecnia que sale disparada hacia el cielo." 
+    },
+    { 
+      "id": "bengala", 
+      "es": "La bengala", 
+      "de": "Die Wunderkerze", 
+      "image": { "type": "emoji", "value": "✨" }, 
+      "explanation": "Varita que chispea al encenderla, muy común en Alemania." 
+    },
+    { 
+      "id": "trebol", 
+      "es": "El trébol", 
+      "de": "Das Kleeblatt", 
+      "image": { "type": "emoji", "value": "🍀" }, 
+      "explanation": "Planta de cuatro hojas que simboliza buena suerte." 
+    },
+    { 
+      "id": "cerdito", 
+      "es": "El cerdito", 
+      "de": "Das Glücksschwein", 
+      "image": { "type": "emoji", "value": "🐷" }, 
+      "explanation": "Símbolo de buena suerte en Alemania (mazapán o figura)." 
+    },
+    { 
+      "id": "deshollinador", 
+      "es": "El deshollinador", 
+      "de": "Der Schornsteinfeger", 
+      "image": { "type": "emoji", "value": "🎩" }, 
+      "explanation": "Personaje que trae suerte si lo ves en Año Nuevo." 
+    },
+    { 
+      "id": "mariquita", 
+      "es": "La mariquita", 
+      "de": "Der Marienkäfer", 
+      "image": { "type": "emoji", "value": "🐞" }, 
+      "explanation": "Insecto rojo que trae buena fortuna." 
+    },
+    { 
+      "id": "calendario", 
+      "es": "El calendario", 
+      "de": "Der Kalender", 
+      "image": { "type": "emoji", "value": "📅" }, 
+      "explanation": "Sistema para contar los días y meses del nuevo año." 
+    },
+    { 
+      "id": "enero", 
+      "es": "Enero", 
+      "de": "Der Januar", 
+      "image": { "type": "emoji", "value": "❄️" }, 
+      "explanation": "El primer mes del año." 
+    },
+    { 
+      "id": "fiesta", 
+      "es": "La fiesta", 
+      "de": "Die Party", 
+      "image": { "type": "emoji", "value": "🥳" }, 
+      "explanation": "Celebración con música y amigos." 
+    },
+    { 
+      "id": "confeti", 
+      "es": "El confeti", 
+      "de": "Das Konfetti", 
+      "image": { "type": "emoji", "value": "🎊" }, 
+      "explanation": "Papelitos de colores que se lanzan al aire." 
+    },
+    { 
+      "id": "serpentinas", 
+      "es": "Las serpentinas", 
+      "de": "Die Luftschlangen", 
+      "image": { "type": "emoji", "value": "➰" }, 
+      "explanation": "Tiras de papel enrolladas para decorar." 
+    },
+    { 
+      "id": "cuenta_atras", 
+      "es": "La cuenta atrás", 
+      "de": "Der Countdown", 
+      "image": { "type": "emoji", "value": "⏳" }, 
+      "explanation": "Contar los segundos antes de medianoche (10, 9, 8...)." 
+    },
+    { 
+      "id": "reloj", 
+      "es": "El reloj", 
+      "de": "Die Uhr", 
+      "image": { "type": "emoji", "value": "🕰️" }, 
+      "explanation": "Instrumento para ver cuándo llegan las 12." 
+    },
+    { 
+      "id": "campanada", 
+      "es": "La campanada", 
+      "de": "Der Glockenschlag", 
+      "image": { "type": "emoji", "value": "🔔" }, 
+      "explanation": "Sonido de la campana a medianoche." 
+    },
+    { 
+      "id": "proposito", 
+      "es": "El propósito", 
+      "de": "Der Vorsatz", 
+      "image": { "type": "emoji", "value": "📝" }, 
+      "explanation": "Objetivo o meta para cumplir en el nuevo año." 
+    },
+    { 
+      "id": "suerte", 
+      "es": "La suerte", 
+      "de": "Das Glück", 
+      "image": { "type": "emoji", "value": "🎰" }, 
+      "explanation": "Circunstancia favorable o fortuna." 
+    },
+    { 
+      "id": "baile", 
+      "es": "El baile", 
+      "de": "Der Tanz", 
+      "image": { "type": "emoji", "value": "💃" }, 
+      "explanation": "Mover el cuerpo con música." 
+    },
+    { 
+      "id": "musica", 
+      "es": "La música", 
+      "de": "Die Musik", 
+      "image": { "type": "emoji", "value": "🎵" }, 
+      "explanation": "Sonidos melodiosos para ambientar la fiesta." 
+    },
+    { 
+      "id": "beso", 
+      "es": "El beso", 
+      "de": "Der Kuss", 
+      "image": { "type": "emoji", "value": "💋" }, 
+      "explanation": "Gesto de cariño común al felicitar el año." 
+    },
+    { 
+      "id": "globo", 
+      "es": "El globo", 
+      "de": "Der Ballon", 
+      "image": { "type": "emoji", "value": "🎈" }, 
+      "explanation": "Objeto de goma lleno de aire para decorar." 
+    },
+    { 
+      "id": "mascara", 
+      "es": "La máscara / El antifaz", 
+      "de": "Die Maske", 
+      "image": { "type": "emoji", "value": "🎭" }, 
+      "explanation": "Accesorio para cubrir la cara en fiestas." 
+    },
+    { 
+      "id": "sombrero", 
+      "es": "El sombrero de fiesta", 
+      "de": "Der Partyhut", 
+      "image": { "type": "emoji", "value": "🎉" }, 
+      "explanation": "Gorro de cartón cónico típico del cotillón." 
+    },
+    { 
+      "id": "cena", 
+      "es": "La cena", 
+      "de": "Das Abendessen", 
+      "image": { "type": "emoji", "value": "🍽️" }, 
+      "explanation": "La última comida del año." 
+    },
+    { 
+      "id": "estrella", 
+      "es": "La estrella", 
+      "de": "Der Stern", 
+      "image": { "type": "emoji", "value": "⭐" }, 
+      "explanation": "Cuerpo celeste que brilla en la noche." 
+    },
+    { 
+      "id": "invierno", 
+      "es": "El invierno", 
+      "de": "Der Winter", 
+      "image": { "type": "emoji", "value": "☃️" }, 
+      "explanation": "Estación del año en la que se celebra el Año Nuevo (en Europa)." 
+    },
+    { 
+      "id": "frio", 
+      "es": "El frío", 
+      "de": "Die Kälte", 
+      "image": { "type": "emoji", "value": "🥶" }, 
+      "explanation": "Temperatura baja típica de diciembre." 
+    },
+    { 
+      "id": "petardo", 
+      "es": "El petardo", 
+      "de": "Der Böller / Der Knaller", 
+      "image": { "type": "emoji", "value": "🧨" }, 
+      "explanation": "Pequeño explosivo que hace mucho ruido." 
+    },
+    { 
+      "id": "paz", 
+      "es": "La paz", 
+      "de": "Der Frieden", 
+      "image": { "type": "emoji", "value": "🕊️" }, 
+      "explanation": "Deseo universal de armonía para el nuevo año." 
+    },
+    { 
+      "id": "amor", 
+      "es": "El amor", 
+      "de": "Die Liebe", 
+      "image": { "type": "emoji", "value": "💖" }, 
+      "explanation": "Sentimiento de afecto profundo." 
+    },
+    { 
+      "id": "amigos", 
+      "es": "Los amigos", 
+      "de": "Die Freunde", 
+      "image": { "type": "emoji", "value": "👯‍♂️" }, 
+      "explanation": "Personas con las que eliges celebrar." 
+    },
+    { 
+      "id": "familia", 
+      "es": "La familia", 
+      "de": "Die Familie", 
+      "image": { "type": "emoji", "value": "👨‍👩‍👧" }, 
+      "explanation": "Parientes cercanos." 
+    },
+    { 
+      "id": "hongo", 
+      "es": "La seta / El hongo", 
+      "de": "Der Glückspilz", 
+      "image": { "type": "emoji", "value": "🍄" }, 
+      "explanation": "Símbolo de suerte (literalmente 'hongo de la suerte' en alemán)." 
+    },
+    { 
+      "id": "resaca", 
+      "es": "La resaca", 
+      "de": "Der Kater", 
+      "image": { "type": "emoji", "value": "🥴" }, 
+      "explanation": "Malestar al día siguiente de beber mucho (el 1 de enero)." 
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 8
+  }
+}

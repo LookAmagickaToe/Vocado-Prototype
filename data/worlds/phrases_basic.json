@@ -4,6 +4,44 @@
   "description": "Build Spanish phrases in the correct order.",
   "mode": "phrase",
   "chunking": { "itemsPerGame": 1 },
+
+  "ui": {
+    "header": {
+      "levelLabelTemplate": "Nivel {i}/{n}",
+      "levelItemTemplate": "Nivel {i}"
+    },
+    "page": {
+      "instructions": "Construye la frase en el orden correcto."
+    },
+    "phrase": {
+      "promptTitle": "La Phrase",
+      "promptSubtitle": "La Phrase en Alemán",
+
+      "howItWorksTitle": "Cómo funciona",
+      "howItWorksText": "Gira las tarjetas en el orden correcto para formar la frase. Las tarjetas correctas se quedan abiertas. Las incorrectas se cierran después de 1,5 s.",
+
+      "legendTitle": "Leyenda",
+
+      "progressTemplate": "Progreso: {i}/{n} • Movimientos: {moves}",
+
+      "winSubtitleTemplate": "Has completado la frase ({n} tokens).",
+      "nextPhraseLabel": "Siguiente frase",
+      "nextLevelLabel": "Siguiente nivel",
+
+      "introKicker": "Nueva frase",
+      "introButton": "Empezar"
+    },
+    "winning": {
+      "title": "Lo has logrado 🎉",
+      "movesLabel": "Movimientos",
+      "explanationTitle": "Explicación",
+      "reviewTitle": "Revisión",
+      "conjugationTitle": "Conjugación",
+      "nextDefault": "Siguiente",
+      "closeDefault": "Cerrar"
+    }
+  },
+
   "pool": [
     {
       "id": "p1",
@@ -67,8 +105,21 @@
         { "id": "t3", "text": "Spanisch", "type": "noun" }
       ],
       "explanation": "El verbo 'sprechen' es irregular (e -> i). Al hablar idiomas, no se utiliza artículo antes del nombre del idioma."
+    },
+    {
+      "id": "p7",
+      "motherTongue": "¿porque no quieres aprender?",
+      "tokens": [
+        { "id": "t1", "text": "weil", "type": "other" },
+        { "id": "t2", "text": "du", "type": "pronoun" },
+        { "id": "t3", "text": "nicht", "type": "other" },
+        { "id": "t4", "text": "lernen", "type": "verb" },
+        { "id": "t5", "text": "möchtest", "type": "verb" }
+      ],
+      "explanation": "La conjunción 'weil' (porque) envía el verbo conjugado ('möchtest') al final absoluto de la frase."
     }
   ],
+
   "distractions": [
     { "id": "d1", "text": "Mein", "type": "other" },
     { "id": "d2", "text": "viel", "type": "adj" },

@@ -1,0 +1,455 @@
+{
+  "id": "social_life_stages",
+  "title": "Relaciones Sociales & Etapas de la Vida",
+  "mode": "vocab",
+  "pool": [
+    {
+      "id": "baby",
+      "es": "El bebé",
+      "de": "das Baby",
+      "image": { "type": "emoji", "value": "👶" },
+      "explanation": "Un ser humano muy pequeño.",
+      "pos": "noun"
+    },
+    {
+      "id": "kind",
+      "es": "El niño / La niña",
+      "de": "das Kind",
+      "image": { "type": "emoji", "value": "🧒" },
+      "explanation": "Persona de poca edad.",
+      "pos": "noun"
+    },
+    {
+      "id": "herr",
+      "es": "Señor",
+      "de": "der Herr",
+      "image": { "type": "emoji", "value": "👔" },
+      "explanation": "Forma de cortesía para hombres.",
+      "pos": "noun"
+    },
+    {
+      "id": "mann",
+      "es": "El hombre",
+      "de": "der Mann",
+      "image": { "type": "emoji", "value": "👨" },
+      "explanation": "Humano adulto masculino.",
+      "pos": "noun"
+    },
+    {
+      "id": "frau",
+      "es": "La mujer",
+      "de": "die Frau",
+      "image": { "type": "emoji", "value": "👩" },
+      "explanation": "Humano adulto femenino.",
+      "pos": "noun"
+    },
+    {
+      "id": "jugendliche",
+      "es": "La joven",
+      "de": "die Jugendliche",
+      "image": { "type": "emoji", "value": "🧑‍🎤" },
+      "explanation": "Persona joven (femenino).",
+      "pos": "noun"
+    },
+    {
+      "id": "zwillinge",
+      "es": "Las gemelas",
+      "de": "die Zwillinge",
+      "image": { "type": "emoji", "value": "👯‍♀️" },
+      "explanation": "Hermanas nacidas en el mismo parto.",
+      "pos": "noun"
+    },
+    {
+      "id": "bekannte",
+      "es": "El/la conocido(-a)",
+      "de": "der/die Bekannte",
+      "image": { "type": "emoji", "value": "👋" },
+      "explanation": "Alguien a quien conoces pero no es amigo íntimo.",
+      "pos": "noun"
+    },
+    {
+      "id": "paar",
+      "es": "La pareja",
+      "de": "das Paar",
+      "image": { "type": "emoji", "value": "👫" },
+      "explanation": "Dos personas en una relación.",
+      "pos": "noun"
+    },
+    {
+      "id": "freundin",
+      "es": "La novia / La amiga",
+      "de": "die Freundin",
+      "image": { "type": "emoji", "value": "💘" },
+      "explanation": "Pareja sentimental femenina o amiga.",
+      "pos": "noun"
+    },
+    {
+      "id": "freund",
+      "es": "El novio / El amigo",
+      "de": "der Freund",
+      "image": { "type": "emoji", "value": "💘" },
+      "explanation": "Pareja sentimental masculina o amigo.",
+      "pos": "noun"
+    },
+    {
+      "id": "junge",
+      "es": "El chico",
+      "de": "der Junge",
+      "image": { "type": "emoji", "value": "👦" },
+      "explanation": "Niño varón.",
+      "pos": "noun"
+    },
+    {
+      "id": "maedchen",
+      "es": "La chica",
+      "de": "das Mädchen",
+      "image": { "type": "emoji", "value": "👧" },
+      "explanation": "Niña mujer. Gramaticalmente neutro en alemán.",
+      "pos": "noun"
+    },
+    {
+      "id": "freunde",
+      "es": "Los amigos",
+      "de": "die Freunde",
+      "image": { "type": "emoji", "value": "🍻" },
+      "explanation": "Grupo de amistades.",
+      "pos": "noun"
+    },
+    {
+      "id": "erwachsene",
+      "es": "El adulto",
+      "de": "der Erwachsene",
+      "image": { "type": "emoji", "value": "🧑" },
+      "explanation": "Persona que ha alcanzado la plenitud de desarrollo.",
+      "pos": "noun"
+    },
+    {
+      "id": "pate",
+      "es": "El padrino",
+      "de": "der Patenonkel",
+      "image": { "type": "emoji", "value": "🤵" },
+      "explanation": "Padrino de bautizo.",
+      "pos": "noun"
+    },
+    {
+      "id": "patin",
+      "es": "La madrina",
+      "de": "die Patentante",
+      "image": { "type": "emoji", "value": "👩‍⚖️" },
+      "explanation": "Madrina de bautizo.",
+      "pos": "noun"
+    },
+    {
+      "id": "stiefvater",
+      "es": "El padrastro",
+      "de": "der Stiefvater",
+      "image": { "type": "emoji", "value": "👨‍👦" },
+      "explanation": "Esposo de la madre, no padre biológico.",
+      "pos": "noun"
+    },
+    {
+      "id": "stiefmutter",
+      "es": "La madrastra",
+      "de": "die Stiefmutter",
+      "image": { "type": "emoji", "value": "👩‍👧" },
+      "explanation": "Esposa del padre, no madre biológica.",
+      "pos": "noun"
+    },
+    {
+      "id": "stiefbruder",
+      "es": "El hermanastro",
+      "de": "der Stiefbruder",
+      "image": { "type": "emoji", "value": "👱" },
+      "explanation": "Hijo del padrastro o madrastra.",
+      "pos": "noun"
+    },
+    {
+      "id": "stiefschwester",
+      "es": "La hermanastra",
+      "de": "die Stiefschwester",
+      "image": { "type": "emoji", "value": "👱‍♀️" },
+      "explanation": "Hija del padrastro o madrastra.",
+      "pos": "noun"
+    },
+    {
+      "id": "nachbar",
+      "es": "El vecino",
+      "de": "der Nachbar",
+      "image": { "type": "emoji", "value": "🏘️" },
+      "explanation": "Persona que vive al lado (hombre).",
+      "pos": "noun"
+    },
+    {
+      "id": "nachbarin",
+      "es": "La vecina",
+      "de": "die Nachbarin",
+      "image": { "type": "emoji", "value": "🏡" },
+      "explanation": "Persona que vive al lado (mujer).",
+      "pos": "noun"
+    },
+    {
+      "id": "hochzeit",
+      "es": "La boda",
+      "de": "die Hochzeit",
+      "image": { "type": "emoji", "value": "💍" },
+      "explanation": "Ceremonia de matrimonio.",
+      "pos": "noun"
+    },
+    {
+      "id": "geburtstag",
+      "es": "El cumpleaños",
+      "de": "der Geburtstag",
+      "image": { "type": "emoji", "value": "🎂" },
+      "explanation": "Celebración del día de nacimiento.",
+      "pos": "noun"
+    },
+    {
+      "id": "weihnachten",
+      "es": "La Navidad",
+      "de": "das Weihnachten",
+      "image": { "type": "emoji", "value": "🎄" },
+      "explanation": "Festividad cristiana en diciembre.",
+      "pos": "noun"
+    },
+    {
+      "id": "valentinstag",
+      "es": "El día de San Valentín",
+      "de": "der Valentinstag",
+      "image": { "type": "emoji", "value": "💝" },
+      "explanation": "Día de los enamorados (14 de febrero).",
+      "pos": "noun"
+    },
+    {
+      "id": "halloween",
+      "es": "Halloween",
+      "de": "das Halloween",
+      "image": { "type": "emoji", "value": "🎃" },
+      "explanation": "Víspera de Todos los Santos.",
+      "pos": "noun"
+    },
+    {
+      "id": "silvester",
+      "es": "La Nochevieja",
+      "de": "das Silvester",
+      "image": { "type": "emoji", "value": "🎆" },
+      "explanation": "Última noche del año.",
+      "pos": "noun"
+    },
+    {
+      "id": "ostern",
+      "es": "La pascua de resurrección",
+      "de": "das Ostern",
+      "image": { "type": "emoji", "value": "🐰" },
+      "explanation": "Festividad de Pascua.",
+      "pos": "noun"
+    },
+    {
+      "id": "geburt",
+      "es": "El nacimiento",
+      "de": "die Geburt",
+      "image": { "type": "emoji", "value": "🐣" },
+      "explanation": "El acto de nacer.",
+      "pos": "noun"
+    },
+    {
+      "id": "kindergarten",
+      "es": "El preescolar",
+      "de": "der Kindergarten",
+      "image": { "type": "emoji", "value": "🧸" },
+      "explanation": "Escuela para niños pequeños.",
+      "pos": "noun"
+    },
+    {
+      "id": "einschulung",
+      "es": "La escolarización",
+      "de": "die Einschulung",
+      "image": { "type": "emoji", "value": "🎒" },
+      "explanation": "El primer día de colegio.",
+      "pos": "noun"
+    },
+    {
+      "id": "studienabschluss",
+      "es": "Graduación universitaria",
+      "de": "der Studienabschluss",
+      "image": { "type": "emoji", "value": "🎓" },
+      "explanation": "Terminar los estudios universitarios.",
+      "pos": "noun"
+    },
+    {
+      "id": "schwangerschaft",
+      "es": "El embarazo",
+      "de": "die Schwangerschaft",
+      "image": { "type": "emoji", "value": "🤰" },
+      "explanation": "Periodo de gestación.",
+      "pos": "noun"
+    },
+    {
+      "id": "beerdigung",
+      "es": "El entierro",
+      "de": "die Beerdigung",
+      "image": { "type": "emoji", "value": "⚰️" },
+      "explanation": "Ceremonia funeraria.",
+      "pos": "noun"
+    },
+    {
+      "id": "lachen",
+      "es": "reír",
+      "de": "lachen",
+      "image": { "type": "emoji", "value": "😂" },
+      "explanation": "Expresar alegría con la boca y sonidos.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "lachen",
+        "translation": "reír",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "lache"], ["du", "lachst"], ["er/sie/es", "lacht"], ["wir", "lachen"], ["ihr", "lacht"], ["sie/Sie", "lachen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe gelacht"], ["du", "hast gelacht"], ["er/sie/es", "hat gelacht"], ["wir", "haben gelacht"], ["ihr", "habt gelacht"], ["sie/Sie", "haben gelacht"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "lachte"], ["du", "lachtest"], ["er/sie/es", "lachte"], ["wir", "lachten"], ["ihr", "lachtet"], ["sie/Sie", "lachten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "weinen",
+      "es": "llorar",
+      "de": "weinen",
+      "image": { "type": "emoji", "value": "😭" },
+      "explanation": "Derramar lágrimas por tristeza o dolor.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "weinen",
+        "translation": "llorar",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "weine"], ["du", "weinst"], ["er/sie/es", "weint"], ["wir", "weinen"], ["ihr", "weint"], ["sie/Sie", "weinen"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe geweint"], ["du", "hast geweint"], ["er/sie/es", "hat geweint"], ["wir", "haben geweint"], ["ihr", "habt geweint"], ["sie/Sie", "haben geweint"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "weinte"], ["du", "weintest"], ["er/sie/es", "weinte"], ["wir", "weinten"], ["ihr", "weintet"], ["sie/Sie", "weinten"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "verlieben",
+      "es": "enamorarse",
+      "de": "sich verlieben",
+      "image": { "type": "emoji", "value": "😍" },
+      "explanation": "Empezar a sentir amor (reflexivo).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "sich verlieben",
+        "translation": "enamorarse",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "verliebe mich"], ["du", "verliebst dich"], ["er/sie/es", "verliebt sich"], ["wir", "verlieben uns"], ["ihr", "verliebt euch"], ["sie/Sie", "verlieben sich"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "habe mich verliebt"], ["du", "hast dich verliebt"], ["er/sie/es", "hat sich verliebt"], ["wir", "haben uns verliebt"], ["ihr", "habt euch verliebt"], ["sie/Sie", "haben sich verliebt"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "verliebte mich"], ["du", "verliebtest dich"], ["er/sie/es", "verliebte sich"], ["wir", "verliebten uns"], ["ihr", "verliebtet euch"], ["sie/Sie", "verliebten sich"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "umziehen",
+      "es": "mudarse",
+      "de": "umziehen",
+      "image": { "type": "emoji", "value": "📦" },
+      "explanation": "Cambiar de casa. Es un verbo separable (ich ziehe um).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "umziehen",
+        "translation": "mudarse",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "ziehe um"], ["du", "ziehst um"], ["er/sie/es", "zieht um"], ["wir", "ziehen um"], ["ihr", "zieht um"], ["sie/Sie", "ziehen um"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin umgezogen"], ["du", "bist umgezogen"], ["er/sie/es", "ist umgezogen"], ["wir", "sind umgezogen"], ["ihr", "seid umgezogen"], ["sie/Sie", "sind umgezogen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "zog um"], ["du", "zogst um"], ["er/sie/es", "zog um"], ["wir", "zogen um"], ["ihr", "zogt um"], ["sie/Sie", "zogen um"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "rente_gehen",
+      "es": "jubilarse",
+      "de": "in Rente gehen",
+      "image": { "type": "emoji", "value": "👴" },
+      "explanation": "Dejar de trabajar por edad.",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "in Rente gehen",
+        "translation": "jubilarse",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "gehe in Rente"], ["du", "gehst in Rente"], ["er/sie/es", "geht in Rente"], ["wir", "gehen in Rente"], ["ihr", "geht in Rente"], ["sie/Sie", "gehen in Rente"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin in Rente gegangen"], ["du", "bist in Rente gegangen"], ["er/sie/es", "ist in Rente gegangen"], ["wir", "sind in Rente gegangen"], ["ihr", "seid in Rente gegangen"], ["sie/Sie", "sind in Rente gegangen"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "ging in Rente"], ["du", "gingst in Rente"], ["er/sie/es", "ging in Rente"], ["wir", "gingen in Rente"], ["ihr", "gingt in Rente"], ["sie/Sie", "gingen in Rente"]]
+          }
+        ]
+      }
+    },
+    {
+      "id": "sterben",
+      "es": "morir",
+      "de": "sterben",
+      "image": { "type": "emoji", "value": "🕯️" },
+      "explanation": "Dejar de vivir. Verbo fuerte con cambio de vocal (e -> i).",
+      "pos": "verb",
+      "conjugation": {
+        "infinitive": "sterben",
+        "translation": "morir",
+        "sections": [
+          {
+            "title": "Präsens",
+            "rows": [["ich", "sterbe"], ["du", "stirbst"], ["er/sie/es", "stirbt"], ["wir", "sterben"], ["ihr", "sterbt"], ["sie/Sie", "sterben"]]
+          },
+          {
+            "title": "Perfekt",
+            "rows": [["ich", "bin gestorben"], ["du", "bist gestorben"], ["er/sie/es", "ist gestorben"], ["wir", "sind gestorben"], ["ihr", "seid gestorben"], ["sie/Sie", "sind gestorben"]]
+          },
+          {
+            "title": "Präteritum",
+            "rows": [["ich", "starb"], ["du", "starbst"], ["er/sie/es", "starb"], ["wir", "starben"], ["ihr", "starbt"], ["sie/Sie", "starben"]]
+          }
+        ]
+      }
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 8
+  }
+}

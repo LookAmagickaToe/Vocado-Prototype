@@ -8,8 +8,13 @@ import { Button } from "@/components/ui/button"
 import family from "@/data/worlds/family.json"
 import basic_verbs from "@/data/worlds/basic_verbs.json"
 import verbs_conjugation from "@/data/worlds/verbs_conjugation.json"
+import verbs_conjugation_espanol from "@/data/worlds/verbs_conjugation_espanol.json"
+import kitchen_utensils from "@/data/worlds/kitchen_utensils.json"
+import social_relationships from "@/data/worlds/social_relationships.json"
+import basic_english from "@/data/worlds/basic_english.json"
+import new_year from "@/data/worlds/new_year.json"
 
-
+import { formatTemplate } from "@/lib/ui"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import phrases_basic from "@/data/worlds/phrases_basic.json"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
@@ -17,7 +22,20 @@ import type { World } from "@/types/worlds"
 
 
 //Adapt here for verbs
-const WORLDS = [basic_verbs, family, phrases_basic, verbs_conjugation] as unknown as World[]
+const WORLDS = [basic_verbs, family, phrases_basic, verbs_conjugation, 
+  verbs_conjugation_espanol, social_relationships, kitchen_utensils, new_year,
+basic_english] as unknown as World[]
+
+
+function extractVerbLabelFromPair(p: { id: string; es: string }) {
+  // Prefer "(sein)" from the ES string
+  const m = p.es.match(/\(([^)]+)\)/)
+  if (m?.[1]) return m[1].trim()
+
+  // Fallback: from id "sein_1ps" -> "sein"
+  const prefix = p.id.split("_")[0]
+  return prefix || ""
+}
 
 export default function Page() {
   const [worldId, setWorldId] = useState<string>(WORLDS[0]?.id ?? "world-0")
@@ -40,8 +58,11 @@ export default function Page() {
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
   }, [currentWorld])
 
-  const worldTitle = currentWorld.title
-  const levelLabel = `Nivel ${Math.min(levelIndex, levelsCount - 1) + 1}/${levelsCount}`
+    const worldTitle = currentWorld.title
+    const safeLevel = Math.min(levelIndex, levelsCount - 1) + 1
+
+
+
 
   const openWorlds = () => {
     setIsWorldsOpen(true)
@@ -59,6 +80,41 @@ export default function Page() {
     })
     setGameSeed((s) => s + 1) // force remount so the game resets cleanly
     }
+    const headerInstructions =
+        currentWorld.ui?.page?.instructions ??
+        currentWorld.description ??
+        (currentWorld.mode === "vocab"
+            ? "Empareja las palabras en español con las palabras en alemán."
+            : "Construye la frase en el orden correcto.")
+
+    const currentChunk = useMemo(() => {
+    const k = currentWorld.chunking.itemsPerGame
+    const start = Math.min(levelIndex, levelsCount - 1) * k
+    return currentWorld.pool.slice(start, start + k)
+    }, [currentWorld, levelIndex, levelsCount])
+
+    const chunkVerb = useMemo(() => {
+    if (currentWorld.mode !== "vocab") return ""
+    const first = currentChunk[0]
+    if (!first) return ""
+    // types: VocabPair has id + es, safe here because mode === "vocab"
+    return extractVerbLabelFromPair(first as any)
+    }, [currentWorld.mode, currentChunk])
+    
+    const levelLabelTemplate =
+    currentWorld.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
+    const currentVerb =
+    currentWorld.mode === "vocab"
+        ? extractVerbLabelFromPair(
+            (currentWorld.pool[Math.min(levelIndex, levelsCount - 1) * currentWorld.chunking.itemsPerGame] as any)
+        )
+        : ""
+
+    const levelLabel = formatTemplate(levelLabelTemplate, {
+    i: safeLevel,
+    n: levelsCount,
+    verb: currentVerb,
+    })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-6">
@@ -102,11 +158,9 @@ export default function Page() {
                 <div className="mt-1 text-sm text-neutral-300">
                     {worldTitle} — {levelLabel}
                   </div>
-                  <p className="text-sm text-neutral-300 mt-1">
-                    Empareja las palabras en{" "}
-                    <span className="font-medium text-neutral-100">español</span> con las palabras en{" "}
-                    <span className="font-medium text-neutral-100">alemán</span>.
-                  </p>
+                    <p className="text-sm text-neutral-300 mt-1">
+                        {headerInstructions}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -274,12 +328,14 @@ function LevelsOverlay({
   onClose,
   onSelectLevel,
 }: {
-  world: VocabWorld
+  world: World
   activeLevelIndex: number
   onClose: () => void
   onSelectLevel: (levelIndex: number) => void
 }) {
-  const levels = useMemo(() => {
+    const levelItemTemplate = world.ui?.header?.levelItemTemplate ?? "Nivel {i}"
+
+    const levels = useMemo(() => {
     const k = world.chunking.itemsPerGame
     const n = Math.max(1, Math.ceil(world.pool.length / k))
     return Array.from({ length: n }, (_, i) => {
@@ -307,9 +363,12 @@ function LevelsOverlay({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold text-neutral-50">{world.title} — Levels</h2>
+            <h2 className="text-2xl font-semibold text-neutral-50">
+                {world.title} — Levels
+            </h2>
+
             <p className="text-sm text-neutral-300 mt-2">
-              Choose a subworld (chunk of {world.chunking.itemsPerGame} pairs).
+                {world.description ?? `Choose a subworld (chunk of ${world.chunking.itemsPerGame} items).`}
             </p>
           </div>
 
@@ -337,8 +396,16 @@ function LevelsOverlay({
                 ].join(" ")}
               >
                 <div className="flex items-center justify-between">
-                  <div className="text-base font-semibold text-neutral-50">Nivel {lvl.i + 1}</div>
-                  <div className="text-xs text-neutral-300">
+                    <div className="text-base font-semibold text-neutral-50">
+                        {formatTemplate(levelItemTemplate, {
+                            i: lvl.i + 1,
+                            verb:
+                            world.mode === "vocab"
+                                ? extractVerbLabelFromPair(world.pool[lvl.start] as any)
+                                : "",
+                        })}
+                        </div>                
+                    <div className="text-xs text-neutral-300">
                     {lvl.start + 1}–{lvl.end} / {world.pool.length}
                   </div>
                 </div>

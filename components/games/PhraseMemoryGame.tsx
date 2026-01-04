@@ -6,6 +6,7 @@ import MemoryCard from "@/components/games/vocab/MemoryCard" // reuse your Memor
 import { AnimatePresence } from "framer-motion"
 import WinningScreen from "@/components/games/WinningScreen"
 import { Button } from "@/components/ui/button"
+import { formatTemplate } from "@/lib/ui"
 
 
 import { motion } from "framer-motion"
@@ -83,13 +84,13 @@ function placeholderColor(type: PhraseToken["type"]) {
 }
 
 export default function PhraseMemoryGame({
-  world,
-  levelIndex,
-  onNextLevel,
+    world,
+    levelIndex,
+    onNextLevel,
 }: {
-  world: PhraseWorld
-  levelIndex: number
-  onNextLevel:()=>void
+      world: PhraseWorld
+    levelIndex: number
+    onNextLevel:()=>void
 }) {
     const [phraseIdx, setPhraseIdx] = useState(0)
 
@@ -98,16 +99,16 @@ export default function PhraseMemoryGame({
         setPhraseIdx(0)
     }, [levelIndex, world.id])
 
-  // pick a chunk of phrases (levels)
-  const PHRASES = useMemo(() => {
-    const k = world.chunking.itemsPerGame
-    const start = levelIndex * k
-    return world.pool.slice(start, start + k)
-  }, [world, levelIndex])
+    // pick a chunk of phrases (levels)
+    const PHRASES = useMemo(() => {
+        const k = world.chunking.itemsPerGame
+        const start = levelIndex * k
+        return world.pool.slice(start, start + k)
+    }, [world, levelIndex])
 
-  // for now: play ONE phrase at a time (first in chunk)
-  // later you can make a "next phrase" flow within the level
-  const phrase: PhraseItem | null = PHRASES[phraseIdx] ?? null
+    // for now: play ONE phrase at a time (first in chunk)
+    // later you can make a "next phrase" flow within the level
+    const phrase: PhraseItem | null = PHRASES[phraseIdx] ?? null
 
 
 
@@ -157,19 +158,6 @@ export default function PhraseMemoryGame({
 
         return () => window.clearTimeout(t)
     }, [phase])
-
-
-
-  /* reset when phrase changes
-  useEffect(() => {
-    setCards(deck)
-    setRevealedKeys(new Set())
-    setTempFlippedKey(null)
-    setExpectedIndex(0)
-    setMoves(0)
-    setWon(false)
-  }, [deck])
-  */
 
     //Win condition
     useEffect(() => {
@@ -222,6 +210,7 @@ export default function PhraseMemoryGame({
     return { ...t, isUnlocked }
   })
 
+  
   const advance = () => {
     setShowWinOverlay(false)
     setWon(false)
@@ -235,6 +224,39 @@ export default function PhraseMemoryGame({
     // finished chunk -> next level
     onNextLevel()
     }
+
+    const ui = world.ui?.phrase
+    const wui = world.ui?.winning
+
+    const promptTitle = ui?.promptTitle ?? "La Phrase"
+    const promptSubtitle = ui?.promptSubtitle ?? "La Phrase en Aleman"
+
+    const howTitle = ui?.howItWorksTitle ?? "Cómo funciona"
+    const howText =
+    ui?.howItWorksText ??
+    "Gira las tarjetas en el orden correcto para formar la frase en español. Las tarjetas correctas se quedan abiertas. Las incorrectas se cierran después de 1,5 s."
+
+    const legendTitle = ui?.legendTitle ?? "Leyenda"
+
+    const progressTemplate =
+    ui?.progressTemplate ?? "Progreso: {i}/{n} • Movimientos: {moves}"
+
+    const winSubtitleTemplate =
+    ui?.winSubtitleTemplate ?? "Has completado la frase ({n} tokens)."
+
+    const nextPhraseLabel = ui?.nextPhraseLabel ?? "Siguiente frase"
+    const nextLevelLabel = ui?.nextLevelLabel ?? "Siguiente nivel"
+
+    const introKicker = ui?.introKicker ?? "Nueva frase"
+    const introButton = ui?.introButton ?? "Empezar"
+
+    const isLastPhraseInLevel = phraseIdx >= PHRASES.length - 1
+    const nextLabel = isLastPhraseInLevel ? nextLevelLabel : nextPhraseLabel
+
+    const winSubtitle = phrase
+    ? formatTemplate(winSubtitleTemplate, { n: phrase.tokens.length })
+    : ""
+
   return (
     <>
         <div className="grid grid-cols-12 gap-4 items-start">
@@ -242,12 +264,12 @@ export default function PhraseMemoryGame({
         <div className="col-span-12 md:col-span-7">
             {/* Prompt */}
             <div className="mb-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
-            <div className="text-xs text-neutral-400">La Phrase</div>
+            <div className="text-xs text-neutral-400">{promptTitle}</div>
             <div className="text-lg font-semibold text-neutral-50">
                 {phrase.motherTongue}
             </div>
 
-            <div className="mt-3 text-xs text-neutral-400">La Phrase en Aleman</div>
+            <div className="mt-3 text-xs text-neutral-400">{promptSubtitle}</div>
             <div className="mt-2 flex flex-wrap gap-2">
                 {revealedTextsByIndex.map((t, idx) => (
                 <span
@@ -267,9 +289,11 @@ export default function PhraseMemoryGame({
             </div>
 
             <div className="mt-3 text-xs text-neutral-400">
-                Progreso:{" "}
-                {Math.min(expectedIndex, phrase.tokens.length)}/
-                {phrase.tokens.length} • Movimientos: {moves}
+                {formatTemplate(progressTemplate, {
+                    i: Math.min(expectedIndex, phrase.tokens.length),
+                    n: phrase.tokens.length,
+                    moves,
+                })}
             </div>
             </div>
 
@@ -319,18 +343,12 @@ export default function PhraseMemoryGame({
         {/* RIGHT PANEL */}
         <aside className="col-span-12 md:col-span-5">
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur">
-            <div className="text-sm font-medium text-neutral-100">
-                Cómo funciona
-            </div>
-            <div className="mt-2 text-xs text-neutral-300 leading-relaxed">
-                Gira las tarjetas en el orden correcto para formar la frase en
-                español. Las tarjetas correctas se quedan abiertas. Las incorrectas
-                se cierran después de 1,5 s.
-            </div>
+            <div className="text-sm font-medium text-neutral-100">{howTitle}</div>
+            <div className="mt-2 text-xs text-neutral-300 leading-relaxed">{howText}</div>
 
             <div className="my-4 border-t border-neutral-800" />
 
-            <div className="text-sm font-medium text-neutral-100">Leyenda</div>
+            <div className="text-sm font-medium text-neutral-100">{legendTitle}</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full border border-neutral-700 px-2 py-1 text-neutral-50">
                 Pronombre
@@ -356,28 +374,30 @@ export default function PhraseMemoryGame({
         <AnimatePresence>
             {showWinOverlay && phrase && (
                 <WinningScreen
-                subtitle={`Has completado la frase (${phrase.tokens.length} tokens).`}
-                moves={moves}
-                explanation={phrase.explanation}   
-                primaryLabel="Jugar de nuevo"
-                secondaryLabel="Cerrar"
-                nextLabel={phraseIdx < PHRASES.length - 1 ? "Siguiente frase" : "Siguiente nivel"}
-                onClose={() => setShowWinOverlay(false)}
-                
-                onRestart={() => {
-                    setShowWinOverlay(false)
-                    setWon(false)
-                    setCards(deck)
-                    setRevealedKeys(new Set())
-                    setTempFlippedKey(null)
-                    setExpectedIndex(0)
-                    setMoves(0)
+                    subtitle={winSubtitle}
+                    moves={moves}
+                    explanation={phrase.explanation}
+                    onClose={() => setShowWinOverlay(false)}
+                    onRestart={() => {
+                        setShowWinOverlay(false)
+                        setWon(false)
+                        setCards(deck)
+                        setRevealedKeys(new Set())
+                        setTempFlippedKey(null)
+                        setExpectedIndex(0)
+                        setMoves(0)
+                        setPhase("intro")
+                    }}
+                    onNext={advance}
+                    nextLabel={nextLabel}
 
-                    // important for your 4s preview: turn it back on
-                    setPhase("intro")
-                }}
-                onNext={advance}
-                />
+                    // Optional: if you want world-configurable titles in the win modal
+                    title={wui?.title}
+                    movesLabel={wui?.movesLabel}
+                    explanationTitle={wui?.explanationTitle}
+                    conjugationTitle={wui?.conjugationTitle}
+                    reviewTitle={wui?.reviewTitle}
+                    />
             )}
         </AnimatePresence>
         <AnimatePresence>
@@ -394,19 +414,12 @@ export default function PhraseMemoryGame({
                     exit={{ scale: 0.96, opacity: 0 }}
                     className="w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 text-center"
                 >
-                    <div className="text-xs text-neutral-400 mb-2">
-                    Nueva frase
-                    </div>
-
+                    <div className="text-xs text-neutral-400 mb-2">{introKicker}</div>
                     <div className="text-2xl font-semibold text-neutral-50 mb-4">
                     {phrase.motherTongue}
                     </div>
 
-                    <Button
-                        onClick={() => setPhase("preview")}
-                        >
-                    Empezar
-                    </Button>
+                <Button onClick={() => setPhase("preview")}>{introButton}</Button>
                 </motion.div>
                 </motion.div>
             )}

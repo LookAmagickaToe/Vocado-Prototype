@@ -1,0 +1,127 @@
+{
+  "id": "basic_en_fr",
+  "title": "Basic Vocabulary",
+  "description": "Learn basic English–French vocabulary.",
+  "mode": "vocab",
+
+  "chunking": {
+    "itemsPerGame": 6
+  },
+
+  "ui": {
+    "header": {
+      "levelLabelTemplate": "Level {i}",
+      "levelItemTemplate": "Level {i}"
+    },
+    "page": {
+      "instructions": "Match the English word with its French translation."
+    },
+    "vocab": {
+      "progressTemplate": "Progress: {matched}/{total} • Moves: {moves}",
+      "carousel": {
+        "primaryLabel": "English:",
+        "secondaryLabel": "French:"
+      },
+      "rightPanel": {
+        "title": "Matched pairs",
+        "emptyHint": "Find a pair to begin."
+      }
+    },
+    "winning": {
+      "title": "Well done 🎉",
+      "movesLabel": "Moves",
+      "reviewTitle": "Review",
+      "explanationTitle": "Explanation",
+      "nextDefault": "Next level",
+      "closeDefault": "Close"
+    }
+  },
+
+  "pool": [
+    {
+      "id": "hello",
+      "es": "Hello",
+      "de": "Bonjour",
+      "image": { "type": "emoji", "value": "👋" },
+      "explanation": "A common greeting."
+    },
+    {
+      "id": "thank_you",
+      "es": "Thank you",
+      "de": "Merci",
+      "image": { "type": "emoji", "value": "🙏" },
+      "explanation": "Used to express gratitude."
+    },
+    {
+      "id": "yes",
+      "es": "Yes",
+      "de": "Oui",
+      "image": { "type": "emoji", "value": "✅" },
+      "explanation": "Affirmative answer."
+    },
+    {
+      "id": "no",
+      "es": "No",
+      "de": "Non",
+      "image": { "type": "emoji", "value": "❌" },
+      "explanation": "Negative answer."
+    },
+    {
+      "id": "water",
+      "es": "Water",
+      "de": "Eau",
+      "image": { "type": "emoji", "value": "💧" },
+      "explanation": "A drinkable liquid."
+    },
+    {
+      "id": "food",
+      "es": "Food",
+      "de": "Nourriture",
+      "image": { "type": "emoji", "value": "🍽️" },
+      "explanation": "What people eat."
+    },
+
+    {
+      "id": "house",
+      "es": "House",
+      "de": "Maison",
+      "image": { "type": "emoji", "value": "🏠" },
+      "explanation": "A place where people live."
+    },
+    {
+      "id": "dog",
+      "es": "Dog",
+      "de": "Chien",
+      "image": { "type": "emoji", "value": "🐶" },
+      "explanation": "A common pet animal."
+    },
+    {
+      "id": "cat",
+      "es": "Cat",
+      "de": "Chat",
+      "image": { "type": "emoji", "value": "🐱" },
+      "explanation": "Another common pet animal."
+    },
+    {
+      "id": "love",
+      "es": "Love",
+      "de": "Amour",
+      "image": { "type": "emoji", "value": "❤️" },
+      "explanation": "A strong feeling of affection."
+    },
+    {
+      "id": "friend",
+      "es": "Friend",
+      "de": "Ami / Amie",
+      "image": { "type": "emoji", "value": "🤝" },
+      "explanation": "A person you like and trust."
+    },
+    {
+      "id": "family",
+      "es": "Family",
+      "de": "Famille",
+      "image": { "type": "emoji", "value": "👨‍👩‍👧‍👦" },
+      "explanation": "Parents, children, and relatives."
+    }
+  ]
+}

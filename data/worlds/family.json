@@ -1,6 +1,25 @@
 {
   "id": "family",
   "title": "Familia",
+  "description": "Match Spanish and German words.",
+  "ui": {
+    "header": {
+      "instruction": "Empareja las palabras en {primaryLang} con {secondaryLang}."
+    },
+    "review": {
+      "title": "Revisión",
+      "primaryLabel": "Español:",
+      "secondaryLabel": "Alemán:",
+      "explanationTitle": "Explicación",
+      "conjugationTitle": "Conjugación"
+    },
+    "win": {
+      "title": "Lo has logrado 🎉",
+      "movesLabel": "Movimientos:",
+      "restart": "Jugar de nuevo",
+      "next": "Siguiente"
+    }
+  },
   "mode": "vocab",
   "pool": [
     { "id": "arbol", "es": "El árbol genealógico", "de": "Der Stammbaum", "image": { "type": "image", "src": "/worlds/family/arbol.png", "alt": "family-tree" }, "explanation": "Representación gráfica de los antepasados y descendientes de una persona." },

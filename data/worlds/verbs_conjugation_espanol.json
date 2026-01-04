@@ -1,0 +1,190 @@
+{
+  "id": "verbs_conjugation_es",
+  "title": "Conjugación (Español)",
+  "mode": "vocab",
+  "ui": {
+    "header": { "levelLabelTemplate": "{verb}", "levelItemTemplate": "{verb}" },
+    "page": { "instructions": "Empareja pronombres con la conjugación correcta." },
+    "vocab": {
+      "carousel": { "primaryLabel": "Pronombre:", "secondaryLabel": "Conjugación:" },
+      "rightPanel": { "title": "Matches", "emptyHint": "Encuentra una pareja para empezar." }
+    }
+  },
+  "pool": [
+    { 
+      "id": "ser_1ps", 
+      "de": "Yo", 
+      "es": "soy", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular (Ser)." 
+    },
+    { 
+      "id": "ser_2ps", 
+      "de": "Tú", 
+      "es": "eres", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular (informell)." 
+    },
+    { 
+      "id": "ser_3ps", 
+      "de": "Él / Ella / Usted", 
+      "es": "es", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "ser_1pp", 
+      "de": "Nosotros", 
+      "es": "somos", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "ser_2pp", 
+      "de": "Vosotros", 
+      "es": "sois", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural (Spanien)." 
+    },
+    { 
+      "id": "ser_3pp", 
+      "de": "Ellos / Ellas / Ustedes", 
+      "es": "son", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural." 
+    },
+    
+    { 
+      "id": "tener_1ps", 
+      "de": "Yo", 
+      "es": "tengo", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular (Tener)." 
+    },
+    { 
+      "id": "tener_2ps", 
+      "de": "Tú", 
+      "es": "tienes", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular (informell)." 
+    },
+    { 
+      "id": "tener_3ps", 
+      "de": "Él / Ella / Usted", 
+      "es": "tiene", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "tener_1pp", 
+      "de": "Nosotros", 
+      "es": "tenemos", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "tener_2pp", 
+      "de": "Vosotros", 
+      "es": "tenéis", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural (Spanien)." 
+    },
+    { 
+      "id": "tener_3pp", 
+      "de": "Ellos / Ellas / Ustedes", 
+      "es": "tienen", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural." 
+    },
+
+    { 
+      "id": "hacer_1ps", 
+      "de": "Yo", 
+      "es": "hago", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular (Hacer)." 
+    },
+    { 
+      "id": "hacer_2ps", 
+      "de": "Tú", 
+      "es": "haces", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular (informell)." 
+    },
+    { 
+      "id": "hacer_3ps", 
+      "de": "Él / Ella / Usted", 
+      "es": "hace", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "hacer_1pp", 
+      "de": "Nosotros", 
+      "es": "hacemos", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "hacer_2pp", 
+      "de": "Vosotros", 
+      "es": "hacéis", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural (Spanien)." 
+    },
+    { 
+      "id": "hacer_3pp", 
+      "de": "Ellos / Ellas / Ustedes", 
+      "es": "hacen", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural." 
+    },
+
+    { 
+      "id": "ir_1ps", 
+      "de": "Yo", 
+      "es": "voy", 
+      "image": { "type": "emoji", "value": "🙋" }, 
+      "explanation": "1. Person Singular (Ir)." 
+    },
+    { 
+      "id": "ir_2ps", 
+      "de": "Tú", 
+      "es": "vas", 
+      "image": { "type": "emoji", "value": "🫵" }, 
+      "explanation": "2. Person Singular (informell)." 
+    },
+    { 
+      "id": "ir_3ps", 
+      "de": "Él / Ella / Usted", 
+      "es": "va", 
+      "image": { "type": "emoji", "value": "👉" }, 
+      "explanation": "3. Person Singular." 
+    },
+    { 
+      "id": "ir_1pp", 
+      "de": "Nosotros", 
+      "es": "vamos", 
+      "image": { "type": "emoji", "value": "🫂" }, 
+      "explanation": "1. Person Plural." 
+    },
+    { 
+      "id": "ir_2pp", 
+      "de": "Vosotros", 
+      "es": "vais", 
+      "image": { "type": "emoji", "value": "👐" }, 
+      "explanation": "2. Person Plural (Spanien)." 
+    },
+    { 
+      "id": "ir_3pp", 
+      "de": "Ellos / Ellas / Ustedes", 
+      "es": "van", 
+      "image": { "type": "emoji", "value": "👥" }, 
+      "explanation": "3. Person Plural." 
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 6
+  }
+}

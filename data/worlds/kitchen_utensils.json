@@ -1,0 +1,170 @@
+{
+  "id": "kitchen_utensils",
+  "title": "Utensilios de Cocina",
+  "description": "Empareja vocabulario de cocina en español y alemán.",
+  "ui": {
+    "header": {
+      "instruction": "Empareja las palabras en {primaryLang} con {secondaryLang}."
+    },
+    "review": {
+      "title": "Revisión",
+      "primaryLabel": "Español:",
+      "secondaryLabel": "Alemán:",
+      "explanationTitle": "Explicación",
+      "conjugationTitle": "Conjugación"
+    },
+    "win": {
+      "title": "Lo has logrado 🎉",
+      "movesLabel": "Movimientos:",
+      "restart": "Jugar de nuevo",
+      "next": "Siguiente"
+    }
+  },
+  "mode": "vocab",
+  "pool": [
+    { 
+      "id": "tenedor", 
+      "es": "El tenedor", 
+      "de": "Die Gabel", 
+      "image": { "type": "emoji", "value": "🍴" }, 
+      "explanation": "Instrumento de mesa con dientes para pinchar alimentos." 
+    },
+    { 
+      "id": "cuchillo", 
+      "es": "El cuchillo", 
+      "de": "Das Messer", 
+      "image": { "type": "emoji", "value": "🔪" }, 
+      "explanation": "Utensilio con filo que sirve para cortar la comida." 
+    },
+    { 
+      "id": "cuchara", 
+      "es": "La cuchara", 
+      "de": "Der Löffel", 
+      "image": { "type": "emoji", "value": "🥄" }, 
+      "explanation": "Utensilio cóncavo usado para comer líquidos o alimentos blandos." 
+    },
+    { 
+      "id": "plato", 
+      "es": "El plato", 
+      "de": "Der Teller", 
+      "image": { "type": "emoji", "value": "🍽️" }, 
+      "explanation": "Recipiente bajo y redondo donde se sirve la comida." 
+    },
+    { 
+      "id": "vaso", 
+      "es": "El vaso", 
+      "de": "Das Glas", 
+      "image": { "type": "emoji", "value": "🥛" }, 
+      "explanation": "Recipiente cilíndrico usado para beber agua u otros líquidos." 
+    },
+    { 
+      "id": "taza", 
+      "es": "La taza", 
+      "de": "Die Tasse", 
+      "image": { "type": "emoji", "value": "☕" }, 
+      "explanation": "Recipiente con asa, usado generalmente para bebidas calientes." 
+    },
+    { 
+      "id": "olla", 
+      "es": "La olla", 
+      "de": "Der Topf", 
+      "image": { "type": "emoji", "value": "🍲" }, 
+      "explanation": "Recipiente hondo de metal usado para cocinar sopas o guisos." 
+    },
+    { 
+      "id": "sarten", 
+      "es": "La sartén", 
+      "de": "Die Pfanne", 
+      "image": { "type": "emoji", "value": "🍳" }, 
+      "explanation": "Utensilio de cocina, plano y de metal, usado para freír." 
+    },
+    { 
+      "id": "cuenco", 
+      "es": "El cuenco / El bol", 
+      "de": "Die Schüssel", 
+      "image": { "type": "emoji", "value": "🥣" }, 
+      "explanation": "Recipiente hondo y sin borde, usado para cereales o ensaladas." 
+    },
+    { 
+      "id": "palillos", 
+      "es": "Los palillos", 
+      "de": "Die Stäbchen", 
+      "image": { "type": "emoji", "value": "🥢" }, 
+      "explanation": "Par de varillas usadas tradicionalmente en Asia para comer." 
+    },
+    { 
+      "id": "tetera", 
+      "es": "La tetera", 
+      "de": "Die Teekanne", 
+      "image": { "type": "emoji", "value": "🫖" }, 
+      "explanation": "Recipiente con pico usado para servir té." 
+    },
+    { 
+      "id": "salero", 
+      "es": "El salero", 
+      "de": "Der Salzstreuer", 
+      "image": { "type": "emoji", "value": "🧂" }, 
+      "explanation": "Recipiente pequeño con agujeros para servir sal." 
+    },
+    { 
+      "id": "botella", 
+      "es": "La botella", 
+      "de": "Die Flasche", 
+      "image": { "type": "emoji", "value": "🍾" }, 
+      "explanation": "Recipiente de cuello estrecho para contener líquidos." 
+    },
+    { 
+      "id": "copa", 
+      "es": "La copa", 
+      "de": "Das Weinglas", 
+      "image": { "type": "emoji", "value": "🍷" }, 
+      "explanation": "Vaso con pie usado para beber vino o cócteles." 
+    },
+    { 
+      "id": "tarro", 
+      "es": "El tarro", 
+      "de": "Das Einmachglas", 
+      "image": { "type": "emoji", "value": "🫙" }, 
+      "explanation": "Recipiente de vidrio con tapa para conservar alimentos." 
+    },
+    { 
+      "id": "esponja", 
+      "es": "La esponja", 
+      "de": "Der Schwamm", 
+      "image": { "type": "emoji", "value": "🧽" }, 
+      "explanation": "Utensilio poroso usado para fregar y limpiar." 
+    },
+    { 
+      "id": "basura", 
+      "es": "El cubo de basura", 
+      "de": "Der Mülleimer", 
+      "image": { "type": "emoji", "value": "🗑️" }, 
+      "explanation": "Recipiente donde se tiran los desperdicios." 
+    },
+    { 
+      "id": "escoba", 
+      "es": "La escoba", 
+      "de": "Der Besen", 
+      "image": { "type": "emoji", "value": "🧹" }, 
+      "explanation": "Utensilio para barrer el suelo." 
+    },
+    { 
+      "id": "cocinero", 
+      "es": "El cocinero", 
+      "de": "Der Koch", 
+      "image": { "type": "emoji", "value": "👨‍🍳" }, 
+      "explanation": "Persona que prepara la comida." 
+    },
+    { 
+      "id": "reloj_cocina", 
+      "es": "El reloj de cocina", 
+      "de": "Die Eieruhr / Der Timer", 
+      "image": { "type": "emoji", "value": "⏲️" }, 
+      "explanation": "Dispositivo para medir el tiempo de cocción." 
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 8
+  }
+}

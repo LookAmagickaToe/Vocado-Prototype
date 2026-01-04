@@ -44,13 +44,19 @@ export type WorldBase = {
   id: string
   title: string
   description?: string
-  chunking: { itemsPerGame: number } // rename to be generic
+  chunking: { itemsPerGame: number }
   mode: "vocab" | "phrase"
+
+  ui?: WorldUI
 }
+
 
 export type VocabWorld = WorldBase & {
   mode: "vocab"
+  submode?: "conjugation" | string
   pool: VocabPair[]
+  conjugations?: Record<string, Conjugation>
+
 }
 
 export type PhraseWorld = WorldBase & {
@@ -60,3 +66,61 @@ export type PhraseWorld = WorldBase & {
 }
 
 export type World = VocabWorld | PhraseWorld
+
+// types/worlds.ts
+
+export type UITemplate = string // e.g. "Nivel {i}/{n}" oder "Fortschritt: {matched}/{total}"
+
+export type WorldUI = {
+  header?: {
+    levelLabelTemplate?: UITemplate // "Nivel {i}/{n}" | "Konjugation {i}/{n}"
+    levelItemTemplate?: UITemplate  // "Nivel {i}" für Level-Liste/Overlay
+  }
+
+  page?: {
+    instructions?: string // Text unter World/Level im Header
+  }
+
+  vocab?: {
+    // kleine, häufige Texte im Vocab-Game
+    progressTemplate?: UITemplate // "Progreso: {matched}/{total} • Movimientos: {moves}"
+    carousel?: {
+      primaryLabel?: string   // "Español:" (oder "Pronombre:" etc.)
+      secondaryLabel?: string // "Deutsch:" (oder "Conjugación:" etc.)
+    }
+    rightPanel?: {
+      title?: string // "Parejas encontradas"
+      emptyHint?: string
+    }
+  }
+
+  phrase?: {
+    // Texte für Phrase-Game
+    introKicker?: string
+    introButton?: string
+
+    promptTitle?: string
+    promptSubtitle?: string
+
+    howItWorksTitle?: string
+    howItWorksText?: string
+
+    legendTitle?: string
+
+    progressTemplate?: UITemplate // "Progreso: {i}/{n} • Movimientos: {moves}"
+    winSubtitleTemplate?: UITemplate // "Phrase completed — {n} tokens placed."
+
+    nextPhraseLabel?: string
+    nextLevelLabel?: string
+  }
+
+  winning?: {
+    title?: string
+    movesLabel?: string
+    explanationTitle?: string
+    reviewTitle?: string
+    conjugationTitle?: string
+    nextDefault?: string
+    closeDefault?: string
+  }
+}
