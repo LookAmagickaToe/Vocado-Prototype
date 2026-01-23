@@ -45,6 +45,7 @@ type ReviewItem = {
   target: string
   pos: "verb" | "noun" | "adj" | "other"
   lemma?: string
+  emoji?: string
   include: boolean
   conjugate: boolean
 }
@@ -118,6 +119,7 @@ const ui = {
     reviewInclude: uiSettings?.upload?.reviewInclude ?? "Incluir",
     reviewSource: uiSettings?.upload?.reviewSource ?? "Español",
     reviewTarget: uiSettings?.upload?.reviewTarget ?? "Alemán",
+    reviewEmoji: uiSettings?.upload?.reviewEmoji ?? "Emoji",
     reviewPos: uiSettings?.upload?.reviewPos ?? "Tipo",
     reviewConjugate: uiSettings?.upload?.reviewConjugate ?? "Conjugación",
     posVerb: uiSettings?.upload?.posVerb ?? "verbo",
@@ -238,6 +240,7 @@ export default function Page() {
   const allWorlds = useMemo(() => [...BASE_WORLDS, ...uploadedWorlds], [uploadedWorlds])
   const [worldLists, setWorldLists] = useState<WorldList[]>([])
   const [worldTitleOverrides, setWorldTitleOverrides] = useState<Record<string, string>>({})
+  const [collapsedListIds, setCollapsedListIds] = useState<Record<string, boolean>>({})
   const [hiddenWorldIds, setHiddenWorldIds] = useState<string[]>([])
 
   const [worldId, setWorldId] = useState<string>(BASE_WORLDS[0]?.id ?? "world-0")
@@ -628,6 +631,7 @@ export default function Page() {
         target: typeof item?.target === "string" ? item.target : "",
         pos,
         lemma: typeof item?.lemma === "string" ? item.lemma : undefined,
+        emoji: typeof item?.emoji === "string" ? item.emoji : undefined,
         include: true,
         conjugate: pos === "verb",
       } as ReviewItem
@@ -652,6 +656,7 @@ export default function Page() {
         source: row.source.trim(),
         target: row.target.trim(),
         pos: "other",
+        emoji: undefined,
         include: true,
         conjugate: false,
       })) as ReviewItem[]
@@ -843,7 +848,7 @@ export default function Page() {
         id: `item-${index}-${item.source}`,
         es: item.source,
         de: item.target,
-        image: { type: "emoji", value: "📝" },
+        image: { type: "emoji", value: item.emoji?.trim() || "📝" },
         pos: item.pos,
         explanation: `Auto: ${item.source} → ${item.target}`,
       })),
@@ -1051,7 +1056,7 @@ export default function Page() {
     })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
       <div className="mx-auto w-full max-w-7xl">
         <div className="grid grid-cols-12 gap-4 items-start md:grid-rows-[auto,1fr]">
           {/* LEFT: hamburger/menu */}
@@ -1145,6 +1150,8 @@ export default function Page() {
           <WorldsOverlay
             worlds={visibleWorlds}
             lists={worldLists}
+            collapsedListIds={collapsedListIds}
+            onSetCollapsedListIds={setCollapsedListIds}
             newListName={newListName}
             onChangeNewListName={setNewListName}
             onCreateList={createList}
@@ -1375,7 +1382,7 @@ function UploadOverlay({
       }}
     >
       <motion.div
-        className="w-full max-w-2xl rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-neutral-950 border border-neutral-800 p-4 sm:p-6 shadow-xl"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
@@ -1406,10 +1413,11 @@ function UploadOverlay({
             </div>
             <div className="mt-2 text-sm text-neutral-300">{ui.upload.reviewHint}</div>
             <div className="mt-4 overflow-auto max-h-[45vh] rounded-xl border border-neutral-800">
-              <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
+              <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
                 <div>{ui.upload.reviewInclude}</div>
                 <div>{ui.upload.reviewSource}</div>
                 <div>{ui.upload.reviewTarget}</div>
+                <div>{ui.upload.reviewEmoji}</div>
                 <div>{ui.upload.reviewPos}</div>
                 <div>{ui.upload.reviewConjugate}</div>
                 <div></div>
@@ -1418,7 +1426,7 @@ function UploadOverlay({
                 {reviewItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto] gap-2 p-3 items-center"
+                    className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,auto] gap-2 p-3 items-center"
                   >
                     <input
                       type="checkbox"
@@ -1442,6 +1450,14 @@ function UploadOverlay({
                         onUpdateReviewItem(item.id, { target: e.target.value })
                       }
                       className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                    />
+                    <input
+                      type="text"
+                      value={item.emoji ?? ""}
+                      onChange={(e) =>
+                        onUpdateReviewItem(item.id, { emoji: e.target.value })
+                      }
+                      className="w-12 rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-center text-sm text-neutral-100"
                     />
                     <select
                       value={item.pos}
@@ -1762,7 +1778,7 @@ function ListPickerOverlay({
       }}
     >
       <motion.div
-        className="w-full max-w-md rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-neutral-950 border border-neutral-800 p-4 sm:p-6 shadow-xl"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
@@ -1850,12 +1866,20 @@ function WorldsOverlay({
   getWorldTitle,
   onMoveList,
   onHideWorld,
+  collapsedListIds,
+  onSetCollapsedListIds,
   activeWorldId,
   onClose,
   onSelectWorld,
 }: {
   worlds: Array<{ id: string; title: string; description?: string }>
   lists: WorldList[]
+  collapsedListIds: Record<string, boolean>
+  onSetCollapsedListIds: (
+    value:
+      | Record<string, boolean>
+      | ((prev: Record<string, boolean>) => Record<string, boolean>)
+  ) => void
   newListName: string
   onChangeNewListName: (value: string) => void
   onCreateList: () => void
@@ -1874,7 +1898,6 @@ function WorldsOverlay({
   const [editingWorldTitle, setEditingWorldTitle] = useState("")
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingListTitle, setEditingListTitle] = useState("")
-  const [collapsedListIds, setCollapsedListIds] = useState<Record<string, boolean>>({})
 
   const worldById = useMemo(() => new Map(worlds.map((w) => [w.id, w])), [worlds])
   const listIdByWorld = useMemo(() => {
@@ -1903,7 +1926,7 @@ function WorldsOverlay({
   }
 
   const toggleList = (id: string) => {
-    setCollapsedListIds((prev) => ({ ...prev, [id]: !prev[id] }))
+    onSetCollapsedListIds((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   const moveList = (listId: string, direction: "up" | "down") => {
@@ -1930,7 +1953,7 @@ function WorldsOverlay({
       }}
     >
       <motion.div
-        className="w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-neutral-950 border border-neutral-800 p-4 sm:p-6 shadow-xl"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
@@ -2330,7 +2353,7 @@ function LevelsOverlay({
       }}
     >
       <motion.div
-        className="w-full max-w-lg rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-neutral-950 border border-neutral-800 p-4 sm:p-6 shadow-xl"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}

@@ -299,7 +299,7 @@ export default function PhraseMemoryGame({
 
             {/* Board */}
             <div className="bg-neutral-900/40 backdrop-blur rounded-2xl p-5 shadow-sm border border-neutral-800">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
                 {cards.map((c) => {
                 const isRevealed = revealedKeys.has(c.key)
 

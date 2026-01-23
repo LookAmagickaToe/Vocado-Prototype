@@ -100,7 +100,7 @@ export default function MemoryCard({
           >
             {model.kind === "word" ? (
               <div className="px-2 text-center">
-                <div className="text-lg sm:text-xl font-semibold tracking-tight">
+                <div className="text-sm sm:text-lg font-semibold tracking-tight">
                   {model.front.title}
                 </div>
               </div>
@@ -110,13 +110,13 @@ export default function MemoryCard({
                   <img
                     src={model.imageSrc}
                     alt={model.imageAlt ?? ""}
-                    className="w-20 h-20 object-contain"
+                    className="w-14 h-14 sm:w-20 sm:h-20 object-contain"
                   />
                 ) : (
-                  <div className="text-4xl leading-none">{model.front.title}</div>
+                  <div className="text-2xl sm:text-4xl leading-none">{model.front.title}</div>
                 )}
 
-                <div className="mt-2 text-sm font-medium">{model.front.subtitle}</div>
+                <div className="mt-2 text-xs sm:text-sm font-medium">{model.front.subtitle}</div>
               </div>
             )}
           </div>

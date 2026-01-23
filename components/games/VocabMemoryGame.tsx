@@ -333,7 +333,7 @@ export default function VocabMemoryGame({
             }
           }}
         >
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {slots.map((slot) => {
               const model = renderModelForSlot(slot)
               return (
