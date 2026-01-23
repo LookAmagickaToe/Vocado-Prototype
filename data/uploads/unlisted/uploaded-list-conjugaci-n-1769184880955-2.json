@@ -1,0 +1,181 @@
+{
+  "id": "upload-1769184880608-conjugation",
+  "title": "Uploaded list — Conjugación",
+  "description": "Custom conjugation list.",
+  "mode": "vocab",
+  "submode": "conjugation",
+  "pool": [
+    {
+      "id": "zweifeln_1",
+      "es": "ich",
+      "de": "zweifle",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    },
+    {
+      "id": "zweifeln_2",
+      "es": "du",
+      "de": "zweifelst",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    },
+    {
+      "id": "zweifeln_3",
+      "es": "er/sie/es",
+      "de": "zweifelt",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    },
+    {
+      "id": "zweifeln_4",
+      "es": "wir",
+      "de": "zweifeln",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    },
+    {
+      "id": "zweifeln_5",
+      "es": "ihr",
+      "de": "zweifelt",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    },
+    {
+      "id": "zweifeln_6",
+      "es": "sie/Sie",
+      "de": "zweifeln",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      }
+    }
+  ],
+  "conjugations": {
+    "zweifeln": {
+      "infinitive": "zweifeln",
+      "translation": "zweifelt",
+      "sections": [
+        {
+          "title": "Präsens",
+          "rows": [
+            [
+              "ich",
+              "zweifle"
+            ],
+            [
+              "du",
+              "zweifelst"
+            ],
+            [
+              "er/sie/es",
+              "zweifelt"
+            ],
+            [
+              "wir",
+              "zweifeln"
+            ],
+            [
+              "ihr",
+              "zweifelt"
+            ],
+            [
+              "sie/Sie",
+              "zweifeln"
+            ]
+          ]
+        },
+        {
+          "title": "Präteritum",
+          "rows": [
+            [
+              "ich",
+              "zweifelte"
+            ],
+            [
+              "du",
+              "zweifeltest"
+            ],
+            [
+              "er/sie/es",
+              "zweifelte"
+            ],
+            [
+              "wir",
+              "zweifelten"
+            ],
+            [
+              "ihr",
+              "zweifeltet"
+            ],
+            [
+              "sie/Sie",
+              "zweifelten"
+            ]
+          ]
+        },
+        {
+          "title": "Perfekt",
+          "rows": [
+            [
+              "ich",
+              "habe gezweifelt"
+            ],
+            [
+              "du",
+              "hast gezweifelt"
+            ],
+            [
+              "er/sie/es",
+              "hat gezweifelt"
+            ],
+            [
+              "wir",
+              "haben gezweifelt"
+            ],
+            [
+              "ihr",
+              "habt gezweifelt"
+            ],
+            [
+              "sie/Sie",
+              "haben gezweifelt"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 6
+  },
+  "ui": {
+    "header": {
+      "levelLabelTemplate": "{verb}",
+      "levelItemTemplate": "{verb}"
+    },
+    "page": {
+      "instructions": "Empareja pronombres con la conjugación correcta."
+    },
+    "vocab": {
+      "carousel": {
+        "primaryLabel": "Pronombre:",
+        "secondaryLabel": "Conjugación:"
+      },
+      "rightPanel": {
+        "title": "Matches",
+        "emptyHint": "Encuentra una pareja para empezar."
+      }
+    }
+  }
+}

@@ -14,7 +14,8 @@
     "close": "Close",
     "newListPlaceholder": "Nueva lista",
     "newListButton": "Crear",
-    "unlisted": "Sin lista"
+    "unlisted": "Sin lista",
+    "hideWorld": "Ocultar"
   },
   "levelsOverlay": {
     "titleSuffix": "— Levels",
@@ -62,6 +63,9 @@
     "actionGenerate": "Generar vista previa",
     "actionSave": "Guardar y jugar",
     "actionCancel": "Cancelar",
+    "actionReview": "Revisar",
+    "hiddenWorldsTitle": "Mundos ocultos",
+    "restoreWorld": "Restaurar",
     "processing": "Procesando...",
     "errorNoInput": "Agrega contenido antes de continuar.",
     "errorInvalidJson": "JSON inválido. Revisa el formato.",

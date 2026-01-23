@@ -1,0 +1,151 @@
+{
+  "id": "upload-1769184874513",
+  "title": "Uploaded list",
+  "description": "Lista personalizada: Uploaded list",
+  "mode": "vocab",
+  "pool": [
+    {
+      "id": "item-0-Gespräche",
+      "es": "Gespräche",
+      "de": "Conversaciones",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Gespräche → Conversaciones"
+    },
+    {
+      "id": "item-1-Gebietsfragen",
+      "es": "Gebietsfragen",
+      "de": "Cuestiones territoriales",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Gebietsfragen → Cuestiones territoriales"
+    },
+    {
+      "id": "item-2-angeregt",
+      "es": "angeregt",
+      "de": "Estimulado",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "adj",
+      "explanation": "Auto: angeregt → Estimulado"
+    },
+    {
+      "id": "item-3-dreiseitig",
+      "es": "dreiseitig",
+      "de": "Trilateral",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "adj",
+      "explanation": "Auto: dreiseitig → Trilateral"
+    },
+    {
+      "id": "item-4-Angaben",
+      "es": "Angaben",
+      "de": "Informaciones",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Angaben → Informaciones"
+    },
+    {
+      "id": "item-5-Schlüsselfrage",
+      "es": "Schlüsselfrage",
+      "de": "Cuestión clave",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Schlüsselfrage → Cuestión clave"
+    },
+    {
+      "id": "item-6-Verhandlungen",
+      "es": "Verhandlungen",
+      "de": "Negociaciones",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Verhandlungen → Negociaciones"
+    },
+    {
+      "id": "item-7-Bundesregierung",
+      "es": "Bundesregierung",
+      "de": "Gobierno federal",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Bundesregierung → Gobierno federal"
+    },
+    {
+      "id": "item-8-zweifelt",
+      "es": "zweifelt",
+      "de": "Duda",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "verb",
+      "explanation": "Auto: zweifelt → Duda"
+    },
+    {
+      "id": "item-9-Kompromissbereitschaft",
+      "es": "Kompromissbereitschaft",
+      "de": "Voluntad de compromiso",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "noun",
+      "explanation": "Auto: Kompromissbereitschaft → Voluntad de compromiso"
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 8
+  },
+  "ui": {
+    "header": {
+      "levelLabelTemplate": "Nivel {i}/{n}",
+      "levelItemTemplate": "Nivel {i}"
+    },
+    "page": {
+      "instructions": "Empareja las palabras en español con las palabras en alemán."
+    },
+    "vocab": {
+      "progressTemplate": "Progreso: {matched}/{total} • Movimientos: {moves}",
+      "carousel": {
+        "primaryLabel": "Español:",
+        "secondaryLabel": "Deutsch:"
+      },
+      "rightPanel": {
+        "title": "Parejas encontradas",
+        "emptyHint": "Encuentra una pareja para empezar."
+      }
+    },
+    "winning": {
+      "title": "Lo has logrado 🎉",
+      "movesLabel": "Movimientos:",
+      "explanationTitle": "Explicación",
+      "reviewTitle": "Revisión",
+      "conjugationTitle": "Conjugación",
+      "nextDefault": "Siguiente",
+      "closeDefault": "Cerrar"
+    }
+  }
+}

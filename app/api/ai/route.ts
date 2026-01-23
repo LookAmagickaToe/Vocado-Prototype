@@ -37,7 +37,8 @@ function buildParsePrompt({
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":""}]}`,
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
-    "Do not translate. Preserve the original text from the input.",
+    "If the input provides only one language, translate into the other language.",
+    "If the input already provides pairs, preserve them without changing.",
     "Input:",
     rawText,
   ].join("\n")
@@ -63,6 +64,7 @@ function buildImagePrompt({
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":""}]}`,
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
+    "If the image only contains one language, translate into the other language.",
   ].join("\n")
 }
 

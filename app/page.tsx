@@ -29,6 +29,9 @@ basic_english] as unknown as World[]
 
 const UPLOADED_WORLDS_STORAGE_KEY = "vocab-memory-uploaded-worlds"
 const WORLD_LISTS_STORAGE_KEY = "vocab-memory-world-lists"
+const WORLD_TITLE_OVERRIDES_STORAGE_KEY = "vocab-memory-world-title-overrides"
+const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocab-memory-world-list-collapsed"
+const HIDDEN_WORLDS_STORAGE_KEY = "vocab-memory-hidden-worlds"
 
 type WorldList = {
   id: string
@@ -68,6 +71,7 @@ const ui = {
     newListPlaceholder: uiSettings?.worldsOverlay?.newListPlaceholder ?? "Nueva lista",
     newListButton: uiSettings?.worldsOverlay?.newListButton ?? "Crear",
     unlisted: uiSettings?.worldsOverlay?.unlisted ?? "Sin lista",
+    hideWorld: uiSettings?.worldsOverlay?.hideWorld ?? "Ocultar",
   },
   levelsOverlay: {
     titleSuffix: uiSettings?.levelsOverlay?.titleSuffix ?? "— Levels",
@@ -126,6 +130,9 @@ const ui = {
     actionGenerate: uiSettings?.upload?.actionGenerate ?? "Generar vista previa",
     actionSave: uiSettings?.upload?.actionSave ?? "Guardar y jugar",
     actionCancel: uiSettings?.upload?.actionCancel ?? "Cancelar",
+    actionReview: uiSettings?.upload?.actionReview ?? "Revisar",
+    hiddenWorldsTitle: uiSettings?.upload?.hiddenWorldsTitle ?? "Mundos ocultos",
+    restoreWorld: uiSettings?.upload?.restoreWorld ?? "Restaurar",
     processing: uiSettings?.upload?.processing ?? "Procesando...",
     errorNoInput: uiSettings?.upload?.errorNoInput ?? "Agrega contenido antes de continuar.",
     errorInvalidJson:
@@ -230,6 +237,8 @@ export default function Page() {
   const [uploadedWorlds, setUploadedWorlds] = useState<World[]>([])
   const allWorlds = useMemo(() => [...BASE_WORLDS, ...uploadedWorlds], [uploadedWorlds])
   const [worldLists, setWorldLists] = useState<WorldList[]>([])
+  const [worldTitleOverrides, setWorldTitleOverrides] = useState<Record<string, string>>({})
+  const [hiddenWorldIds, setHiddenWorldIds] = useState<string[]>([])
 
   const [worldId, setWorldId] = useState<string>(BASE_WORLDS[0]?.id ?? "world-0")
   const [levelIndex, setLevelIndex] = useState<number>(0)
@@ -290,6 +299,69 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    const raw = window.localStorage.getItem(WORLD_TITLE_OVERRIDES_STORAGE_KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") {
+        setWorldTitleOverrides(parsed as Record<string, string>)
+      }
+    } catch {
+      // ignore malformed persisted data
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(
+      WORLD_TITLE_OVERRIDES_STORAGE_KEY,
+      JSON.stringify(worldTitleOverrides)
+    )
+  }, [worldTitleOverrides])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = window.localStorage.getItem(WORLD_LIST_COLLAPSED_STORAGE_KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") {
+        setCollapsedListIds(parsed as Record<string, boolean>)
+      }
+    } catch {
+      // ignore malformed persisted data
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(
+      WORLD_LIST_COLLAPSED_STORAGE_KEY,
+      JSON.stringify(collapsedListIds)
+    )
+  }, [collapsedListIds])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = window.localStorage.getItem(HIDDEN_WORLDS_STORAGE_KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        setHiddenWorldIds(parsed.filter((id) => typeof id === "string"))
+      }
+    } catch {
+      // ignore malformed persisted data
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(HIDDEN_WORLDS_STORAGE_KEY, JSON.stringify(hiddenWorldIds))
+  }, [hiddenWorldIds])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
     const raw = window.localStorage.getItem(WORLD_LISTS_STORAGE_KEY)
     if (!raw) return
     try {
@@ -317,16 +389,21 @@ export default function Page() {
     window.localStorage.setItem(WORLD_LISTS_STORAGE_KEY, JSON.stringify(worldLists))
   }, [worldLists])
 
+  const visibleWorlds = useMemo(
+    () => allWorlds.filter((w) => !hiddenWorldIds.includes(w.id)),
+    [allWorlds, hiddenWorldIds]
+  )
+
   const currentWorld = useMemo(() => {
-    return allWorlds.find((w) => w.id === worldId) ?? allWorlds[0]
-  }, [allWorlds, worldId])
+    return visibleWorlds.find((w) => w.id === worldId) ?? visibleWorlds[0] ?? allWorlds[0]
+  }, [visibleWorlds, allWorlds, worldId])
 
   const levelsCount = useMemo(() => {
     const k = currentWorld.chunking.itemsPerGame
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
   }, [currentWorld])
 
-    const worldTitle = currentWorld.title
+    const worldTitle = worldTitleOverrides[currentWorld.id] ?? currentWorld.title
     const safeLevel = Math.min(levelIndex, levelsCount - 1) + 1
 
 
@@ -350,6 +427,44 @@ export default function Page() {
     const id = `list-${Date.now()}`
     setWorldLists((prev) => [...prev, { id, name: trimmed, worldIds: [] }])
     return id
+  }
+
+  const renameList = (listId: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setWorldLists((prev) =>
+      prev.map((list) => (list.id === listId ? { ...list, name: trimmed } : list))
+    )
+  }
+
+  const renameWorld = (worldId: string, title: string) => {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    setWorldTitleOverrides((prev) => ({ ...prev, [worldId]: trimmed }))
+  }
+
+  function getWorldTitle(worldId: string, fallback: string) {
+    return worldTitleOverrides[worldId] ?? fallback
+  }
+
+  const hideWorld = (id: string) => {
+    setHiddenWorldIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+    setWorldLists((prev) =>
+      prev.map((list) => ({
+        ...list,
+        worldIds: list.worldIds.filter((wid) => wid !== id),
+      }))
+    )
+    if (id === worldId) {
+      const next = visibleWorlds.find((w) => w.id !== id)
+      if (next) {
+        setWorldId(next.id)
+      }
+    }
+  }
+
+  const restoreWorld = (worldId: string) => {
+    setHiddenWorldIds((prev) => prev.filter((id) => id !== worldId))
   }
 
   const assignWorldToList = (worldId: string, listId: string | null) => {
@@ -444,7 +559,8 @@ export default function Page() {
     })
     if (!response.ok) {
       const data = await response.json().catch(() => null)
-      throw new Error(data?.error ?? "Save failed")
+      const details = data?.details ? `: ${data.details}` : ""
+      throw new Error(`${data?.error ?? "Save failed"}${details}`)
     }
   }
 
@@ -528,6 +644,89 @@ export default function Page() {
     })
   }
 
+  const buildReviewItemsFromTable = (rows: Array<{ source: string; target: string }>) =>
+    rows
+      .filter((row) => row.source.trim() || row.target.trim())
+      .map((row, index) => ({
+        id: `review-table-${Date.now()}-${index}`,
+        source: row.source.trim(),
+        target: row.target.trim(),
+        pos: "other",
+        include: true,
+        conjugate: false,
+      })) as ReviewItem[]
+
+  const autoCompleteTableRows = async () => {
+    const currentRows = tableRows
+    const trimmedRows = currentRows.filter((row) => row.source.trim() || row.target.trim())
+    if (trimmedRows.length === 0) {
+      setUploadError(ui.upload.errorNoInput)
+      return
+    }
+    const missingTarget = trimmedRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row.source.trim() && !row.target.trim())
+    const missingSource = trimmedRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row.target.trim() && !row.source.trim())
+
+    if (missingTarget.length === 0 && missingSource.length === 0) {
+      return currentRows
+    }
+
+    const desiredMode = uploadModeSelection === "auto" ? null : uploadModeSelection
+    const next = [...currentRows]
+
+    if (missingTarget.length > 0) {
+      const text = missingTarget.map(({ row }) => row.source.trim()).join("\n")
+      const result = await callAi({
+        task: "parse_text",
+        text,
+        mode: desiredMode,
+        sourceLabel: ui.upload.tableSource,
+        targetLabel: ui.upload.tableTarget,
+      })
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (items.length === 0) {
+        setUploadError(ui.upload.errorNoItems)
+        return
+      }
+      missingTarget.forEach(({ index }, i) => {
+        const item = items[i]
+        const target = typeof item?.target === "string" ? item.target : ""
+        next[index] = { ...next[index], target }
+      })
+    }
+
+    if (missingSource.length > 0) {
+      const text = missingSource.map(({ row }) => row.target.trim()).join("\n")
+      const result = await callAi({
+        task: "parse_text",
+        text,
+        mode: desiredMode,
+        sourceLabel: ui.upload.tableTarget,
+        targetLabel: ui.upload.tableSource,
+      })
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (items.length === 0) {
+        setUploadError(ui.upload.errorNoItems)
+        return
+      }
+      missingSource.forEach(({ index }, i) => {
+        const item = items[i]
+        const source = typeof item?.target === "string" ? item.target : ""
+        next[index] = { ...next[index], source }
+      })
+    }
+
+    const last = next[next.length - 1]
+    if (last && (last.source.trim() || last.target.trim())) {
+      next.push({ source: "", target: "" })
+    }
+    setTableRows(next)
+    return next
+  }
+
   const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
     const bytes = new Uint8Array(buffer)
     let binary = ""
@@ -561,37 +760,17 @@ export default function Page() {
     try {
       const desiredMode = uploadModeSelection === "auto" ? null : uploadModeSelection
       if (uploadTab === "table") {
-        const text = tableRowsToText()
-        if (!text) {
-          setUploadError(ui.upload.errorNoInput)
-          return
-        }
-        const result = await callAi({
-          task: "parse_text",
-          text,
-          mode: desiredMode,
-          sourceLabel: ui.upload.tableSource,
-          targetLabel: ui.upload.tableTarget,
-        })
-        const items = Array.isArray(result?.items) ? result.items : []
+        const rows = await autoCompleteTableRows()
+        if (!rows) return
+        const items = buildReviewItemsFromTable(rows)
         if (items.length === 0) {
           setUploadError(ui.upload.errorNoItems)
           return
         }
-        setTableRows([
-          ...items.map((item: any) => ({
-            source: typeof item?.source === "string" ? item.source : "",
-            target: typeof item?.target === "string" ? item.target : "",
-          })),
-          { source: "", target: "" },
-        ])
-        const mode =
-          uploadModeSelection === "auto" && result?.mode === "conjugation"
-            ? "conjugation"
-            : uploadModeSelection === "conjugation"
-              ? "conjugation"
-              : "vocab"
-        startReview(buildReviewItemsFromAi(items), mode)
+        setReviewMode(uploadModeSelection === "conjugation" ? "conjugation" : "vocab")
+        setReviewItems(items)
+        setUploadStep("review")
+        return
       }
 
       if (uploadTab === "file") {
@@ -654,10 +833,11 @@ export default function Page() {
 
   const buildVocabWorld = (items: ReviewItem[]): World => {
     const id = `upload-${Date.now()}`
+    const title = uploadName.trim() || "Uploaded list"
     return {
       id,
-      title: uploadName.trim() || "Uploaded list",
-      description: "Custom uploaded word list.",
+      title,
+      description: `Lista personalizada: ${title}`,
       mode: "vocab",
       pool: items.map((item, index) => ({
         id: `item-${index}-${item.source}`,
@@ -665,8 +845,32 @@ export default function Page() {
         de: item.target,
         image: { type: "emoji", value: "📝" },
         pos: item.pos,
+        explanation: `Auto: ${item.source} → ${item.target}`,
       })),
-      chunking: { itemsPerGame: 8 },
+      chunking: { mode: "sequential", itemsPerGame: 8 },
+      ui: {
+        header: {
+          levelLabelTemplate: "Nivel {i}/{n}",
+          levelItemTemplate: "Nivel {i}",
+        },
+        page: {
+          instructions: "Empareja las palabras en español con las palabras en alemán.",
+        },
+        vocab: {
+          progressTemplate: "Progreso: {matched}/{total} • Movimientos: {moves}",
+          carousel: { primaryLabel: "Español:", secondaryLabel: "Deutsch:" },
+          rightPanel: { title: "Parejas encontradas", emptyHint: "Encuentra una pareja para empezar." },
+        },
+        winning: {
+          title: "Lo has logrado 🎉",
+          movesLabel: "Movimientos:",
+          explanationTitle: "Explicación",
+          reviewTitle: "Revisión",
+          conjugationTitle: "Conjugación",
+          nextDefault: "Siguiente",
+          closeDefault: "Cerrar",
+        },
+      },
     } as World
   }
 
@@ -706,7 +910,7 @@ export default function Page() {
       submode: "conjugation",
       pool,
       conjugations: conjugationMap,
-      chunking: { itemsPerGame: 6 },
+      chunking: { mode: "sequential", itemsPerGame: 6 },
       ui: {
         header: { levelLabelTemplate: "{verb}", levelItemTemplate: "{verb}" },
         page: { instructions: ui.conjugationWorld.instructions },
@@ -785,6 +989,18 @@ export default function Page() {
     } finally {
       setIsProcessingUpload(false)
     }
+  }
+
+  const reviewFromTable = () => {
+    setUploadError(null)
+    const items = buildReviewItemsFromTable(tableRows)
+    if (items.length === 0) {
+      setUploadError(ui.upload.errorNoItems)
+      return
+    }
+    setReviewMode(uploadModeSelection === "conjugation" ? "conjugation" : "vocab")
+    setReviewItems(items)
+    setUploadStep("review")
   }
 
   const restart = () => {
@@ -927,13 +1143,18 @@ export default function Page() {
       <AnimatePresence>
         {isWorldsOpen && (
           <WorldsOverlay
-            worlds={allWorlds}
+            worlds={visibleWorlds}
             lists={worldLists}
             newListName={newListName}
             onChangeNewListName={setNewListName}
             onCreateList={createList}
             onAssignWorldToList={assignWorldToList}
             onMoveWorldInList={moveWorldInList}
+            onRenameWorld={renameWorld}
+            onRenameList={renameList}
+            getWorldTitle={getWorldTitle}
+            onMoveList={moveList}
+            onHideWorld={hideWorld}
             activeWorldId={worldId}
             onClose={() => setIsWorldsOpen(false)}
             onSelectWorld={(id) => {
@@ -954,6 +1175,9 @@ export default function Page() {
             error={uploadError}
             lists={worldLists}
             selectedListId={uploadListId}
+            hiddenWorlds={allWorlds
+              .filter((w) => hiddenWorldIds.includes(w.id))
+              .map((w) => ({ id: w.id, title: getWorldTitle(w.id, w.title) }))}
             tab={uploadTab}
             step={uploadStep}
             modeSelection={uploadModeSelection}
@@ -976,6 +1200,7 @@ export default function Page() {
             onFileUpload={handleFileUpload}
             onImageUpload={handleImageUpload}
             onGeneratePreview={handleGeneratePreview}
+            onReviewFromTable={reviewFromTable}
             onBackToInput={() => setUploadStep("input")}
             onUpdateReviewItem={(id, value) =>
               setReviewItems((prev) =>
@@ -999,6 +1224,7 @@ export default function Page() {
               setReviewItems((prev) => prev.filter((item) => item.id !== id))
             }
             onOpenListPicker={() => setIsListPickerOpen(true)}
+            onRestoreWorld={restoreWorld}
             onClose={() => setIsUploadOpen(false)}
             onSubmit={submitUpload}
             onSubmitReview={submitReview}
@@ -1035,7 +1261,11 @@ export default function Page() {
       <AnimatePresence>
         {isLevelsOpen && pendingWorldId && (
           <LevelsOverlay
-            world={allWorlds.find((w) => w.id === pendingWorldId)!}
+            world={visibleWorlds.find((w) => w.id === pendingWorldId)!}
+            displayTitle={getWorldTitle(
+              pendingWorldId,
+              visibleWorlds.find((w) => w.id === pendingWorldId)?.title ?? ""
+            )}
             activeLevelIndex={pendingWorldId === worldId ? levelIndex : -1}
             onClose={() => {
               setIsLevelsOpen(false)
@@ -1063,6 +1293,7 @@ function UploadOverlay({
   lists,
   selectedListId,
   onOpenListPicker,
+  hiddenWorlds,
   tab,
   step,
   modeSelection,
@@ -1081,10 +1312,12 @@ function UploadOverlay({
   onFileUpload,
   onImageUpload,
   onGeneratePreview,
+  onReviewFromTable,
   onBackToInput,
   onUpdateReviewItem,
   onAddReviewItem,
   onRemoveReviewItem,
+  onRestoreWorld,
   onClose,
   onSubmit,
   onSubmitReview,
@@ -1095,6 +1328,7 @@ function UploadOverlay({
   lists: WorldList[]
   selectedListId: string
   onOpenListPicker: () => void
+  hiddenWorlds: Array<{ id: string; title: string }>
   tab: UploadTab
   step: "input" | "review"
   modeSelection: UploadModeSelection
@@ -1113,10 +1347,12 @@ function UploadOverlay({
   onFileUpload: (file: File | null) => void
   onImageUpload: (file: File | null) => void
   onGeneratePreview: () => void
+  onReviewFromTable: () => void
   onBackToInput: () => void
   onUpdateReviewItem: (id: string, value: Partial<ReviewItem>) => void
   onAddReviewItem: () => void
   onRemoveReviewItem: (id: string) => void
+  onRestoreWorld: (id: string) => void
   onClose: () => void
   onSubmit: () => void
   onSubmitReview: () => void
@@ -1328,6 +1564,28 @@ function UploadOverlay({
                 ))}
               </div>
 
+              {hiddenWorlds.length > 0 && (
+                <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-3">
+                  <div className="text-xs uppercase tracking-wide text-neutral-400">
+                    {ui.upload.hiddenWorldsTitle}
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {hiddenWorlds.map((w) => (
+                      <div key={w.id} className="flex items-center justify-between gap-3">
+                        <div className="text-sm text-neutral-200">{w.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => onRestoreWorld(w.id)}
+                          className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                        >
+                          {ui.upload.restoreWorld}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {tab === "json" && (
                 <div>
                   <label className="text-sm text-neutral-300">{ui.upload.jsonLabel}</label>
@@ -1409,6 +1667,7 @@ function UploadOverlay({
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => onImageUpload(e.target.files?.[0] ?? null)}
                     className="mt-2 block w-full text-sm text-neutral-200"
                   />
@@ -1446,14 +1705,26 @@ function UploadOverlay({
                   {isProcessing ? ui.upload.processing : ui.upload.actionSave}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={onGeneratePreview}
-                  disabled={isProcessing}
-                  className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
-                >
-                  {isProcessing ? ui.upload.processing : ui.upload.actionGenerate}
-                </button>
+                <>
+                  {tab === "table" && (
+                    <button
+                      type="button"
+                      onClick={onReviewFromTable}
+                      disabled={isProcessing}
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm text-neutral-200 hover:text-white disabled:opacity-50"
+                    >
+                      {ui.upload.actionReview}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onGeneratePreview}
+                    disabled={isProcessing}
+                    className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
+                  >
+                    {isProcessing ? ui.upload.processing : ui.upload.actionGenerate}
+                  </button>
+                </>
               )}
             </div>
           </>
@@ -1574,6 +1845,11 @@ function WorldsOverlay({
   onCreateList,
   onAssignWorldToList,
   onMoveWorldInList,
+  onRenameWorld,
+  onRenameList,
+  getWorldTitle,
+  onMoveList,
+  onHideWorld,
   activeWorldId,
   onClose,
   onSelectWorld,
@@ -1585,10 +1861,21 @@ function WorldsOverlay({
   onCreateList: () => void
   onAssignWorldToList: (worldId: string, listId: string | null) => void
   onMoveWorldInList: (listId: string, worldId: string, direction: "up" | "down") => void
+  onRenameWorld: (worldId: string, title: string) => void
+  onRenameList: (listId: string, title: string) => void
+  getWorldTitle: (worldId: string, fallback: string) => string
+  onMoveList: (listId: string, direction: "up" | "down") => void
+  onHideWorld: (worldId: string) => void
   activeWorldId: string
   onClose: () => void
   onSelectWorld: (id: string) => void
 }) {
+  const [editingWorldId, setEditingWorldId] = useState<string | null>(null)
+  const [editingWorldTitle, setEditingWorldTitle] = useState("")
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [editingListTitle, setEditingListTitle] = useState("")
+  const [collapsedListIds, setCollapsedListIds] = useState<Record<string, boolean>>({})
+
   const worldById = useMemo(() => new Map(worlds.map((w) => [w.id, w])), [worlds])
   const listIdByWorld = useMemo(() => {
     const map = new Map<string, string>()
@@ -1604,6 +1891,33 @@ function WorldsOverlay({
     () => worlds.filter((w) => !listIdByWorld.has(w.id)),
     [worlds, listIdByWorld]
   )
+
+  const startEditWorld = (id: string, title: string) => {
+    setEditingWorldId(id)
+    setEditingWorldTitle(title)
+  }
+
+  const startEditList = (id: string, title: string) => {
+    setEditingListId(id)
+    setEditingListTitle(title)
+  }
+
+  const toggleList = (id: string) => {
+    setCollapsedListIds((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const moveList = (listId: string, direction: "up" | "down") => {
+    setWorldLists((prev) => {
+      const idx = prev.findIndex((list) => list.id === listId)
+      if (idx < 0) return prev
+      const nextIndex = direction === "up" ? Math.max(0, idx - 1) : Math.min(prev.length - 1, idx + 1)
+      if (nextIndex === idx) return prev
+      const next = [...prev]
+      const [item] = next.splice(idx, 1)
+      next.splice(nextIndex, 0, item)
+      return next
+    })
+  }
 
   return (
     <motion.div
@@ -1666,50 +1980,153 @@ function WorldsOverlay({
 
             return (
               <div key={list.id}>
-                <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">{list.name}</div>
-                <div className="space-y-3">
-                  {listWorlds.map((w, idx) => {
-                    const active = w.id === activeWorldId
-                    return (
+                <div className="flex items-center justify-between text-xs uppercase tracking-wide text-neutral-400 mb-2">
+                  {editingListId === list.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingListTitle}
+                        onChange={(e) => setEditingListTitle(e.target.value)}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+                      />
                       <button
-                        key={w.id}
                         type="button"
-                        onClick={() => onSelectWorld(w.id)}
-                        className={[
-                          "w-full text-left rounded-2xl border p-4 transition",
-                          "bg-neutral-900/40 hover:bg-neutral-900/60",
-                          active ? "border-neutral-300" : "border-neutral-800",
-                        ].join(" ")}
+                        onClick={() => {
+                          onRenameList(list.id, editingListTitle)
+                          setEditingListId(null)
+                        }}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="text-base font-semibold text-neutral-50">{w.title}</div>
-                  {active && (
-                    <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
-                      {ui.worldsOverlay.active}
-                    </span>
+                        ✓
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleList(list.id)}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                      >
+                        {collapsedListIds[list.id] ? "▸" : "▾"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleList(list.id)}
+                        className="text-neutral-300 hover:text-white"
+                      >
+                        {list.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditList(list.id, list.name)}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                      >
+                        ✎
+                      </button>
+                    </div>
                   )}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onMoveList(list.id, "up")}
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                      disabled={lists[0]?.id === list.id}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMoveList(list.id, "down")}
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                      disabled={lists[lists.length - 1]?.id === list.id}
+                    >
+                      ↓
+                    </button>
+                  </div>
                 </div>
-
-                        {w.description && (
-                          <div className="mt-1 text-sm text-neutral-300">{w.description}</div>
-                        )}
-
-                        <div
-                          className="mt-3 flex items-center justify-between gap-2"
-                          onClick={(e) => e.stopPropagation()}
+                {!collapsedListIds[list.id] && (
+                  <div className="space-y-3">
+                    {listWorlds.map((w, idx) => {
+                      const active = w.id === activeWorldId
+                      const title = getWorldTitle(w.id, w.title)
+                      return (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => onSelectWorld(w.id)}
+                          className={[
+                            "w-full text-left rounded-2xl border p-4 transition",
+                            "bg-neutral-900/40 hover:bg-neutral-900/60",
+                            active ? "border-neutral-300" : "border-neutral-800",
+                          ].join(" ")}
                         >
-                          <select
-                            value={listIdByWorld.get(w.id) ?? ""}
-                            onChange={(e) => onAssignWorldToList(w.id, e.target.value || null)}
-                            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+                          <div className="flex items-center justify-between">
+                            {editingWorldId === w.id ? (
+                              <div
+                                className="flex items-center gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="text"
+                                  value={editingWorldTitle}
+                                  onChange={(e) => setEditingWorldTitle(e.target.value)}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onRenameWorld(w.id, editingWorldTitle)
+                                    setEditingWorldId(null)
+                                  }}
+                                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                                >
+                                  ✓
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="text-base font-semibold text-neutral-50">{title}</div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    startEditWorld(w.id, title)
+                                  }}
+                                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                                >
+                                  ✎
+                                </button>
+                              </div>
+                            )}
+                            {active && (
+                              <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
+                                {ui.worldsOverlay.active}
+                              </span>
+                            )}
+                          </div>
+
+                          {w.description && (
+                            <div className="mt-1 text-sm text-neutral-300">{w.description}</div>
+                          )}
+
+                          <div
+                            className="mt-3 flex items-center justify-between gap-2"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="">{ui.worldsOverlay.unlisted}</option>
-                            {lists.map((opt) => (
-                              <option key={opt.id} value={opt.id}>
-                                {opt.name}
-                              </option>
-                            ))}
-                          </select>
+                            <select
+                              value={listIdByWorld.get(w.id) ?? ""}
+                              onChange={(e) => onAssignWorldToList(w.id, e.target.value || null)}
+                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+                            >
+                              <option value="">{ui.worldsOverlay.unlisted}</option>
+                              {lists.map((opt) => (
+                                <option key={opt.id} value={opt.id}>
+                                  {opt.name}
+                                </option>
+                              ))}
+                            </select>
 
                           <div className="flex items-center gap-1">
                             <button
@@ -1728,24 +2145,48 @@ function WorldsOverlay({
                             >
                               ↓
                             </button>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                              onClick={() => onHideWorld(w.id)}
+                            >
+                              {ui.worldsOverlay.hideWorld}
+                            </button>
                           </div>
                         </div>
                       </button>
                     )
                   })}
-                </div>
+                  </div>
+                )}
               </div>
             )
           })}
 
-          {unlistedWorlds.length > 0 && (
-            <div>
-              <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">
-                {ui.worldsOverlay.unlisted}
+          <div>
+            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-neutral-400 mb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleList("unlisted")}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                >
+                  {collapsedListIds["unlisted"] ? "▸" : "▾"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleList("unlisted")}
+                  className="text-neutral-300 hover:text-white"
+                >
+                  {ui.worldsOverlay.unlisted}
+                </button>
               </div>
-                  <div className="space-y-3">
-                    {unlistedWorlds.map((w) => {
+            </div>
+            {!collapsedListIds["unlisted"] && (
+              <div className="space-y-3">
+                {unlistedWorlds.map((w) => {
                   const active = w.id === activeWorldId
+                  const title = getWorldTitle(w.id, w.title)
                   return (
                     <button
                       key={w.id}
@@ -1758,7 +2199,45 @@ function WorldsOverlay({
                       ].join(" ")}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="text-base font-semibold text-neutral-50">{w.title}</div>
+                        {editingWorldId === w.id ? (
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="text"
+                              value={editingWorldTitle}
+                              onChange={(e) => setEditingWorldTitle(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onRenameWorld(w.id, editingWorldTitle)
+                                setEditingWorldId(null)
+                              }}
+                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="text-base font-semibold text-neutral-50">{title}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startEditWorld(w.id, title)
+                              }}
+                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        )}
                         {active && (
                           <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
                             {ui.worldsOverlay.active}
@@ -1771,25 +2250,34 @@ function WorldsOverlay({
                       )}
 
                       <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value=""
-                          onChange={(e) => onAssignWorldToList(w.id, e.target.value || null)}
-                          className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
-                        >
-                          <option value="">{ui.worldsOverlay.unlisted}</option>
-                          {lists.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex items-center justify-between gap-2">
+                          <select
+                            value=""
+                            onChange={(e) => onAssignWorldToList(w.id, e.target.value || null)}
+                            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+                          >
+                            <option value="">{ui.worldsOverlay.unlisted}</option>
+                            {lists.map((opt) => (
+                              <option key={opt.id} value={opt.id}>
+                                {opt.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                            onClick={() => onHideWorld(w.id)}
+                          >
+                            {ui.worldsOverlay.hideWorld}
+                          </button>
+                        </div>
                       </div>
                     </button>
                   )
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="mt-5 flex justify-end">
@@ -1808,11 +2296,13 @@ function WorldsOverlay({
 
 function LevelsOverlay({
   world,
+  displayTitle,
   activeLevelIndex,
   onClose,
   onSelectLevel,
 }: {
   world: World
+  displayTitle: string
   activeLevelIndex: number
   onClose: () => void
   onSelectLevel: (levelIndex: number) => void
@@ -1848,7 +2338,7 @@ function LevelsOverlay({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-neutral-50">
-                {world.title} {ui.levelsOverlay.titleSuffix}
+                {displayTitle} {ui.levelsOverlay.titleSuffix}
             </h2>
 
             <p className="text-sm text-neutral-300 mt-2">
