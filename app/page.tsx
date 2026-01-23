@@ -422,7 +422,12 @@ export default function Page() {
     })
     const data = await response.json()
     if (!response.ok) {
-      throw new Error(data?.error ?? "AI request failed")
+      const detailsMessage =
+        data?.details?.error?.message ||
+        data?.details?.error?.status ||
+        data?.details?.error ||
+        data?.details?.message
+      throw new Error(detailsMessage || data?.error || "AI request failed")
     }
     return data
   }
