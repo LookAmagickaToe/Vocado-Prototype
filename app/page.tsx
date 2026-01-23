@@ -538,7 +538,13 @@ export default function Page() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-    const data = await response.json()
+    let data: any = null
+    try {
+      data = await response.json()
+    } catch {
+      const text = await response.text().catch(() => "")
+      data = { error: text }
+    }
     if (!response.ok) {
       const detailsMessage =
         data?.details?.error?.message ||
@@ -1682,13 +1688,21 @@ function UploadOverlay({
               {tab === "image" && (
                 <div>
                   <label className="text-sm text-neutral-300">{ui.upload.imageLabel}</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => onImageUpload(e.target.files?.[0] ?? null)}
-                    className="mt-2 block w-full text-sm text-neutral-200"
-                  />
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => onImageUpload(e.target.files?.[0] ?? null)}
+                      className="block w-full text-sm text-neutral-200"
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => onImageUpload(e.target.files?.[0] ?? null)}
+                      className="block w-full text-sm text-neutral-200"
+                    />
+                  </div>
                   {imagePreviewUrl && (
                     <div className="mt-3">
                       <img

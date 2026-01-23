@@ -151,7 +151,13 @@ export async function POST(req: NextRequest) {
     }
   )
 
-  const data = await response.json()
+  const raw = await response.text()
+  let data: any = null
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    data = { error: { message: raw } }
+  }
   if (!response.ok) {
     console.error("Gemini error response:", data)
     return NextResponse.json({ error: "Gemini request failed", details: data }, { status: 500 })
