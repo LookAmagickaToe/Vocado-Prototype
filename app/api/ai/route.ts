@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-1.5-flash"
+const DEFAULT_MODEL = "gemini-flash-latest"
 
 type ParseTask = "parse_text" | "parse_image" | "conjugate"
 
@@ -130,8 +130,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown task" }, { status: 400 })
   }
 
+  const rawModel = process.env.GEMINI_MODEL ?? DEFAULT_MODEL
+  const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
