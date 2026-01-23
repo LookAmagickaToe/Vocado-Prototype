@@ -503,6 +503,19 @@ export default function Page() {
     )
   }
 
+  const moveList = (listId: string, direction: "up" | "down") => {
+    setWorldLists((prev) => {
+      const idx = prev.findIndex((list) => list.id === listId)
+      if (idx < 0) return prev
+      const nextIndex = direction === "up" ? Math.max(0, idx - 1) : Math.min(prev.length - 1, idx + 1)
+      if (nextIndex === idx) return prev
+      const next = [...prev]
+      const [item] = next.splice(idx, 1)
+      next.splice(nextIndex, 0, item)
+      return next
+    })
+  }
+
   const listNameForUpload =
     worldLists.find((list) => list.id === uploadListId)?.name ?? ""
 
@@ -1943,19 +1956,6 @@ function WorldsOverlay({
 
   const toggleList = (id: string) => {
     onSetCollapsedListIds((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
-  const moveList = (listId: string, direction: "up" | "down") => {
-    setWorldLists((prev) => {
-      const idx = prev.findIndex((list) => list.id === listId)
-      if (idx < 0) return prev
-      const nextIndex = direction === "up" ? Math.max(0, idx - 1) : Math.min(prev.length - 1, idx + 1)
-      if (nextIndex === idx) return prev
-      const next = [...prev]
-      const [item] = next.splice(idx, 1)
-      next.splice(nextIndex, 0, item)
-      return next
-    })
   }
 
   return (
