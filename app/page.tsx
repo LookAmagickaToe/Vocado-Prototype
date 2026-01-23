@@ -578,7 +578,9 @@ export default function Page() {
       setLevelIndex(0)
       setGameSeed((s) => s + 1)
     }
-    await saveWorldsToDisk(worldsToPersist)
+    if (process.env.NEXT_PUBLIC_DISABLE_DISK_SAVE !== "true") {
+      await saveWorldsToDisk(worldsToPersist)
+    }
   }
 
   const openUpload = () => {
