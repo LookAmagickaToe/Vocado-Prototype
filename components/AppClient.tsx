@@ -51,7 +51,7 @@ type ReviewItem = {
   conjugate: boolean
 }
 
-type UploadTab = "table" | "upload" | "json"
+type UploadTab = "table" | "upload" | "theme" | "json"
 type UploadModeSelection = "auto" | "vocab" | "conjugation"
 
 const ui = {
@@ -99,6 +99,7 @@ const ui = {
     tabJson: uiSettings?.upload?.tabJson ?? "JSON",
     tabTable: uiSettings?.upload?.tabTable ?? "Tabla",
     tabUpload: uiSettings?.upload?.tabUpload ?? "Archivo/Imagen",
+    tabTheme: uiSettings?.upload?.tabTheme ?? "Tema",
     jsonLabel: uiSettings?.upload?.jsonLabel ?? "Contenido (JSON)",
     jsonPlaceholder: uiSettings?.upload?.jsonPlaceholder ?? '[{"es":"hola","de":"hallo"}]',
     tableSource: uiSettings?.upload?.tableSource ?? "Español",
@@ -116,6 +117,18 @@ const ui = {
     imageHint:
       uiSettings?.upload?.imageHint ??
       "Gemini extraerá el vocabulario desde la imagen.",
+    themeLabel: uiSettings?.upload?.themeLabel ?? "Tema",
+    themePlaceholder:
+      uiSettings?.upload?.themePlaceholder ??
+      "Ej: 50 palabras sobre utensilios de cocina para nivel B2",
+    themeCountLabel: uiSettings?.upload?.themeCountLabel ?? "Cantidad",
+    themeLevelLabel: uiSettings?.upload?.themeLevelLabel ?? "Nivel",
+    themeLevelA1: uiSettings?.upload?.themeLevelA1 ?? "A1",
+    themeLevelA2: uiSettings?.upload?.themeLevelA2 ?? "A2",
+    themeLevelB1: uiSettings?.upload?.themeLevelB1 ?? "B1",
+    themeLevelB2: uiSettings?.upload?.themeLevelB2 ?? "B2",
+    themeLevelC1: uiSettings?.upload?.themeLevelC1 ?? "C1",
+    themeLevelC2: uiSettings?.upload?.themeLevelC2 ?? "C2",
     reviewTitle: uiSettings?.upload?.reviewTitle ?? "Revisar vocabulario",
     reviewHint:
       uiSettings?.upload?.reviewHint ??
@@ -292,6 +305,9 @@ export default function AppClient({
     mimeType: string
     previewUrl: string
   } | null>(null)
+  const [themeText, setThemeText] = useState("")
+  const [themeCount, setThemeCount] = useState(20)
+  const [themeLevel, setThemeLevel] = useState("B1")
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
@@ -625,6 +641,9 @@ export default function AppClient({
     setFileUploadText("")
     setFileUploadName("")
     setImageUpload(null)
+    setThemeText("")
+    setThemeCount(20)
+    setThemeLevel("B1")
     setReviewItems([])
     setReviewMode("vocab")
     setUploadTargetWorldId("new")
@@ -1059,6 +1078,35 @@ export default function AppClient({
         setReviewMode(uploadModeSelection === "conjugation" ? "conjugation" : "vocab")
         setReviewItems(items)
         setUploadStep("review")
+        return
+      }
+
+      if (uploadTab === "theme") {
+        if (!themeText.trim()) {
+          setUploadError(ui.upload.errorNoInput)
+          return
+        }
+        const result = await callAi({
+          task: "theme_list",
+          theme: themeText,
+          count: themeCount,
+          level: themeLevel,
+          mode: desiredMode,
+          sourceLabel: ui.upload.tableSource,
+          targetLabel: ui.upload.tableTarget,
+        })
+        const items = Array.isArray(result?.items) ? result.items : []
+        if (items.length === 0) {
+          setUploadError(ui.upload.errorNoItems)
+          return
+        }
+        const mode =
+          uploadModeSelection === "auto" && result?.mode === "conjugation"
+            ? "conjugation"
+            : uploadModeSelection === "conjugation"
+              ? "conjugation"
+              : "vocab"
+        startReview(buildReviewItemsFromAi(items), mode)
         return
       }
 
@@ -1593,11 +1641,17 @@ export default function AppClient({
             imagePreviewUrl={imageUpload?.previewUrl ?? ""}
             reviewItems={reviewItems}
             isProcessing={isProcessingUpload}
+            themeText={themeText}
+            themeCount={themeCount}
+            themeLevel={themeLevel}
             onChangeName={setUploadName}
             onChangeText={setUploadText}
             onChangeTab={handleChangeUploadTab}
             onChangeModeSelection={setUploadModeSelection}
             onChangeTargetWorldId={setUploadTargetWorldId}
+            onChangeThemeText={setThemeText}
+            onChangeThemeCount={setThemeCount}
+            onChangeThemeLevel={setThemeLevel}
             onUpdateTableRow={updateTableRow}
             onAddTableRow={() =>
               setTableRows((prev) => [...prev, { source: "", target: "" }])
@@ -1712,11 +1766,23 @@ function UploadOverlay({
   imagePreviewUrl,
   reviewItems,
   isProcessing,
+  themeText,
+  themeCount,
+  themeLevel,
+  themeText,
+  themeCount,
+  themeLevel,
   onChangeName,
   onChangeText,
   onChangeTab,
   onChangeModeSelection,
   onChangeTargetWorldId,
+  onChangeThemeText,
+  onChangeThemeCount,
+  onChangeThemeLevel,
+  onChangeThemeText,
+  onChangeThemeCount,
+  onChangeThemeLevel,
   onUpdateTableRow,
   onAddTableRow,
   onRemoveTableRow,
@@ -1750,11 +1816,17 @@ function UploadOverlay({
   imagePreviewUrl: string
   reviewItems: ReviewItem[]
   isProcessing: boolean
+  themeText: string
+  themeCount: number
+  themeLevel: string
   onChangeName: (value: string) => void
   onChangeText: (value: string) => void
   onChangeTab: (value: UploadTab) => void
   onChangeModeSelection: (value: UploadModeSelection) => void
   onChangeTargetWorldId: (value: string) => void
+  onChangeThemeText: (value: string) => void
+  onChangeThemeCount: (value: number) => void
+  onChangeThemeLevel: (value: string) => void
   onUpdateTableRow: (index: number, value: { source?: string; target?: string }) => void
   onAddTableRow: () => void
   onRemoveTableRow: (index: number) => void
@@ -1776,6 +1848,7 @@ function UploadOverlay({
   const tabs: Array<{ id: UploadTab; label: string }> = [
     { id: "table", label: ui.upload.tabTable },
     { id: "upload", label: ui.upload.tabUpload },
+    { id: "theme", label: ui.upload.tabTheme },
     { id: "json", label: ui.upload.tabJson },
   ]
 
@@ -2087,6 +2160,47 @@ function UploadOverlay({
                     {ui.upload.tableAddRow}
                   </button>
                   <div className="mt-2 text-xs text-neutral-400">{ui.upload.tableHint}</div>
+                </div>
+              )}
+
+              {tab === "theme" && (
+                <div>
+                  <label className="text-sm text-neutral-300">{ui.upload.themeLabel}</label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr,120px,120px]">
+                    <input
+                      type="text"
+                      value={themeText}
+                      onChange={(e) => onChangeThemeText(e.target.value)}
+                      placeholder={ui.upload.themePlaceholder}
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
+                    />
+                    <div>
+                      <label className="text-xs text-neutral-400">{ui.upload.themeCountLabel}</label>
+                      <input
+                        type="number"
+                        min={5}
+                        max={200}
+                        value={themeCount}
+                        onChange={(e) => onChangeThemeCount(Number(e.target.value))}
+                        className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-2 text-sm text-neutral-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">{ui.upload.themeLevelLabel}</label>
+                      <select
+                        value={themeLevel}
+                        onChange={(e) => onChangeThemeLevel(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-2 text-sm text-neutral-100"
+                      >
+                        <option value="A1">{ui.upload.themeLevelA1}</option>
+                        <option value="A2">{ui.upload.themeLevelA2}</option>
+                        <option value="B1">{ui.upload.themeLevelB1}</option>
+                        <option value="B2">{ui.upload.themeLevelB2}</option>
+                        <option value="C1">{ui.upload.themeLevelC1}</option>
+                        <option value="C2">{ui.upload.themeLevelC2}</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               )}
 

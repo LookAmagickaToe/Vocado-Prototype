@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 
 const DEFAULT_MODEL = "gemini-flash-latest"
 
-type ParseTask = "parse_text" | "parse_image" | "conjugate"
+type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list"
 
 function extractJson(text: string) {
   const start = text.indexOf("{")
@@ -95,6 +95,41 @@ function buildConjugationPrompt({
   ].join("\n")
 }
 
+function buildThemePrompt({
+  sourceLabel,
+  targetLabel,
+  desiredMode,
+  theme,
+  count,
+  level,
+}: {
+  sourceLabel: string
+  targetLabel: string
+  desiredMode?: string | null
+  theme: string
+  count: number
+  level: string
+}) {
+  const modeLine = desiredMode
+    ? `The user selected mode: "${desiredMode}". Respect it even if you disagree.`
+    : "Auto-select mode based on the content."
+
+  return [
+    "You are generating a vocabulary list from a theme.",
+    `Theme: "${theme}"`,
+    `Target count: ${count}`,
+    `Level: ${level}`,
+    `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
+    modeLine,
+    "Return ONLY valid JSON with this shape:",
+    `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂"}]}`,
+    "Choose a fitting emoji for each item (emoji is required).",
+    "Always set pos for every item (verb, noun, adj, or other).",
+    "Correct capitalization, accents, and spacing.",
+    "Return exactly the requested number of items if possible.",
+  ].join("\n")
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -135,6 +170,22 @@ export async function POST(req: NextRequest) {
   } else if (task === "conjugate") {
     const verbs = Array.isArray(body?.verbs) ? body.verbs : []
     prompt = buildConjugationPrompt({ sourceLabel, targetLabel, verbs })
+    parts = [{ text: prompt }]
+  } else if (task === "theme_list") {
+    const theme = typeof body?.theme === "string" ? body.theme : ""
+    const count = typeof body?.count === "number" ? body.count : 20
+    const level = typeof body?.level === "string" ? body.level : "A2"
+    if (!theme.trim()) {
+      return NextResponse.json({ error: "Missing theme" }, { status: 400 })
+    }
+    prompt = buildThemePrompt({
+      sourceLabel,
+      targetLabel,
+      desiredMode: body?.mode ?? null,
+      theme,
+      count,
+      level,
+    })
     parts = [{ text: prompt }]
   } else {
     return NextResponse.json({ error: "Unknown task" }, { status: 400 })
