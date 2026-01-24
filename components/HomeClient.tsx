@@ -399,7 +399,7 @@ export default function HomeClient({
         <header className="flex items-center justify-end gap-3">
           <div className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
             <span className="font-semibold">{seeds}</span>
-            <span>{ui.seedsLabel}</span>
+            <span>🌱</span>
           </div>
           <UserMenu
             level={profileState.level || "B1"}

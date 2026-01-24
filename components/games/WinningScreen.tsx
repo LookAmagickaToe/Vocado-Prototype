@@ -2,6 +2,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 import { Conjugation } from "@/types/worlds"
@@ -47,6 +48,7 @@ export default function WinningScreen({
   // ✅ NEW (single tile + single table)
   summaryItem,
   conjugation,
+  awardSummary,
 }: {
   moves: number
   subtitle: string
@@ -66,6 +68,7 @@ export default function WinningScreen({
 
   summaryItem?: ReviewCarouselItem | null
   conjugation?: Conjugation
+  awardSummary?: { payout: number; totalBefore: number; totalAfter: number }
 
   title?: string
   movesLabel?: string
@@ -78,6 +81,14 @@ export default function WinningScreen({
   emptyCarouselText?: string
 }) {
   const hasSummary = !!summaryItem
+  const [hasMergedAward, setHasMergedAward] = useState(false)
+
+  useEffect(() => {
+    if (!awardSummary) return
+    setHasMergedAward(false)
+    const timer = window.setTimeout(() => setHasMergedAward(true), 3000)
+    return () => window.clearTimeout(timer)
+  }, [awardSummary])
 
   const hasCarousel =
     !hasSummary && // ✅ if summary is provided, NEVER show carousel
@@ -100,8 +111,35 @@ export default function WinningScreen({
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="w-full max-w-lg h-[78vh] max-h-[720px] rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl flex flex-col"
+        className="relative w-full max-w-lg h-[78vh] max-h-[720px] rounded-2xl bg-neutral-950 border border-neutral-800 p-6 shadow-xl flex flex-col"
       >
+        {awardSummary && (
+          <div className="absolute right-5 top-5 flex items-center gap-3">
+            <motion.div
+              initial={{ x: 0, opacity: 1, scale: 1 }}
+              animate={{
+                x: hasMergedAward ? 32 : 0,
+                opacity: hasMergedAward ? 0 : 1,
+                scale: hasMergedAward ? 0.9 : 1,
+              }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200 shadow"
+            >
+              +{awardSummary.payout} 🌱
+            </motion.div>
+            <div className="rounded-full border border-neutral-800 bg-neutral-950/70 px-3 py-1 text-xs font-semibold text-neutral-100 shadow">
+              <motion.span
+                key={hasMergedAward ? "after" : "before"}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {hasMergedAward ? awardSummary.totalAfter : awardSummary.totalBefore}
+              </motion.span>{" "}
+              🌱
+            </div>
+          </div>
+        )}
         <div className="text-center">
           <h2 className="text-2xl font-semibold">{title}</h2>
           <p className="text-sm text-neutral-300 mt-2">{subtitle}</p>

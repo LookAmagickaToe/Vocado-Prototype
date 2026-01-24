@@ -93,7 +93,10 @@ export default function PhraseMemoryGame({
       world: PhraseWorld
     levelIndex: number
     onNextLevel:()=>void
-    onWin?: (moves: number, wordsLearnedCount: number) => void
+    onWin?: (
+      moves: number,
+      wordsLearnedCount: number
+    ) => { payout: number; totalBefore: number; totalAfter: number } | void
 }) {
     const [phraseIdx, setPhraseIdx] = useState(0)
 
@@ -125,6 +128,11 @@ export default function PhraseMemoryGame({
     const [showWinOverlay, setShowWinOverlay] = useState(false)
     const [runSeed, setRunSeed] = useState(0)
     const [hasReportedWin, setHasReportedWin] = useState(false)
+    const [awardSummary, setAwardSummary] = useState<{
+      payout: number
+      totalBefore: number
+      totalAfter: number
+    } | null>(null)
     type Phase = "intro" | "preview" | "play"
     const [phase, setPhase] = useState<Phase>("intro")
 
@@ -153,6 +161,7 @@ export default function PhraseMemoryGame({
         setShowWinOverlay(false)
         setHasReportedWin(false)
         setPhase("intro")
+        setAwardSummary(null)
     }, [deck, levelIndex, world.id, phraseIdx])
     useEffect(() => {
         if (phase !== "preview") return
@@ -175,7 +184,10 @@ export default function PhraseMemoryGame({
 
     useEffect(() => {
       if (!won || hasReportedWin || !phrase) return
-      onWin?.(moves, phrase.tokens.length)
+      const result = onWin?.(moves, phrase.tokens.length)
+      if (result) {
+        setAwardSummary(result)
+      }
       setHasReportedWin(true)
     }, [won, moves, onWin, hasReportedWin, phrase])
 
@@ -391,6 +403,7 @@ export default function PhraseMemoryGame({
                     subtitle={winSubtitle}
                     moves={moves}
                     explanation={phrase.explanation}
+                    awardSummary={awardSummary ?? undefined}
                     onClose={() => setShowWinOverlay(false)}
                     onRestart={() => {
                         setShowWinOverlay(false)

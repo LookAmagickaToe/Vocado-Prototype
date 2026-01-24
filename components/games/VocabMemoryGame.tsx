@@ -81,7 +81,10 @@ export default function VocabMemoryGame({
   onNextLevel: () => void
   primaryLabelOverride?: string
   secondaryLabelOverride?: string
-  onWin?: (moves: number, wordsLearnedCount: number) => void
+  onWin?: (
+    moves: number,
+    wordsLearnedCount: number
+  ) => { payout: number; totalBefore: number; totalAfter: number } | void
 }) {
     const VOCAB = useMemo(() => {
         const k = world.chunking.itemsPerGame
@@ -109,6 +112,11 @@ export default function VocabMemoryGame({
     const [isWon, setIsWon] = useState(false)
     const [showWinOverlay, setShowWinOverlay] = useState(false)
     const [hasReportedWin, setHasReportedWin] = useState(false)
+    const [awardSummary, setAwardSummary] = useState<{
+      payout: number
+      totalBefore: number
+      totalAfter: number
+    } | null>(null)
 
     const primaryLabel =
       primaryLabelOverride ??
@@ -145,6 +153,7 @@ export default function VocabMemoryGame({
       setMoves(0)
       setPendingResolution(null)
       setHasReportedWin(false)
+      setAwardSummary(null)
     }, [baseDeck])
 
 
@@ -157,7 +166,10 @@ export default function VocabMemoryGame({
 
     useEffect(() => {
       if (!isWon || hasReportedWin) return
-      onWin?.(moves, VOCAB.length)
+      const result = onWin?.(moves, VOCAB.length)
+      if (result) {
+        setAwardSummary(result)
+      }
       setHasReportedWin(true)
     }, [isWon, moves, onWin, hasReportedWin, VOCAB.length])
 
@@ -510,6 +522,7 @@ export default function VocabMemoryGame({
           secondaryCaption={vui?.carousel?.secondaryLabel}
           summaryItem={isConjugation ? summaryItem : undefined}
           conjugation={isConjugation ? conjugationTable : undefined}
+          awardSummary={awardSummary ?? undefined}
           // ✅ only pass carousel props for NON-conjugation worlds
           {...(!isConjugation
             ? { matchedOrder, carouselIndex, setCarouselIndex, carouselItem }

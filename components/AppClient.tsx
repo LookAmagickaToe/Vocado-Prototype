@@ -340,6 +340,7 @@ export default function AppClient({
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
   const [isListPickerOpen, setIsListPickerOpen] = useState(false)
   const [listPickerName, setListPickerName] = useState("")
+  const [seeds, setSeeds] = useState(0)
 
   // used to force-remount the game (restart) without touching game internals
   const [gameSeed, setGameSeed] = useState(0)
@@ -423,6 +424,15 @@ export default function AppClient({
     const currentWeekly = Number(rawWeekly || "0") || 0
     const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
     window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+
+    const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    setSeeds(finalSeeds)
+
+    return {
+      payout,
+      totalBefore: currentSeeds,
+      totalAfter: finalSeeds,
+    }
   }
 
   useEffect(() => {
@@ -430,6 +440,26 @@ export default function AppClient({
       setThemeLevel(profileSettings.level)
     }
   }, [profileSettings.level])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncSeeds = () => {
+      const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
+      setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
+    }
+    syncSeeds()
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === SEEDS_STORAGE_KEY) {
+        syncSeeds()
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("focus", syncSeeds)
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("focus", syncSeeds)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1674,12 +1704,17 @@ export default function AppClient({
                     {worldTitle} — {levelLabel}
                   </div>
                 </div>
-              <UserMenu
-                level={profileSettings.level || "B1"}
-                sourceLanguage={profileSettings.sourceLanguage}
-                targetLanguage={profileSettings.targetLanguage}
-                onUpdateSettings={handleProfileUpdate}
-              />
+              <div className="flex flex-col items-end gap-1">
+                <UserMenu
+                  level={profileSettings.level || "B1"}
+                  sourceLanguage={profileSettings.sourceLanguage}
+                  targetLanguage={profileSettings.targetLanguage}
+                  onUpdateSettings={handleProfileUpdate}
+                />
+                <div className="text-xs text-neutral-200">
+                  <span className="font-semibold">{seeds}</span> 🌱
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1761,6 +1796,9 @@ export default function AppClient({
                     <RotateCcw className="w-4 h-4" />
                     {ui.menu.restart}
                   </Button>
+                  <div className="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
+                    <span className="font-semibold">{seeds}</span> 🌱
+                  </div>
                   <UserMenu
                     level={profileSettings.level || "B1"}
                     sourceLanguage={profileSettings.sourceLanguage}
