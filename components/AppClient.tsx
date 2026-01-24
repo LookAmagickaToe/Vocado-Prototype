@@ -1583,21 +1583,13 @@ export default function AppClient({
           {/* MOBILE TOP BAR */}
           <div className="col-span-12 md:hidden">
             <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(true)}
-                className="h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
-                aria-label="Menú"
-              >
-                ☰
-              </button>
-                <div className="text-center flex-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.location.href = "/"
-                      }
+              <div className="text-center flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.location.href = "/"
+                    }
                     }}
                     className="text-2xl font-semibold tracking-tight"
                   >
@@ -1612,11 +1604,6 @@ export default function AppClient({
                 sourceLanguage={profileSettings.sourceLanguage}
                 targetLanguage={profileSettings.targetLanguage}
                 onUpdateSettings={handleProfileUpdate}
-                onNavigateHome={() => {
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/"
-                  }
-                }}
               />
             </div>
           </div>
@@ -1704,11 +1691,6 @@ export default function AppClient({
                     sourceLanguage={profileSettings.sourceLanguage}
                     targetLanguage={profileSettings.targetLanguage}
                     onUpdateSettings={handleProfileUpdate}
-                    onNavigateHome={() => {
-                      if (typeof window !== "undefined") {
-                        window.location.href = "/"
-                      }
-                    }}
                   />
                 </div>
               </div>

@@ -107,5 +107,8 @@
     "listSelectLabel": "Lista",
     "worldNameLabel": "Nombre del mundo",
     "confirmAdd": "Guardar"
+  },
+  "profile": {
+    "save": "Guardar"
   }
 }

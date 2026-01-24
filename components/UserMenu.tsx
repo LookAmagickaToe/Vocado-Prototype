@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
+import uiSettings from "@/data/ui/settings.json"
 
 const LANGUAGES = [
   "Español",
@@ -20,7 +21,6 @@ export default function UserMenu({
   sourceLanguage,
   targetLanguage,
   onUpdateSettings,
-  onNavigateHome,
 }: {
   level: string
   sourceLanguage: string
@@ -30,12 +30,16 @@ export default function UserMenu({
     sourceLanguage: string
     targetLanguage: string
   }) => void
-  onNavigateHome?: () => void
 }) {
   const router = useRouter()
   const [email, setEmail] = useState<string>("")
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const [draftLevel, setDraftLevel] = useState(level)
+  const [draftSource, setDraftSource] = useState(sourceLanguage)
+  const [draftTarget, setDraftTarget] = useState(targetLanguage)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -55,6 +59,12 @@ export default function UserMenu({
   }, [])
 
   useEffect(() => {
+    setDraftLevel(level)
+    setDraftSource(sourceLanguage)
+    setDraftTarget(targetLanguage)
+  }, [level, sourceLanguage, targetLanguage])
+
+  useEffect(() => {
     if (!open) return
     const handler = (event: MouseEvent) => {
       if (!wrapperRef.current) return
@@ -70,31 +80,39 @@ export default function UserMenu({
     router.push("/login")
   }
 
-  const updateProfile = async (nextLevel: string, nextSource: string, nextTarget: string) => {
+  const updateProfile = async () => {
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return
-
-    const languageChanged =
-      nextSource !== sourceLanguage || nextTarget !== targetLanguage
-
+    setIsSaving(true)
+    setSaveError(null)
     await fetch("/api/auth/profile/update", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        level: nextLevel,
-        sourceLanguage: nextSource,
-        targetLanguage: nextTarget,
+        level: draftLevel,
+        sourceLanguage: draftSource,
+        targetLanguage: draftTarget,
       }),
     })
-    onUpdateSettings({
-      level: nextLevel,
-      sourceLanguage: nextSource,
-      targetLanguage: nextTarget,
-    })
-    if (languageChanged) {
-      onNavigateHome?.()
-    }
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => null)
+          throw new Error(data?.error ?? "Save failed")
+        }
+        onUpdateSettings({
+          level: draftLevel,
+          sourceLanguage: draftSource,
+          targetLanguage: draftTarget,
+        })
+        setOpen(false)
+      })
+      .catch((err) => {
+        setSaveError((err as Error).message)
+      })
+      .finally(() => {
+        setIsSaving(false)
+      })
   }
 
   if (!email) return null
@@ -118,8 +136,8 @@ export default function UserMenu({
                 Source
               </label>
               <select
-                value={sourceLanguage}
-                onChange={(e) => updateProfile(level, e.target.value, targetLanguage)}
+                value={draftSource}
+                onChange={(e) => setDraftSource(e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 <option value="">Auto</option>
@@ -135,8 +153,8 @@ export default function UserMenu({
                 Target
               </label>
               <select
-                value={targetLanguage}
-                onChange={(e) => updateProfile(level, sourceLanguage, e.target.value)}
+                value={draftTarget}
+                onChange={(e) => setDraftTarget(e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 <option value="">Auto</option>
@@ -152,8 +170,8 @@ export default function UserMenu({
                 Level
               </label>
               <select
-                value={level}
-                onChange={(e) => updateProfile(e.target.value, sourceLanguage, targetLanguage)}
+                value={draftLevel}
+                onChange={(e) => setDraftLevel(e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 {LEVELS.map((item) => (
@@ -163,6 +181,15 @@ export default function UserMenu({
                 ))}
               </select>
             </div>
+            {saveError && <div className="text-[11px] text-red-400">{saveError}</div>}
+            <button
+              type="button"
+              onClick={updateProfile}
+              disabled={isSaving}
+              className="mt-2 w-full rounded-lg border border-green-500/40 bg-green-600/20 px-3 py-2 text-xs text-green-100 hover:bg-green-600/30 disabled:opacity-50"
+            >
+              {uiSettings?.profile?.save ?? "Guardar"}
+            </button>
           </div>
           <button
             type="button"

@@ -82,7 +82,7 @@ export default function HomeClient({
       worldsAction: uiSettings?.home?.worldsAction ?? "Mundos",
       newsAction: uiSettings?.home?.newsAction ?? "Noticias",
       newsTitle: uiSettings?.home?.newsTitle ?? "Título del artículo destacado",
-      seedsLabel: uiSettings?.home?.seedsLabel ?? "Semillas",
+      seedsLabel: uiSettings?.home?.seedsLabel ?? "🌱Semillas",
       translateTitle: uiSettings?.home?.translateTitle ?? "Traducir",
       translatePlaceholder: uiSettings?.home?.translatePlaceholder ?? "Escribe una palabra...",
       translateAction: uiSettings?.home?.translateAction ?? "Traducir",
