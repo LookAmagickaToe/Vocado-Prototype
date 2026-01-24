@@ -1944,13 +1944,13 @@ export default function AppClient({
           <div className="flex items-center justify-between">
             <button
               type="button"
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.location.href = "/"
-                }
-              }}
-              className="text-2xl font-semibold tracking-tight"
-            >
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.location.href = "/"
+                    }
+                  }}
+                  className="text-2xl font-semibold tracking-tight"
+                >
               voc<span className="text-green-500">ado</span>
             </button>
             <UserMenu
