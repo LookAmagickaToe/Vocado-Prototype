@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-const TAGESSCHAU_BASE = "https://tagesschau.api.bund.dev/api2/news"
+const TAGESSCHAU_BASE = "https://www.tagesschau.de/api2u/news/"
 const ALLOWED_RESSORTS = new Set([
   "ausland",
   "wirtschaft",
