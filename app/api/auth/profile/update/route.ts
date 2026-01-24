@@ -17,7 +17,6 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const language = typeof body?.language === "string" ? body.language.trim() : ""
     const level = typeof body?.level === "string" ? body.level.trim() : ""
     const sourceLanguage =
       typeof body?.sourceLanguage === "string" ? body.sourceLanguage.trim() : ""
@@ -27,7 +26,6 @@ export async function POST(req: Request) {
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({
-        language: language || null,
         level: level || null,
         source_language: sourceLanguage || null,
         target_language: targetLanguage || null,

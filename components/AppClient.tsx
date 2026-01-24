@@ -182,6 +182,9 @@ const ui = {
     emptyHint:
       uiSettings?.conjugationWorld?.emptyHint ?? "Encuentra una pareja para empezar.",
   },
+  home: {
+    title: uiSettings?.home?.title ?? "Inicio",
+  },
 }
 
 function normalizeUploadedWorld(payload: any, name?: string): World | null {
@@ -266,7 +269,6 @@ type AppClientProps = {
   initialWorldTitleOverrides?: Record<string, string>
   initialSupabaseLoaded?: boolean
   initialProfile?: {
-    language?: string
     level?: string
     sourceLanguage?: string
     targetLanguage?: string
@@ -310,7 +312,6 @@ export default function AppClient({
   const [uploadStep, setUploadStep] = useState<"input" | "review">("input")
   const [uploadModeSelection, setUploadModeSelection] = useState<UploadModeSelection>("auto")
   const [profileSettings, setProfileSettings] = useState({
-    language: initialProfile?.language ?? "",
     level: initialProfile?.level ?? "",
     sourceLanguage: initialProfile?.sourceLanguage ?? "",
     targetLanguage: initialProfile?.targetLanguage ?? "",
@@ -342,7 +343,6 @@ export default function AppClient({
   const targetLabel = profileSettings.targetLanguage || ui.upload.tableTarget
 
   const handleProfileUpdate = (next: {
-    language: string
     level: string
     sourceLanguage: string
     targetLanguage: string
@@ -1591,20 +1591,32 @@ export default function AppClient({
               >
                 ☰
               </button>
-              <div className="text-center flex-1">
-                <div className="text-2xl font-semibold tracking-tight">
-                  voc<span className="text-green-500">ado</span>
+                <div className="text-center flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/"
+                      }
+                    }}
+                    className="text-2xl font-semibold tracking-tight"
+                  >
+                    voc<span className="text-green-500">ado</span>
+                  </button>
+                  <div className="text-xs text-neutral-300 mt-1">
+                    {worldTitle} — {levelLabel}
+                  </div>
                 </div>
-                <div className="text-xs text-neutral-300 mt-1">
-                  {worldTitle} — {levelLabel}
-                </div>
-              </div>
               <UserMenu
-                language={profileSettings.language}
                 level={profileSettings.level || "B1"}
                 sourceLanguage={profileSettings.sourceLanguage}
                 targetLanguage={profileSettings.targetLanguage}
                 onUpdateSettings={handleProfileUpdate}
+                onNavigateHome={() => {
+                  if (typeof window !== "undefined") {
+                    window.location.href = "/"
+                  }
+                }}
               />
             </div>
           </div>
@@ -1622,6 +1634,17 @@ export default function AppClient({
 
               {isMenuOpen && (
                 <div className="mt-3 space-y-2 text-sm text-neutral-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/"
+                      }
+                    }}
+                    className="block w-full text-left hover:text-white"
+                  >
+                    {ui.home?.title ?? "Inicio"}
+                  </button>
                   <button
                     type="button"
                     onClick={openWorlds}
@@ -1652,9 +1675,17 @@ export default function AppClient({
             <div className="w-full">
               <div className="hidden md:flex items-end justify-between gap-4 mb-6">
                 <div>
-                  <h1 className="text-3xl font-semibold tracking-tight">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/"
+                      }
+                    }}
+                    className="text-3xl font-semibold tracking-tight"
+                  >
                     voc<span className="text-green-500">ado</span>
-                  </h1>
+                  </button>
                   <div className="mt-1 text-sm text-neutral-300">
                     {worldTitle} — {levelLabel}
                   </div>
@@ -1669,11 +1700,15 @@ export default function AppClient({
                     {ui.menu.restart}
                   </Button>
                   <UserMenu
-                    language={profileSettings.language}
                     level={profileSettings.level || "B1"}
                     sourceLanguage={profileSettings.sourceLanguage}
                     targetLanguage={profileSettings.targetLanguage}
                     onUpdateSettings={handleProfileUpdate}
+                    onNavigateHome={() => {
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/"
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -1729,6 +1764,18 @@ export default function AppClient({
               </button>
             </div>
             <div className="mt-4 space-y-3 text-sm text-neutral-200">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.location.href = "/"
+                  }
+                  setIsMenuOpen(false)
+                }}
+                className="block w-full text-left hover:text-white"
+              >
+                {ui.home?.title ?? "Inicio"}
+              </button>
               <button
                 type="button"
                 onClick={() => {

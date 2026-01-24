@@ -27,14 +27,13 @@ export default async function Page() {
 
   const { data: profileRow } = await supabaseAdmin
     .from("profiles")
-    .select("language,level,source_language,target_language")
+    .select("level,source_language,target_language")
     .eq("id", userId)
     .maybeSingle()
 
   return (
     <HomeClient
       profile={{
-        language: profileRow?.language ?? "",
         level: profileRow?.level ?? "",
         sourceLanguage: profileRow?.source_language ?? "",
         targetLanguage: profileRow?.target_language ?? "",

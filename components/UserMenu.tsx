@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
@@ -16,26 +16,26 @@ const LANGUAGES = [
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 export default function UserMenu({
-  language,
   level,
   sourceLanguage,
   targetLanguage,
   onUpdateSettings,
+  onNavigateHome,
 }: {
-  language: string
   level: string
   sourceLanguage: string
   targetLanguage: string
   onUpdateSettings: (next: {
-    language: string
     level: string
     sourceLanguage: string
     targetLanguage: string
   }) => void
+  onNavigateHome?: () => void
 }) {
   const router = useRouter()
   const [email, setEmail] = useState<string>("")
   const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -54,43 +54,53 @@ export default function UserMenu({
     }
   }, [])
 
+  useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent) => {
+      if (!wrapperRef.current) return
+      if (wrapperRef.current.contains(event.target as Node)) return
+      setOpen(false)
+    }
+    window.addEventListener("mousedown", handler)
+    return () => window.removeEventListener("mousedown", handler)
+  }, [open])
+
   const signOut = async () => {
     await supabase.auth.signOut()
     router.push("/login")
   }
 
-  const updateProfile = async (
-    nextLanguage: string,
-    nextLevel: string,
-    nextSource: string,
-    nextTarget: string
-  ) => {
+  const updateProfile = async (nextLevel: string, nextSource: string, nextTarget: string) => {
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return
+
+    const languageChanged =
+      nextSource !== sourceLanguage || nextTarget !== targetLanguage
 
     await fetch("/api/auth/profile/update", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        language: nextLanguage,
         level: nextLevel,
         sourceLanguage: nextSource,
         targetLanguage: nextTarget,
       }),
     })
     onUpdateSettings({
-      language: nextLanguage,
       level: nextLevel,
       sourceLanguage: nextSource,
       targetLanguage: nextTarget,
     })
+    if (languageChanged) {
+      onNavigateHome?.()
+    }
   }
 
   if (!email) return null
 
   return (
-    <div className="relative z-50">
+    <div ref={wrapperRef} className="relative z-50">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -105,28 +115,11 @@ export default function UserMenu({
           <div className="mt-3 space-y-2">
             <div>
               <label className="text-[10px] uppercase tracking-wide text-neutral-400">
-                Language
-              </label>
-              <select
-                value={language}
-                onChange={(e) => updateProfile(e.target.value, level, sourceLanguage, targetLanguage)}
-                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
-              >
-                <option value="">Auto</option>
-                {LANGUAGES.map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
                 Source
               </label>
               <select
                 value={sourceLanguage}
-                onChange={(e) => updateProfile(language, level, e.target.value, targetLanguage)}
+                onChange={(e) => updateProfile(level, e.target.value, targetLanguage)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 <option value="">Auto</option>
@@ -143,7 +136,7 @@ export default function UserMenu({
               </label>
               <select
                 value={targetLanguage}
-                onChange={(e) => updateProfile(language, level, sourceLanguage, e.target.value)}
+                onChange={(e) => updateProfile(level, sourceLanguage, e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 <option value="">Auto</option>
@@ -160,9 +153,7 @@ export default function UserMenu({
               </label>
               <select
                 value={level}
-                onChange={(e) =>
-                  updateProfile(language, e.target.value, sourceLanguage, targetLanguage)
-                }
+                onChange={(e) => updateProfile(e.target.value, sourceLanguage, targetLanguage)}
                 className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
               >
                 {LEVELS.map((item) => (

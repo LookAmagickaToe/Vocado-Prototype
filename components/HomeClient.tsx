@@ -10,7 +10,6 @@ const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 
 type ProfileSettings = {
-  language: string
   level: string
   sourceLanguage: string
   targetLanguage: string
@@ -98,7 +97,6 @@ export default function HomeClient({
             <span>{ui.seedsLabel}</span>
           </div>
           <UserMenu
-            language={profileState.language}
             level={profileState.level || "B1"}
             sourceLanguage={profileState.sourceLanguage}
             targetLanguage={profileState.targetLanguage}
