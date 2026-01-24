@@ -136,7 +136,7 @@ function buildThemePrompt({
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     modeLine,
     "Return ONLY valid JSON with this shape:",
-    `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
+    `{"title":"...","mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing.",

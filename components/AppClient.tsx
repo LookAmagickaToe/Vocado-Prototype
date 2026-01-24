@@ -6,18 +6,8 @@ import { AnimatePresence, motion } from "framer-motion"
 import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-import family from "@/data/worlds/family.json"
-import basic_verbs from "@/data/worlds/basic_verbs.json"
-import verbs_conjugation from "@/data/worlds/verbs_conjugation.json"
-import verbs_conjugation_espanol from "@/data/worlds/verbs_conjugation_espanol.json"
-import kitchen_utensils from "@/data/worlds/kitchen_utensils.json"
-import social_relationships from "@/data/worlds/social_relationships.json"
-import basic_english from "@/data/worlds/basic_english.json"
-import new_year from "@/data/worlds/new_year.json"
-
 import { formatTemplate } from "@/lib/ui"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
-import phrases_basic from "@/data/worlds/phrases_basic.json"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
 import type { World } from "@/types/worlds"
 import uiSettings from "@/data/ui/settings.json"
@@ -25,10 +15,7 @@ import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
 
-//Adapt here for verbs
-const BASE_WORLDS = [basic_verbs, family, phrases_basic, verbs_conjugation, 
-  verbs_conjugation_espanol, social_relationships, kitchen_utensils, new_year,
-basic_english] as unknown as World[]
+const BASE_WORLDS: World[] = []
 
 const UPLOADED_WORLDS_STORAGE_KEY = "vocab-memory-uploaded-worlds"
 const WORLD_LISTS_STORAGE_KEY = "vocab-memory-world-lists"
@@ -329,7 +316,7 @@ export default function AppClient({
   const [isAuthed, setIsAuthed] = useState(true)
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(initialSupabaseLoaded)
   const [uploadedWorlds, setUploadedWorlds] = useState<World[]>(initialUploadedWorlds)
-  const allWorlds = useMemo(() => [...BASE_WORLDS, ...uploadedWorlds], [uploadedWorlds])
+  const allWorlds = useMemo(() => [...uploadedWorlds], [uploadedWorlds])
   const [worldLists, setWorldLists] = useState<WorldList[]>(initialLists)
   const [worldTitleOverrides, setWorldTitleOverrides] = useState<Record<string, string>>(
     initialWorldTitleOverrides
@@ -337,7 +324,7 @@ export default function AppClient({
   const [collapsedListIds, setCollapsedListIds] = useState<Record<string, boolean>>({})
   const [hiddenWorldIds, setHiddenWorldIds] = useState<string[]>(initialHiddenWorldIds)
 
-  const [worldId, setWorldId] = useState<string>(BASE_WORLDS[0]?.id ?? "world-0")
+  const [worldId, setWorldId] = useState<string>("world-0")
   const [levelIndex, setLevelIndex] = useState<number>(0)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -373,6 +360,9 @@ export default function AppClient({
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
   const [themeLevel, setThemeLevel] = useState(initialProfile?.level ?? "B1")
+  const [promptText, setPromptText] = useState("")
+  const [promptError, setPromptError] = useState<string | null>(null)
+  const [promptLoading, setPromptLoading] = useState(false)
   const [newsUrl, setNewsUrl] = useState("")
   const [newsSummary, setNewsSummary] = useState<string[]>([])
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
@@ -753,19 +743,23 @@ export default function AppClient({
   )
 
   const currentWorld = useMemo(() => {
-    return visibleWorlds.find((w) => w.id === worldId) ?? visibleWorlds[0] ?? allWorlds[0]
-  }, [visibleWorlds, allWorlds, worldId])
+    return visibleWorlds.find((w) => w.id === worldId) ?? visibleWorlds[0] ?? null
+  }, [visibleWorlds, worldId])
 
   const isNewsWorld =
-    currentWorld.mode === "vocab" && Array.isArray(currentWorld.news?.summary) && currentWorld.news.summary.length > 0
+    !!currentWorld &&
+    currentWorld.mode === "vocab" &&
+    Array.isArray(currentWorld.news?.summary) &&
+    currentWorld.news.summary.length > 0
 
   const levelsCount = useMemo(() => {
+    if (!currentWorld) return 0
     const k = currentWorld.chunking.itemsPerGame
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
   }, [currentWorld])
 
-    const worldTitle = worldTitleOverrides[currentWorld.id] ?? currentWorld.title
-    const safeLevel = Math.min(levelIndex, levelsCount - 1) + 1
+    const worldTitle = currentWorld ? worldTitleOverrides[currentWorld.id] ?? currentWorld.title : ""
+    const safeLevel = currentWorld ? Math.min(levelIndex, levelsCount - 1) + 1 : 0
 
 
 
@@ -1148,6 +1142,46 @@ export default function AppClient({
     }
   }
 
+  const createWorldFromPrompt = async () => {
+    const theme = promptText.trim()
+    if (!theme) {
+      setPromptError("Agrega un tema para crear tu mundo.")
+      return
+    }
+    setPromptLoading(true)
+    setPromptError(null)
+    try {
+      const result = await callAi({
+        task: "theme_list",
+        theme,
+        count: 20,
+        level: profileSettings.level || "A2",
+        mode: null,
+        sourceLabel,
+        targetLabel,
+      })
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (items.length === 0) {
+        setPromptError(ui.upload.errorNoItems)
+        return
+      }
+      const generatedTitle =
+        typeof result?.title === "string" && result.title.trim()
+          ? result.title.trim()
+          : theme
+      const review = buildReviewItemsFromAi(items)
+      const world = buildVocabWorldWithTitle(review, generatedTitle)
+      await persistWorlds([world], world.id)
+      setWorldId(world.id)
+      setIsWorldsOpen(false)
+      setPromptText("")
+    } catch (error) {
+      setPromptError((error as Error).message)
+    } finally {
+      setPromptLoading(false)
+    }
+  }
+
   const submitUpload = async () => {
     setUploadError(null)
     setIsProcessingUpload(true)
@@ -1415,6 +1449,9 @@ export default function AppClient({
           setUploadError(ui.upload.errorNoItems)
           return
         }
+        if (!uploadName.trim() && typeof result?.title === "string") {
+          setUploadName(result.title)
+        }
         const mode =
           uploadModeSelection === "auto" && result?.mode === "conjugation"
             ? "conjugation"
@@ -1546,6 +1583,46 @@ export default function AppClient({
       id,
       title,
       description: `Lista personalizada: ${title}`,
+      mode: "vocab",
+      pool: buildVocabPoolFromItems(items, id, conjugationMap),
+      chunking: { mode: "sequential", itemsPerGame: 8 },
+      ui: {
+        header: {
+          levelLabelTemplate: "Nivel {i}/{n}",
+          levelItemTemplate: "Nivel {i}",
+        },
+        page: {
+          instructions: "Empareja las palabras en español con las palabras en alemán.",
+        },
+        vocab: {
+          progressTemplate: "Progreso: {matched}/{total} • Movimientos: {moves}",
+          carousel: { primaryLabel: "Español:", secondaryLabel: "Deutsch:" },
+          rightPanel: { title: "Parejas encontradas", emptyHint: "Encuentra una pareja para empezar." },
+        },
+        winning: {
+          title: "Lo has logrado 🎉",
+          movesLabel: "Movimientos:",
+          explanationTitle: "Explicación",
+          reviewTitle: "Revisión",
+          conjugationTitle: "Conjugación",
+          nextDefault: "Siguiente",
+          closeDefault: "Cerrar",
+        },
+      },
+    } as World
+  }
+
+  const buildVocabWorldWithTitle = (
+    items: ReviewItem[],
+    title: string,
+    conjugationMap?: Record<string, any>
+  ): World => {
+    const id = `upload-${Date.now()}`
+    const cleanTitle = title.trim() || "Uploaded list"
+    return {
+      id,
+      title: cleanTitle,
+      description: `Lista personalizada: ${cleanTitle}`,
       mode: "vocab",
       pool: buildVocabPoolFromItems(items, id, conjugationMap),
       chunking: { mode: "sequential", itemsPerGame: 8 },
@@ -1785,6 +1862,7 @@ export default function AppClient({
   }
 
   const nextLevel = () => {
+    if (!currentWorld || levelsCount === 0) return
     setLevelIndex((i) => {
         const next = i + 1
         return next >= levelsCount ? 0 : next // wrap to level 0 (or clamp if you prefer)
@@ -1792,20 +1870,21 @@ export default function AppClient({
     setGameSeed((s) => s + 1) // force remount so the game resets cleanly
     }
     const headerInstructions =
-        currentWorld.ui?.page?.instructions ??
-        currentWorld.description ??
-        (currentWorld.mode === "vocab"
+        currentWorld?.ui?.page?.instructions ??
+        currentWorld?.description ??
+        (currentWorld?.mode === "vocab"
             ? "Empareja las palabras en español con las palabras en alemán."
             : "Construye la frase en el orden correcto.")
 
-    const currentChunk = useMemo(() => {
+  const currentChunk = useMemo(() => {
+    if (!currentWorld) return []
     const k = currentWorld.chunking.itemsPerGame
-    const start = Math.min(levelIndex, levelsCount - 1) * k
+    const start = Math.min(levelIndex, Math.max(0, levelsCount - 1)) * k
     return currentWorld.pool.slice(start, start + k)
     }, [currentWorld, levelIndex, levelsCount])
 
     const chunkVerb = useMemo(() => {
-    if (currentWorld.mode !== "vocab") return ""
+    if (!currentWorld || currentWorld.mode !== "vocab") return ""
     const first = currentChunk[0]
     if (!first) return ""
     // types: VocabPair has id + es, safe here because mode === "vocab"
@@ -1813,11 +1892,11 @@ export default function AppClient({
     }, [currentWorld.mode, currentChunk])
     
     const levelLabelTemplate =
-    currentWorld.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
+    currentWorld?.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
     const currentVerb =
-    currentWorld.mode === "vocab"
+    currentWorld?.mode === "vocab"
         ? extractVerbLabelFromPair(
-            (currentWorld.pool[Math.min(levelIndex, levelsCount - 1) * currentWorld.chunking.itemsPerGame] as any)
+            (currentWorld.pool[Math.min(levelIndex, Math.max(0, levelsCount - 1)) * currentWorld.chunking.itemsPerGame] as any)
         )
         : ""
 
@@ -1826,6 +1905,56 @@ export default function AppClient({
     n: levelsCount,
     verb: currentVerb,
     })
+
+  if (!currentWorld) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/"
+                }
+              }}
+              className="text-2xl font-semibold tracking-tight"
+            >
+              voc<span className="text-green-500">ado</span>
+            </button>
+            <UserMenu
+              level={profileSettings.level || "B1"}
+              sourceLanguage={profileSettings.sourceLanguage}
+              targetLanguage={profileSettings.targetLanguage}
+              newsCategory={profileSettings.newsCategory}
+              onUpdateSettings={handleProfileUpdate}
+            />
+          </div>
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6 text-sm text-neutral-200">
+            No tienes mundos todavía. Crea uno desde el menú de mundos o sube una lista.
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => {
+                setIsWorldsOpen(true)
+              }}
+              className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
+            >
+              {ui.menu.worlds}
+            </Button>
+            <Button
+              onClick={() => {
+                openUpload()
+              }}
+              className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
+            >
+              {ui.menu.upload}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
@@ -2116,6 +2245,13 @@ export default function AppClient({
               setIsWorldsOpen(false)
               setIsLevelsOpen(true)
             }}
+            promptText={promptText}
+            promptError={promptError}
+            promptLoading={promptLoading}
+            promptSuggestions={["family", "kitchen", "in the restaurant"]}
+            promptPlaceholder="family"
+            onPromptChange={setPromptText}
+            onPromptSubmit={createWorldFromPrompt}
           />
         )}
       </AnimatePresence>
@@ -2976,6 +3112,13 @@ function WorldsOverlay({
   activeWorldId,
   onClose,
   onSelectWorld,
+  promptText,
+  promptError,
+  promptLoading,
+  promptSuggestions,
+  promptPlaceholder,
+  onPromptChange,
+  onPromptSubmit,
 }: {
   worlds: Array<{ id: string; title: string; description?: string }>
   lists: WorldList[]
@@ -2998,6 +3141,13 @@ function WorldsOverlay({
   activeWorldId: string
   onClose: () => void
   onSelectWorld: (id: string) => void
+  promptText: string
+  promptError: string | null
+  promptLoading: boolean
+  promptSuggestions: string[]
+  promptPlaceholder: string
+  onPromptChange: (value: string) => void
+  onPromptSubmit: () => void
 }) {
   const [editingWorldId, setEditingWorldId] = useState<string | null>(null)
   const [editingWorldTitle, setEditingWorldTitle] = useState("")
@@ -3085,6 +3235,53 @@ function WorldsOverlay({
             {ui.worldsOverlay.newListButton}
           </button>
         </div>
+
+        {worlds.length === 0 && (
+          <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+            <div className="text-sm font-semibold text-neutral-100">
+              Crea tu primer mundo
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {promptSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    onPromptChange(suggestion)
+                  }}
+                  className="rounded-full border border-neutral-700 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-100 hover:border-neutral-500"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4">
+              <input
+                type="text"
+                value={promptText}
+                onChange={(e) => onPromptChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onPromptSubmit()
+                  }
+                }}
+                placeholder={promptPlaceholder}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
+              />
+              {promptError && (
+                <div className="mt-2 text-xs text-red-300">{promptError}</div>
+              )}
+              <button
+                type="button"
+                onClick={onPromptSubmit}
+                disabled={promptLoading}
+                className="mt-3 rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
+              >
+                {promptLoading ? ui.upload.processing : ui.upload.actionGenerate}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 space-y-5 max-h-[55vh] overflow-auto pr-1">
           {lists.map((list) => {
