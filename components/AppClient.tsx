@@ -56,6 +56,12 @@ const generateUuid = () => {
   return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
 }
 
+const getLastPlayedKey = (source?: string, target?: string) => {
+  const src = source?.trim() || "auto"
+  const tgt = target?.trim() || "auto"
+  return `${LAST_PLAYED_STORAGE_KEY}:${src}:${tgt}`
+}
+
 type WorldList = {
   id: string
   name: string
@@ -532,8 +538,19 @@ export default function AppClient({
       levelIndex,
       updatedAt: Date.now(),
     }
-    window.localStorage.setItem(LAST_PLAYED_STORAGE_KEY, JSON.stringify(payload))
-  }, [worldId, levelIndex, allWorlds, getWorldTitle])
+    const key = getLastPlayedKey(
+      profileSettings.sourceLanguage,
+      profileSettings.targetLanguage
+    )
+    window.localStorage.setItem(key, JSON.stringify(payload))
+  }, [
+    worldId,
+    levelIndex,
+    allWorlds,
+    getWorldTitle,
+    profileSettings.sourceLanguage,
+    profileSettings.targetLanguage,
+  ])
 
   useEffect(() => {
     if (!searchParams) return
@@ -662,6 +679,15 @@ export default function AppClient({
       subscription.subscription.unsubscribe()
     }
   }, [isSupabaseLoaded])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const flag = window.localStorage.getItem("vocado-refresh-worlds")
+    if (flag === "1") {
+      window.localStorage.removeItem("vocado-refresh-worlds")
+      loadSupabaseState()
+    }
+  }, [])
 
   useEffect(() => {
     if (!isAuthed || !isSupabaseLoaded) return

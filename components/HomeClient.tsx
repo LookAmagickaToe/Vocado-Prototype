@@ -20,6 +20,12 @@ type ProfileSettings = {
   newsCategory?: string
 }
 
+const getLastPlayedKey = (source?: string, target?: string) => {
+  const src = source?.trim() || "auto"
+  const tgt = target?.trim() || "auto"
+  return `${LAST_PLAYED_STORAGE_KEY}:${src}:${tgt}`
+}
+
 type LastPlayed = {
   id: string
   title: string
@@ -162,7 +168,11 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       )
     }
 
-    const rawLast = window.localStorage.getItem(LAST_PLAYED_STORAGE_KEY)
+    const lastKey = getLastPlayedKey(
+      profileState.sourceLanguage,
+      profileState.targetLanguage
+    )
+    const rawLast = window.localStorage.getItem(lastKey)
     if (rawLast) {
       try {
         const parsed = JSON.parse(rawLast)
@@ -172,6 +182,8 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       } catch {
         // ignore
       }
+    } else {
+      setLastPlayed(null)
     }
 
     const loadTopNews = async () => {
@@ -242,6 +254,34 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       }
     }
     loadListsAndWorlds()
+  }, [profileState.sourceLanguage, profileState.targetLanguage])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === SEEDS_STORAGE_KEY) {
+        const next = event.newValue ? Number(event.newValue) || 0 : 0
+        setSeeds(next)
+      }
+      if (event.key === WEEKLY_WORDS_STORAGE_KEY) {
+        const next = event.newValue ? Number(event.newValue) || 0 : 0
+        setWordsLearned(next)
+      }
+      if (event.key === DAILY_STATE_STORAGE_KEY && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue)
+          const today = new Date().toISOString().slice(0, 10)
+          if (parsed?.date === today) {
+            setDailyGames(parsed?.games ?? 0)
+            setDailyUploadDone(!!parsed?.upload)
+            setDailyNewsDone(!!parsed?.news)
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
   }, [])
 
   useEffect(() => {

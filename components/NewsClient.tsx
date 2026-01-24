@@ -337,6 +337,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const data = await response.json().catch(() => null)
       throw new Error(data?.error ?? "Save failed")
     }
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("vocado-refresh-worlds", "1")
+    }
   }
 
   const awardExperience = (moves: number, wordsLearnedCount: number, worldId: string) => {
