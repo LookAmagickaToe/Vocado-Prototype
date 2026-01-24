@@ -90,7 +90,7 @@ export default function UserMenu({
   if (!email) return null
 
   return (
-    <div className="relative">
+    <div className="relative z-50">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -100,7 +100,7 @@ export default function UserMenu({
         {email.slice(0, 1).toUpperCase()}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-xs text-neutral-200 shadow-xl">
+        <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-xs text-neutral-200 shadow-xl z-50">
           <div className="truncate text-sm font-medium">{email}</div>
           <div className="mt-3 space-y-2">
             <div>

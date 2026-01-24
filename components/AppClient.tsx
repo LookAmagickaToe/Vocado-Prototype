@@ -1760,6 +1760,16 @@ export default function AppClient({
         </div>
       )}
 
+      {/* MOBILE HAMBURGER ALWAYS VISIBLE */}
+      <button
+        type="button"
+        onClick={() => setIsMenuOpen(true)}
+        className="fixed left-4 top-4 z-50 md:hidden h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
+        aria-label="Menú"
+      >
+        ☰
+      </button>
+
       {/* WORLDS OVERLAY */}
       <AnimatePresence>
         {isWorldsOpen && (
