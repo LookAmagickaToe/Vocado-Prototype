@@ -10,7 +10,7 @@ import { formatTemplate } from "@/lib/ui"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
 import type { World } from "@/types/worlds"
-import uiSettings from "@/data/ui/settings.json"
+import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
@@ -85,7 +85,7 @@ type ReviewItem = {
 type UploadTab = "table" | "upload" | "theme" | "news" | "json"
 type UploadModeSelection = "auto" | "vocab" | "conjugation"
 
-const ui = {
+const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
   menu: {
     title: uiSettings?.menu?.title ?? "Menú",
     worlds: uiSettings?.menu?.worlds ?? "Mundos",
@@ -219,7 +219,7 @@ const ui = {
   news: {
     readButton: uiSettings?.news?.readButton ?? "Leer periódico",
   },
-}
+})
 
 function normalizeUploadedWorld(payload: any, name?: string): World | null {
   if (!payload) return null
@@ -352,6 +352,11 @@ export default function AppClient({
     targetLanguage: initialProfile?.targetLanguage ?? "",
     newsCategory: initialProfile?.newsCategory ?? "",
   })
+  const uiSettings = useMemo(
+    () => getUiSettings(profileSettings.sourceLanguage),
+    [profileSettings.sourceLanguage]
+  )
+  const ui = useMemo(() => buildUi(uiSettings), [uiSettings])
   const [isProcessingUpload, setIsProcessingUpload] = useState(false)
   const [tableRows, setTableRows] = useState<Array<{ source: string; target: string }>>([
     { source: "", target: "" },
@@ -1915,7 +1920,7 @@ export default function AppClient({
     if (!first) return ""
     // types: VocabPair has id + es, safe here because mode === "vocab"
     return extractVerbLabelFromPair(first as any)
-    }, [currentWorld.mode, currentChunk])
+    }, [currentWorld?.mode, currentChunk])
     
     const levelLabelTemplate =
     currentWorld?.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
@@ -2122,41 +2127,45 @@ export default function AppClient({
                 {ui.menu.restart}
               </Button>
             </div>
-            {currentWorld.mode === "vocab" ? (
-              <VocabMemoryGame
-                key={`${worldId}:${levelIndex}:${gameSeed}`}
-                world={currentWorld}
-                levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                onNextLevel={
-                  isNewsWorld ? () => openNewsSummary(currentWorld) : nextLevel
-                }
-                primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
-                secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
-                nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
-                onWin={(moves, wordsLearnedCount) =>
-                  awardExperience(
-                    moves,
-                    currentWorld.id,
-                    Math.min(levelIndex, levelsCount - 1),
-                    wordsLearnedCount
-                  )
-                }
-              />
+            {currentWorld?.mode === "vocab" ? (
+              {currentWorld ? (
+                <VocabMemoryGame
+                  key={`${worldId}:${levelIndex}:${gameSeed}`}
+                  world={currentWorld}
+                  levelIndex={Math.min(levelIndex, levelsCount - 1)}
+                  onNextLevel={
+                    isNewsWorld ? () => openNewsSummary(currentWorld) : nextLevel
+                  }
+                  primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
+                  secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
+                  nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
+                  onWin={(moves, wordsLearnedCount) =>
+                    awardExperience(
+                      moves,
+                      currentWorld.id,
+                      Math.min(levelIndex, levelsCount - 1),
+                      wordsLearnedCount
+                    )
+                  }
+                />
+              ) : null}
             ) : (
-              <PhraseMemoryGame
-                key={`${worldId}:${levelIndex}:${gameSeed}`}
-                world={currentWorld}
-                levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                onNextLevel={nextLevel}
-                onWin={(moves, wordsLearnedCount) =>
-                  awardExperience(
-                    moves,
-                    currentWorld.id,
-                    Math.min(levelIndex, levelsCount - 1),
-                    wordsLearnedCount
-                  )
-                }
-              />
+              currentWorld ? (
+                <PhraseMemoryGame
+                  key={`${worldId}:${levelIndex}:${gameSeed}`}
+                  world={currentWorld}
+                  levelIndex={Math.min(levelIndex, levelsCount - 1)}
+                  onNextLevel={nextLevel}
+                  onWin={(moves, wordsLearnedCount) =>
+                    awardExperience(
+                      moves,
+                      currentWorld.id,
+                      Math.min(levelIndex, levelsCount - 1),
+                      wordsLearnedCount
+                    )
+                  }
+                />
+              ) : null
             )}
           </div>
         </div>

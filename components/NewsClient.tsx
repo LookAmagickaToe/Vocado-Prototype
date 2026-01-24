@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
-import uiSettings from "@/data/ui/settings.json"
+import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import type { VocabWorld } from "@/types/worlds"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
@@ -158,12 +158,38 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [isLoadingHeadlines, setIsLoadingHeadlines] = useState(false)
   const [category, setCategory] = useState(profile.newsCategory || "world")
   const [newsTitle, setNewsTitle] = useState("")
+  const [newsDate, setNewsDate] = useState<string>("")
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [world, setWorld] = useState<VocabWorld | null>(null)
 
   const sourceLabel = profileState.sourceLanguage || "Español"
   const targetLabel = profileState.targetLanguage || "Alemán"
 
+  const localeForLanguage = (value: string) => {
+    const lower = value.toLowerCase()
+    if (lower.includes("deutsch") || lower.includes("german")) return "de-DE"
+    if (lower.includes("english")) return "en-US"
+    if (lower.includes("français") || lower.includes("french")) return "fr-FR"
+    if (lower.includes("italiano") || lower.includes("italian")) return "it-IT"
+    if (lower.includes("portugu")) return "pt-PT"
+    return "es-ES"
+  }
+
+  const formatNewsDate = (value?: string) => {
+    const date = value ? new Date(value) : new Date()
+    if (Number.isNaN(date.getTime())) {
+      return ""
+    }
+    return new Intl.DateTimeFormat(localeForLanguage(targetLabel), {
+      day: "2-digit",
+      month: "long",
+    }).format(date)
+  }
+
+  const uiSettings = useMemo(
+    () => getUiSettings(profileState.sourceLanguage),
+    [profileState.sourceLanguage]
+  )
   const ui = useMemo(
     () => ({
       title: uiSettings?.news?.title ?? "Noticias",
@@ -179,7 +205,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       categoryLabel: uiSettings?.news?.categoryLabel ?? "Categoría",
       categoryOptions: uiSettings?.news?.categoryOptions ?? {},
     }),
-    []
+    [uiSettings]
   )
 
   useEffect(() => {
@@ -442,7 +468,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }
       setSummary(nextSummary)
       setItems(nextItems)
-      const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}`
+      const dateLabel = formatNewsDate(newsDate)
+      const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
+      const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}${dateSuffix}`
       const newsWorld = {
         ...buildWorldFromItems(nextItems, sourceLabel, targetLabel),
         title: worldTitle,
@@ -525,6 +553,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       }
                       setNewsUrl(headline.url)
                       setNewsTitle(headline.title)
+                      setNewsDate(headline.date || "")
                       handleGenerate(headline.url)
                     }}
                     className={[

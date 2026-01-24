@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
-import uiSettings from "@/data/ui/settings.json"
+import { getUiSettings } from "@/lib/ui-settings"
 
 const LANGUAGES = [
   "Español",
@@ -43,6 +43,10 @@ export default function UserMenu({
   const [draftTarget, setDraftTarget] = useState(targetLanguage)
   const [draftNewsCategory, setDraftNewsCategory] = useState(
     newsCategory || "world"
+  )
+  const uiSettings = useMemo(
+    () => getUiSettings(sourceLanguage),
+    [sourceLanguage]
   )
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)

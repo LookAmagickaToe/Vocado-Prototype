@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
-import uiSettings from "@/data/ui/settings.json"
+import { getUiSettings } from "@/lib/ui-settings"
 import { supabase } from "@/lib/supabase/client"
 
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
@@ -77,6 +77,10 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const [selectedListId, setSelectedListId] = useState("")
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const uiSettings = useMemo(
+    () => getUiSettings(profileState.sourceLanguage),
+    [profileState.sourceLanguage]
+  )
   const ui = useMemo(
     () => ({
       title: uiSettings?.home?.title ?? "Inicio",
@@ -105,7 +109,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       worldNameLabel: uiSettings?.home?.worldNameLabel ?? "Nombre del mundo",
       confirmAdd: uiSettings?.home?.confirmAdd ?? "Guardar",
     }),
-    []
+    [uiSettings]
   )
 
   useEffect(() => {
