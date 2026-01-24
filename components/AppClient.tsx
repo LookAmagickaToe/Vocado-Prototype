@@ -771,7 +771,7 @@ export default function AppClient({
             : [],
       })
     )
-    window.location.href = "/news"
+    window.location.href = "/news?summary=1"
   }
 
   const createList = () => {
@@ -2007,6 +2007,18 @@ export default function AppClient({
                 className="block w-full text-left hover:text-white"
               >
                 {ui.menu.upload}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.location.href = "/news"
+                  }
+                  setIsMenuOpen(false)
+                }}
+                className="block w-full text-left hover:text-white"
+              >
+                {ui.home?.newsAction ?? "Vocado Diario"}
               </button>
               <button className="block w-full text-left hover:text-white">
                 {ui.menu.manage}

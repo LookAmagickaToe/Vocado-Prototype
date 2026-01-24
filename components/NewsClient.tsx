@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
 import uiSettings from "@/data/ui/settings.json"
@@ -116,6 +117,7 @@ const buildWorldFromItems = (
 
 export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [profileState, setProfileState] = useState(profile)
   const [seeds, setSeeds] = useState(0)
   const [newsUrl, setNewsUrl] = useState("")
@@ -153,6 +155,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    const shouldShowSummary = searchParams.get("summary") === "1"
+    if (!shouldShowSummary) return
     const raw = window.localStorage.getItem(NEWS_STORAGE_KEY)
     if (!raw) return
     try {
@@ -168,7 +172,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     } catch {
       // ignore
     }
-  }, [sourceLabel, targetLabel])
+  }, [sourceLabel, targetLabel, searchParams])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -432,6 +436,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   }
                 }
                 setStep("summary")
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href)
+                  url.searchParams.set("summary", "1")
+                  window.history.replaceState({}, "", url.toString())
+                }
               }}
               primaryLabelOverride={`${sourceLabel}:`}
               secondaryLabelOverride={`${targetLabel}:`}
