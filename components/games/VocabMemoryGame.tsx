@@ -333,7 +333,7 @@ export default function VocabMemoryGame({
       {/* CENTER BOARD */}
       <div className="col-span-12 md:col-span-7">
         <div
-          className="bg-neutral-900/40 backdrop-blur rounded-2xl p-5 shadow-sm border border-neutral-800"
+          className="bg-neutral-900/40 backdrop-blur rounded-2xl p-3 sm:p-5 shadow-sm border border-neutral-800"
           onClickCapture={(e) => {
             if (pendingResolution) {
               e.preventDefault()
@@ -342,21 +342,22 @@ export default function VocabMemoryGame({
             }
           }}
         >
-          <div className="grid grid-cols-4 gap-2">
-            {slots.map((slot) => {
-              const model = renderModelForSlot(slot)
-              return (
-                <MemoryCard
-                  key={slot.slotKey}
-                  model={model}
-                  flipped={isCardFaceUp(slot.slotKey)}
-                  cleared={!!slot.assigned && matchedPairIds.has(slot.assigned.pairId)}
-                  celebrate={justMatchedKeys.includes(slot.slotKey)}
-                  onClick={() => handleCardClick(slot.slotKey)}
-                />
-              )
-            })}
-
+          <div className="max-h-[60vh] overflow-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+              {slots.map((slot) => {
+                const model = renderModelForSlot(slot)
+                return (
+                  <MemoryCard
+                    key={slot.slotKey}
+                    model={model}
+                    flipped={isCardFaceUp(slot.slotKey)}
+                    cleared={!!slot.assigned && matchedPairIds.has(slot.assigned.pairId)}
+                    celebrate={justMatchedKeys.includes(slot.slotKey)}
+                    onClick={() => handleCardClick(slot.slotKey)}
+                  />
+                )
+              })}
+            </div>
           </div>
 
         <div className="mt-4 text-xs text-neutral-400">
@@ -372,7 +373,7 @@ export default function VocabMemoryGame({
 
       {/* RIGHT PANEL */}
       <aside className="col-span-12 md:col-span-5">
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur max-h-[55vh] md:max-h-none overflow-auto">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium text-neutral-100">{rightTitle}</div>
             <div className="text-xs text-neutral-400">

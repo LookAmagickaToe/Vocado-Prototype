@@ -298,51 +298,59 @@ export default function PhraseMemoryGame({
             </div>
 
             {/* Board */}
-            <div className="bg-neutral-900/40 backdrop-blur rounded-2xl p-5 shadow-sm border border-neutral-800">
-            <div className="grid grid-cols-4 gap-2">
-                {cards.map((c) => {
-                const isRevealed = revealedKeys.has(c.key)
+            <div className="bg-neutral-900/40 backdrop-blur rounded-2xl p-3 sm:p-5 shadow-sm border border-neutral-800">
+              <div className="max-h-[60vh] overflow-auto pr-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                  {cards.map((c) => {
+                    const isRevealed = revealedKeys.has(c.key)
 
-                return (
-                    <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => handleClick(c.key)}
-                    disabled={isRevealed || won}
-                    className={[
-                        "relative aspect-square rounded-xl border border-neutral-800 bg-neutral-950/40 shadow-sm overflow-hidden",
-                        "focus:outline-none focus:ring-2 focus:ring-neutral-400/40",
-                        "disabled:opacity-40 disabled:cursor-default",
-                        !!tempFlippedKey ? "pointer-events-none" : "",
-                    ].join(" ")}
-                    >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        {isFaceUp(c.key) ? (
-                        <div
-                            className={`text-xl font-semibold ${tokenColor(
-                            c.type
-                            )}`}
-                        >
-                            {c.text}
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => handleClick(c.key)}
+                        disabled={isRevealed || won}
+                        className={[
+                          "relative aspect-square rounded-xl border border-neutral-800 bg-neutral-950/40 shadow-sm overflow-hidden",
+                          "focus:outline-none focus:ring-2 focus:ring-neutral-400/40",
+                          "disabled:opacity-40 disabled:cursor-default touch-manipulation",
+                          !!tempFlippedKey ? "pointer-events-none" : "",
+                        ].join(" ")}
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {isFaceUp(c.key) ? (
+                            <div
+                              className={`text-[clamp(0.7rem,3.2vw,1rem)] sm:text-[clamp(0.85rem,2.2vw,1.1rem)] font-semibold leading-tight break-words ${tokenColor(
+                                c.type
+                              )}`}
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {c.text}
+                            </div>
+                          ) : (
+                            <img
+                              src="/card/card-back.png"
+                              alt="card back"
+                              className="max-w-[70%] max-h-[70%] object-contain opacity-80"
+                            />
+                          )}
                         </div>
-                        ) : (
-                        <img
-                            src="/card/card-back.png"
-                            alt="card back"
-                            className="w-35 h-25 opacity-80"
-                        />
-                        )}
-                    </div>
-                    </button>
-                )
-                })}
-            </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
         </div>
 
         {/* RIGHT PANEL */}
         <aside className="col-span-12 md:col-span-5">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur">
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur max-h-[55vh] md:max-h-none overflow-auto">
             <div className="text-sm font-medium text-neutral-100">{howTitle}</div>
             <div className="mt-2 text-xs text-neutral-300 leading-relaxed">{howText}</div>
 

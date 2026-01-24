@@ -1373,7 +1373,7 @@ export default function AppClient({
     })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
       <div className="mx-auto w-full max-w-7xl">
         <div className="grid grid-cols-12 gap-4 items-start md:grid-rows-[auto,1fr]">
           {/* LEFT: hamburger/menu */}
