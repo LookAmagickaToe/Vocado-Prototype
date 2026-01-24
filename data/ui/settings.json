@@ -97,6 +97,15 @@
     "worldsAction": "Mundos",
     "newsAction": "Noticias",
     "newsTitle": "Título del artículo destacado",
-    "seedsLabel": "Semillas"
+    "seedsLabel": "Semillas",
+    "translateTitle": "Traducir",
+    "translatePlaceholder": "Escribe una palabra...",
+    "translateAction": "Traducir",
+    "addToWorldLabel": "Agregar a mundo",
+    "addToListLabel": "Crear nuevo mundo",
+    "worldSelectLabel": "Mundo",
+    "listSelectLabel": "Lista",
+    "worldNameLabel": "Nombre del mundo",
+    "confirmAdd": "Guardar"
   }
 }
