@@ -1,0 +1,52 @@
+{
+  "id": "upload-1769257617621",
+  "title": "Uploaded list",
+  "description": "Lista personalizada: Uploaded list",
+  "mode": "vocab",
+  "pool": [
+    {
+      "id": "item-0-Tabla",
+      "es": "Tabla",
+      "de": "Tabelle",
+      "image": {
+        "type": "emoji",
+        "value": "📝"
+      },
+      "pos": "other",
+      "explanation": "Auto: Tabla → Tabelle"
+    }
+  ],
+  "chunking": {
+    "mode": "sequential",
+    "itemsPerGame": 8
+  },
+  "ui": {
+    "header": {
+      "levelLabelTemplate": "Nivel {i}/{n}",
+      "levelItemTemplate": "Nivel {i}"
+    },
+    "page": {
+      "instructions": "Empareja las palabras en español con las palabras en alemán."
+    },
+    "vocab": {
+      "progressTemplate": "Progreso: {matched}/{total} • Movimientos: {moves}",
+      "carousel": {
+        "primaryLabel": "Español:",
+        "secondaryLabel": "Deutsch:"
+      },
+      "rightPanel": {
+        "title": "Parejas encontradas",
+        "emptyHint": "Encuentra una pareja para empezar."
+      }
+    },
+    "winning": {
+      "title": "Lo has logrado 🎉",
+      "movesLabel": "Movimientos:",
+      "explanationTitle": "Explicación",
+      "reviewTitle": "Revisión",
+      "conjugationTitle": "Conjugación",
+      "nextDefault": "Siguiente",
+      "closeDefault": "Cerrar"
+    }
+  }
+}

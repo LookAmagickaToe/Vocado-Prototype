@@ -37,9 +37,12 @@ function buildParsePrompt({
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂"}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
+    "Always set pos for every item (verb, noun, adj, or other).",
+    "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
+    "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
     "If the input provides only one language, translate into the other language.",
-    "If the input already provides pairs, preserve them without changing.",
+    "If the input already provides pairs, keep the same pairing and order.",
     "Input:",
     rawText,
   ].join("\n")
@@ -65,6 +68,9 @@ function buildImagePrompt({
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂"}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
+    "Always set pos for every item (verb, noun, adj, or other).",
+    "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
+    "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
     "If the image only contains one language, translate into the other language.",
   ].join("\n")

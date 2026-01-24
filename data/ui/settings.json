@@ -45,6 +45,8 @@
     "fileLabel": "Subir lista de palabras",
     "fileHint": "Acepta .txt o .csv. Gemini generará el JSON.",
     "imageLabel": "Subir imagen",
+    "imageCameraLabel": "Cámara",
+    "imageGalleryLabel": "Galería",
     "imageHint": "Gemini extraerá el vocabulario desde la imagen.",
     "reviewTitle": "Revisar vocabulario",
     "reviewHint": "Edita, agrega o quita palabras antes de guardar.",

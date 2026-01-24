@@ -215,7 +215,7 @@ export default function VocabMemoryGame({
         // ❗ allow match ONLY if both cards were seen BEFORE this move
         const aSeenBefore = seenSlots.has(next[0])
         const bSeenBefore = seenSlots.has(next[1])
-        const allowMatch = aSeenBefore && bSeenBefore
+        const allowMatch = VOCAB.length === 1 || (aSeenBefore && bSeenBefore)
 
         const finalIsMatch = isPairMatch && allowMatch
 
@@ -305,8 +305,17 @@ export default function VocabMemoryGame({
         ? urn.findIndex((c) => c.pairId !== forbidPairId)
         : 0
 
-      // no valid card available -> refuse assignment
-      if (idx < 0) return false
+      // no valid non-matching card available -> allow match to avoid deadlock
+      if (idx < 0) {
+        const picked = urn[0]
+        if (!picked) return false
+        const nextUrn = urn.slice(1)
+        setUrn(nextUrn)
+        setSlots((prev) =>
+          prev.map((s) => (s.slotKey === slotKey ? { ...s, assigned: picked } : s))
+        )
+        return true
+      }
 
       const picked = urn[idx]
       const nextUrn = [...urn.slice(0, idx), ...urn.slice(idx + 1)]
