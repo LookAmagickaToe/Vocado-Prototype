@@ -49,6 +49,11 @@ export type WorldBase = {
   mode: "vocab" | "phrase"
   source_language?: string
   target_language?: string
+  news?: {
+    summary: string[]
+    sourceUrl?: string
+    title?: string
+  }
 
   ui?: WorldUI
 }

@@ -75,6 +75,7 @@ export default function VocabMemoryGame({
   primaryLabelOverride,
   secondaryLabelOverride,
   onWin,
+  nextLabelOverride,
 }: {
   world: VocabWorld
   levelIndex: number
@@ -85,6 +86,7 @@ export default function VocabMemoryGame({
     moves: number,
     wordsLearnedCount: number
   ) => { payout: number; totalBefore: number; totalAfter: number } | void
+  nextLabelOverride?: string
 }) {
     const VOCAB = useMemo(() => {
         const k = world.chunking.itemsPerGame
@@ -508,7 +510,7 @@ export default function VocabMemoryGame({
             setIsWon(false)
             onNextLevel()
           }}
-          nextLabel={world.ui?.winning?.nextDefault ?? "Siguiente"}
+          nextLabel={nextLabelOverride}
 
           // ✅ UI text
           title={wui?.title}

@@ -36,6 +36,7 @@
     "tabTable": "Tabla",
     "tabFile": "Archivo",
     "tabImage": "Imagen",
+    "tabNews": "Noticias",
     "jsonLabel": "Contenido (JSON)",
     "jsonPlaceholder": "[{\"es\":\"hola\",\"de\":\"hallo\"}]",
     "tableSource": "Español",
@@ -48,6 +49,9 @@
     "imageCameraLabel": "Cámara",
     "imageGalleryLabel": "Galería",
     "imageHint": "Gemini extraerá el vocabulario desde la imagen.",
+    "newsLabel": "Enlace de la noticia",
+    "newsPlaceholder": "Pega el enlace del artículo",
+    "newsHint": "Generaremos un resumen en el idioma objetivo y vocabulario según tu nivel.",
     "reviewTitle": "Revisar vocabulario",
     "reviewHint": "Edita, agrega o quita palabras antes de guardar.",
     "reviewInclude": "Incluir",
@@ -75,6 +79,11 @@
     "errorInvalidList": "Lista inválida. Usa una lista de pares o un objeto World.",
     "errorNoItems": "No hay vocabulario para guardar.",
     "errorNoVerbs": "No hay verbos seleccionados para conjugación."
+  },
+  "news": {
+    "readButton": "Leer periódico",
+    "summaryTitle": "Resumen",
+    "sourceLabel": "Fuente"
   },
   "conjugationWorld": {
     "titleSuffix": "— Conjugación",

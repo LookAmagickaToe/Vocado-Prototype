@@ -41,6 +41,7 @@ const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+const NEWS_STORAGE_KEY = "vocado-news-current"
 
 type WorldList = {
   id: string
@@ -62,7 +63,7 @@ type ReviewItem = {
   conjugate: boolean
 }
 
-type UploadTab = "table" | "upload" | "theme" | "json"
+type UploadTab = "table" | "upload" | "theme" | "news" | "json"
 type UploadModeSelection = "auto" | "vocab" | "conjugation"
 
 const ui = {
@@ -111,6 +112,7 @@ const ui = {
     tabTable: uiSettings?.upload?.tabTable ?? "Tabla",
     tabUpload: uiSettings?.upload?.tabUpload ?? "Archivo/Imagen",
     tabTheme: uiSettings?.upload?.tabTheme ?? "Tema",
+    tabNews: uiSettings?.upload?.tabNews ?? "Noticias",
     jsonLabel: uiSettings?.upload?.jsonLabel ?? "Contenido (JSON)",
     jsonPlaceholder: uiSettings?.upload?.jsonPlaceholder ?? '[{"es":"hola","de":"hallo"}]',
     tableSource: uiSettings?.upload?.tableSource ?? "Español",
@@ -128,6 +130,11 @@ const ui = {
     imageHint:
       uiSettings?.upload?.imageHint ??
       "Gemini extraerá el vocabulario desde la imagen.",
+    newsLabel: uiSettings?.upload?.newsLabel ?? "Enlace de la noticia",
+    newsPlaceholder: uiSettings?.upload?.newsPlaceholder ?? "Pega el enlace del artículo",
+    newsHint:
+      uiSettings?.upload?.newsHint ??
+      "Generaremos un resumen en el idioma objetivo y vocabulario según tu nivel.",
     themeLabel: uiSettings?.upload?.themeLabel ?? "Tema",
     themePlaceholder:
       uiSettings?.upload?.themePlaceholder ??
@@ -189,6 +196,9 @@ const ui = {
   },
   home: {
     title: uiSettings?.home?.title ?? "Inicio",
+  },
+  news: {
+    readButton: uiSettings?.news?.readButton ?? "Leer periódico",
   },
 }
 
@@ -335,6 +345,8 @@ export default function AppClient({
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
   const [themeLevel, setThemeLevel] = useState(initialProfile?.level ?? "B1")
+  const [newsUrl, setNewsUrl] = useState("")
+  const [newsSummary, setNewsSummary] = useState<string[]>([])
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
@@ -712,6 +724,9 @@ export default function AppClient({
     return visibleWorlds.find((w) => w.id === worldId) ?? visibleWorlds[0] ?? allWorlds[0]
   }, [visibleWorlds, allWorlds, worldId])
 
+  const isNewsWorld =
+    currentWorld.mode === "vocab" && Array.isArray(currentWorld.news?.summary) && currentWorld.news.summary.length > 0
+
   const levelsCount = useMemo(() => {
     const k = currentWorld.chunking.itemsPerGame
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
@@ -726,6 +741,20 @@ export default function AppClient({
   const openWorlds = () => {
     setIsWorldsOpen(true)
     setIsMenuOpen(false)
+  }
+
+  const openNewsSummary = (world: World) => {
+    if (typeof window === "undefined") return
+    if (!world.news?.summary?.length) return
+    window.localStorage.setItem(
+      NEWS_STORAGE_KEY,
+      JSON.stringify({
+        summary: world.news.summary,
+        sourceUrl: world.news.sourceUrl,
+        title: world.news.title ?? world.title,
+      })
+    )
+    window.location.href = "/news"
   }
 
   const createList = () => {
@@ -849,6 +878,8 @@ export default function AppClient({
     setThemeText("")
     setThemeCount(20)
     setThemeLevel("B1")
+    setNewsUrl("")
+    setNewsSummary([])
     setReviewItems([])
     setReviewMode("vocab")
     setUploadTargetWorldId("new")
@@ -1045,7 +1076,7 @@ export default function AppClient({
 
   const handleChangeUploadTab = (value: UploadTab) => {
     setUploadTab(value)
-    if (value === "json") {
+    if (value === "json" || value === "news") {
       setUploadTargetWorldId("new")
     }
   }
@@ -1280,6 +1311,9 @@ export default function AppClient({
     setUploadError(null)
     setIsProcessingUpload(true)
     try {
+      if (uploadTab !== "news") {
+        setNewsSummary([])
+      }
       const desiredMode = uploadModeSelection === "auto" ? null : uploadModeSelection
       if (uploadTab === "table") {
         const result = await autoCompleteTableRows()
@@ -1321,6 +1355,29 @@ export default function AppClient({
               ? "conjugation"
               : "vocab"
         startReview(buildReviewItemsFromAi(items), mode)
+        return
+      }
+
+      if (uploadTab === "news") {
+        if (!newsUrl.trim()) {
+          setUploadError(ui.upload.errorNoInput)
+          return
+        }
+        const result = await callAi({
+          task: "news",
+          url: newsUrl.trim(),
+          level: profileSettings.level || undefined,
+          sourceLabel,
+          targetLabel,
+        })
+        const items = Array.isArray(result?.items) ? result.items : []
+        const summary = Array.isArray(result?.summary) ? result.summary : []
+        if (items.length === 0) {
+          setUploadError(ui.upload.errorNoItems)
+          return
+        }
+        setNewsSummary(summary)
+        startReview(buildReviewItemsFromAi(items), "vocab")
         return
       }
 
@@ -1519,6 +1576,7 @@ export default function AppClient({
     try {
       const worldsToSave: World[] = []
       let activeId: string | undefined = undefined
+      const isNewsFlow = uploadTab === "news" && newsSummary.length > 0
 
       const verbsForConjugation = included
         .filter((item) => item.pos === "verb" && (reviewMode === "conjugation" || item.conjugate))
@@ -1561,6 +1619,10 @@ export default function AppClient({
 
       if (reviewMode === "vocab") {
         const appendTargetId = uploadTargetWorldId !== "new" ? uploadTargetWorldId : ""
+        if (isNewsFlow && appendTargetId) {
+          setUploadError("Las noticias crean un mundo nuevo.")
+          return
+        }
         if (appendTargetId) {
           const target = allWorlds.find(
             (world) => world.id === appendTargetId && world.mode === "vocab" && world.submode !== "conjugation"
@@ -1597,10 +1659,27 @@ export default function AppClient({
             activeId = extendedWorld.id
           }
         } else {
+          const baseWorld = buildVocabWorld(included, conjugationMap)
           const vocabWorld = {
-            ...buildVocabWorld(included, conjugationMap),
+            ...baseWorld,
             source_language: sourceLabel,
             target_language: targetLabel,
+            ...(isNewsFlow
+              ? {
+                  news: {
+                    summary: newsSummary,
+                    sourceUrl: newsUrl.trim() || undefined,
+                  },
+                  chunking: { mode: "sequential", itemsPerGame: Math.max(1, included.length) },
+                  ui: {
+                    ...(baseWorld.ui ?? {}),
+                    winning: {
+                      ...(baseWorld.ui?.winning ?? {}),
+                      nextDefault: ui.news.readButton,
+                    },
+                  },
+                }
+              : {}),
           }
           worldsToSave.push(vocabWorld)
           activeId = vocabWorld.id
@@ -1824,9 +1903,12 @@ export default function AppClient({
                 key={`${worldId}:${levelIndex}:${gameSeed}`}
                 world={currentWorld}
                 levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                onNextLevel={nextLevel}
+                onNextLevel={
+                  isNewsWorld ? () => openNewsSummary(currentWorld) : nextLevel
+                }
                 primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                 secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
+                nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
                 onWin={(moves, wordsLearnedCount) =>
                   awardExperience(
                     moves,
@@ -1982,6 +2064,7 @@ export default function AppClient({
             themeText={themeText}
             themeCount={themeCount}
             themeLevel={themeLevel}
+            newsUrl={newsUrl}
             sourceLabel={sourceLabel}
             targetLabel={targetLabel}
             onChangeName={setUploadName}
@@ -1992,6 +2075,7 @@ export default function AppClient({
             onChangeThemeText={setThemeText}
             onChangeThemeCount={setThemeCount}
             onChangeThemeLevel={setThemeLevel}
+            onChangeNewsUrl={setNewsUrl}
             onUpdateTableRow={updateTableRow}
             onAddTableRow={() =>
               setTableRows((prev) => [...prev, { source: "", target: "" }])
@@ -2109,6 +2193,7 @@ function UploadOverlay({
   themeText,
   themeCount,
   themeLevel,
+  newsUrl,
   sourceLabel,
   targetLabel,
   onChangeName,
@@ -2119,6 +2204,7 @@ function UploadOverlay({
   onChangeThemeText,
   onChangeThemeCount,
   onChangeThemeLevel,
+  onChangeNewsUrl,
   onUpdateTableRow,
   onAddTableRow,
   onRemoveTableRow,
@@ -2155,6 +2241,7 @@ function UploadOverlay({
   themeText: string
   themeCount: number
   themeLevel: string
+  newsUrl: string
   sourceLabel: string
   targetLabel: string
   onChangeName: (value: string) => void
@@ -2165,6 +2252,7 @@ function UploadOverlay({
   onChangeThemeText: (value: string) => void
   onChangeThemeCount: (value: number) => void
   onChangeThemeLevel: (value: string) => void
+  onChangeNewsUrl: (value: string) => void
   onUpdateTableRow: (index: number, value: { source?: string; target?: string }) => void
   onAddTableRow: () => void
   onRemoveTableRow: (index: number) => void
@@ -2187,6 +2275,7 @@ function UploadOverlay({
     { id: "table", label: ui.upload.tabTable },
     { id: "upload", label: ui.upload.tabUpload },
     { id: "theme", label: ui.upload.tabTheme },
+    { id: "news", label: ui.upload.tabNews },
     { id: "json", label: ui.upload.tabJson },
   ]
 
@@ -2566,6 +2655,20 @@ function UploadOverlay({
                       </select>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {tab === "news" && (
+                <div>
+                  <label className="text-sm text-neutral-300">{ui.upload.newsLabel}</label>
+                  <input
+                    type="url"
+                    value={newsUrl}
+                    onChange={(e) => onChangeNewsUrl(e.target.value)}
+                    placeholder={ui.upload.newsPlaceholder}
+                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
+                  />
+                  <div className="mt-2 text-xs text-neutral-400">{ui.upload.newsHint}</div>
                 </div>
               )}
 

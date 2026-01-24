@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 
 const DEFAULT_MODEL = "gemini-flash-latest"
 
-type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list"
+type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news"
 
 function extractJson(text: string) {
   const start = text.indexOf("{")
@@ -147,6 +147,48 @@ function buildThemePrompt({
   ].join("\n")
 }
 
+function stripHtml(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function buildNewsPrompt({
+  sourceLabel,
+  targetLabel,
+  level,
+  rawText,
+}: {
+  sourceLabel: string
+  targetLabel: string
+  level?: string | null
+  rawText: string
+}) {
+  const levelLine = level ? `Target proficiency level: ${level}.` : ""
+  return [
+    "You are summarizing a news article and extracting vocabulary.",
+    `Summary language must be: "${targetLabel}".`,
+    `Vocabulary pairs must use source language "${sourceLabel}" and target language "${targetLabel}".`,
+    levelLine,
+    "Return ONLY valid JSON with this shape:",
+    `{"summary":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
+    "summary: 3-7 short phrases, each one sentence, in the target language.",
+    "Choose a fitting emoji for each item (emoji is required).",
+    "Always set pos for every item (verb, noun, adj, or other).",
+    "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
+    "explanation is required: 1-2 sentences describing the word.",
+    "example is required: exactly one short usage sentence in the source language.",
+    "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
+    "Select vocabulary based on the user's level.",
+    "Input article text:",
+    rawText,
+  ].join("\n")
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -204,6 +246,44 @@ export async function POST(req: NextRequest) {
       theme,
       count,
       level,
+    })
+    parts = [{ text: prompt }]
+  } else if (task === "news") {
+    const url = typeof body?.url === "string" ? body.url.trim() : ""
+    if (!url) {
+      return NextResponse.json({ error: "Missing url" }, { status: 400 })
+    }
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(url)
+    } catch {
+      return NextResponse.json({ error: "Invalid url" }, { status: 400 })
+    }
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return NextResponse.json({ error: "Invalid url protocol" }, { status: 400 })
+    }
+    const articleResponse = await fetch(parsedUrl.toString(), {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      },
+    })
+    if (!articleResponse.ok) {
+      return NextResponse.json(
+        { error: `Failed to fetch article (${articleResponse.status})` },
+        { status: 500 }
+      )
+    }
+    const html = await articleResponse.text()
+    const plainText = stripHtml(html).slice(0, 12000)
+    if (!plainText) {
+      return NextResponse.json({ error: "Empty article content" }, { status: 500 })
+    }
+    prompt = buildNewsPrompt({
+      sourceLabel,
+      targetLabel,
+      level: typeof body?.level === "string" ? body.level : null,
+      rawText: plainText,
     })
     parts = [{ text: prompt }]
   } else {
