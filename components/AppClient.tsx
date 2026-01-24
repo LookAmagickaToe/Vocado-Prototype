@@ -13,7 +13,6 @@ import kitchen_utensils from "@/data/worlds/kitchen_utensils.json"
 import social_relationships from "@/data/worlds/social_relationships.json"
 import basic_english from "@/data/worlds/basic_english.json"
 import new_year from "@/data/worlds/new_year.json"
-import mes_juntos from "@/data/worlds/9_mes_juntos.json"
 
 import { formatTemplate } from "@/lib/ui"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
@@ -25,7 +24,7 @@ import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
 
 //Adapt here for verbs
-const BASE_WORLDS = [mes_juntos, basic_verbs, family, phrases_basic, verbs_conjugation, 
+const BASE_WORLDS = [basic_verbs, family, phrases_basic, verbs_conjugation, 
   verbs_conjugation_espanol, social_relationships, kitchen_utensils, new_year,
 basic_english] as unknown as World[]
 
