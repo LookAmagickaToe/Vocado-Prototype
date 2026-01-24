@@ -43,7 +43,7 @@ function buildParsePrompt({
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
-    "explanation is required: 1-2 sentences describing the word.",
+    "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
     "example is required: exactly one short usage sentence in the source language.",
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return items in the same order as the input lines. Do not drop items.",

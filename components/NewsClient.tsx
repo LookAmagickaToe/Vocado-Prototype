@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
 import uiSettings from "@/data/ui/settings.json"
 import type { VocabWorld } from "@/types/worlds"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
+import { supabase } from "@/lib/supabase/client"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 const NEWS_STORAGE_KEY = "vocado-news-current"
@@ -129,6 +129,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [headlines, setHeadlines] = useState<NewsHeadline[]>([])
   const [isLoadingHeadlines, setIsLoadingHeadlines] = useState(false)
   const [category, setCategory] = useState(profile.newsCategory || "world")
+  const [newsTitle, setNewsTitle] = useState("")
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [world, setWorld] = useState<VocabWorld | null>(null)
 
@@ -222,11 +223,14 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     loadHeadlines()
   }, [category])
 
+  const lastProfileCategoryRef = useRef<string | null>(null)
   useEffect(() => {
-    if (profile.newsCategory && profile.newsCategory !== category) {
-      setCategory(profile.newsCategory)
+    const preferred = profile.newsCategory || "world"
+    if (lastProfileCategoryRef.current !== preferred) {
+      lastProfileCategoryRef.current = preferred
+      setCategory(preferred)
     }
-  }, [profile.newsCategory, category])
+  }, [profile.newsCategory])
 
   const callAi = async (payload: Record<string, unknown>) => {
     const response = await fetch("/api/ai", {
@@ -252,9 +256,65 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     return data
   }
 
-  const handleGenerate = async () => {
+  const getAuthToken = async () => {
+    const session = await supabase.auth.getSession()
+    return session.data.session?.access_token ?? ""
+  }
+
+  const ensureNewsListId = async (token: string) => {
+    const response = await fetch("/api/storage/worlds/list", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      throw new Error("No se pudo cargar las listas")
+    }
+    const data = await response.json()
+    const lists = Array.isArray(data?.lists) ? data.lists : []
+    const existing = lists.find(
+      (list: any) => typeof list?.name === "string" && list.name === "Vocado Diario"
+    )
+    if (existing?.id) {
+      return existing.id
+    }
+
+    const listId = "list-vocado-diario"
+    const saveList = await fetch("/api/storage/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        lists: [{ id: listId, name: "Vocado Diario", position: 0 }],
+      }),
+    })
+    if (!saveList.ok) {
+      throw new Error("No se pudo crear la lista de noticias")
+    }
+    return listId
+  }
+
+  const saveNewsWorld = async (worldToSave: VocabWorld) => {
+    const token = await getAuthToken()
+    if (!token) return
+    const listId = await ensureNewsListId(token)
+    const response = await fetch("/api/storage/worlds/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        worlds: [worldToSave],
+        listId,
+        positions: { [worldToSave.id]: 0 },
+      }),
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error(data?.error ?? "Save failed")
+    }
+  }
+
+  const handleGenerate = async (urlOverride?: string) => {
     setError(null)
-    if (!newsUrl.trim()) {
+    const finalUrl = urlOverride?.trim() || newsUrl.trim()
+    if (!finalUrl) {
       setError("Agrega un enlace válido.")
       return
     }
@@ -262,7 +322,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     try {
       const result = await callAi({
         task: "news",
-        url: newsUrl.trim(),
+        url: finalUrl,
         level: profileState.level || undefined,
         sourceLabel,
         targetLabel,
@@ -275,7 +335,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }
       setSummary(nextSummary)
       setItems(nextItems)
-      setWorld(buildWorldFromItems(nextItems, sourceLabel, targetLabel))
+      const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}`
+      const newsWorld = {
+        ...buildWorldFromItems(nextItems, sourceLabel, targetLabel),
+        title: worldTitle,
+        description: "Noticias del día.",
+      }
+      setWorld(newsWorld)
+      try {
+        await saveNewsWorld(newsWorld)
+      } catch (saveError) {
+        setError((saveError as Error).message)
+      }
       setStep("play")
     } catch (err) {
       setError((err as Error).message)
@@ -346,7 +417,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         return
                       }
                       setNewsUrl(headline.url)
-                      handleGenerate()
+                      setNewsTitle(headline.title)
+                      handleGenerate(headline.url)
                     }}
                     className={[
                       "w-full rounded-xl border p-4 text-left text-sm text-neutral-100",
