@@ -47,6 +47,8 @@ export type WorldBase = {
   description?: string
   chunking: { itemsPerGame: number }
   mode: "vocab" | "phrase"
+  source_language?: string
+  target_language?: string
 
   ui?: WorldUI
 }

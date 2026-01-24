@@ -72,10 +72,14 @@ export default function VocabMemoryGame({
   world,
   levelIndex,
   onNextLevel,
+  primaryLabelOverride,
+  secondaryLabelOverride,
 }: {
   world: VocabWorld
   levelIndex: number
   onNextLevel: () => void
+  primaryLabelOverride?: string
+  secondaryLabelOverride?: string
 }) {
     const VOCAB = useMemo(() => {
         const k = world.chunking.itemsPerGame
@@ -103,8 +107,14 @@ export default function VocabMemoryGame({
     const [isWon, setIsWon] = useState(false)
     const [showWinOverlay, setShowWinOverlay] = useState(false)
 
-    const primaryLabel = world.ui?.vocab?.carousel?.primaryLabel ?? "Español:"
-    const secondaryLabel = world.ui?.vocab?.carousel?.secondaryLabel ?? "Deutsch:"
+    const primaryLabel =
+      primaryLabelOverride ??
+      world.ui?.vocab?.carousel?.primaryLabel ??
+      "Español:"
+    const secondaryLabel =
+      secondaryLabelOverride ??
+      world.ui?.vocab?.carousel?.secondaryLabel ??
+      "Deutsch:"
     const rightTitle = world.ui?.vocab?.rightPanel?.title ?? "Parejas encontradas"
     const emptyHint = world.ui?.vocab?.rightPanel?.emptyHint ?? "Encuentra una pareja para empezar."
 

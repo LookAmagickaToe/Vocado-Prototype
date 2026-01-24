@@ -37,6 +37,12 @@ export default async function Page() {
     .eq("user_id", userId)
     .order("position", { ascending: true })
 
+  const { data: profileRow, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("language,level,source_language,target_language")
+    .eq("id", userId)
+    .maybeSingle()
+
   const lists = (listRows ?? []).map((list) => ({ id: list.id, name: list.name, worldIds: [] }))
   const listMap = new Map(lists.map((list) => [list.id, list]))
 
@@ -71,6 +77,16 @@ export default async function Page() {
       initialHiddenWorldIds={hiddenWorldIds}
       initialWorldTitleOverrides={titleOverrides}
       initialSupabaseLoaded={true}
+      initialProfile={
+        profileError
+          ? undefined
+          : {
+              language: profileRow?.language ?? "",
+              level: profileRow?.level ?? "",
+              sourceLanguage: profileRow?.source_language ?? "",
+              targetLanguage: profileRow?.target_language ?? "",
+            }
+      }
     />
   )
 }

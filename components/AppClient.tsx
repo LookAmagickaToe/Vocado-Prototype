@@ -262,6 +262,12 @@ type AppClientProps = {
   initialHiddenWorldIds?: string[]
   initialWorldTitleOverrides?: Record<string, string>
   initialSupabaseLoaded?: boolean
+  initialProfile?: {
+    language?: string
+    level?: string
+    sourceLanguage?: string
+    targetLanguage?: string
+  }
 }
 
 export default function AppClient({
@@ -270,6 +276,7 @@ export default function AppClient({
   initialHiddenWorldIds = [],
   initialWorldTitleOverrides = {},
   initialSupabaseLoaded = false,
+  initialProfile,
 }: AppClientProps) {
   const [isAuthed, setIsAuthed] = useState(true)
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(initialSupabaseLoaded)
@@ -298,6 +305,12 @@ export default function AppClient({
   const [uploadTab, setUploadTab] = useState<UploadTab>("table")
   const [uploadStep, setUploadStep] = useState<"input" | "review">("input")
   const [uploadModeSelection, setUploadModeSelection] = useState<UploadModeSelection>("auto")
+  const [profileSettings, setProfileSettings] = useState({
+    language: initialProfile?.language ?? "",
+    level: initialProfile?.level ?? "",
+    sourceLanguage: initialProfile?.sourceLanguage ?? "",
+    targetLanguage: initialProfile?.targetLanguage ?? "",
+  })
   const [isProcessingUpload, setIsProcessingUpload] = useState(false)
   const [tableRows, setTableRows] = useState<Array<{ source: string; target: string }>>([
     { source: "", target: "" },
@@ -311,7 +324,7 @@ export default function AppClient({
   } | null>(null)
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
-  const [themeLevel, setThemeLevel] = useState("B1")
+  const [themeLevel, setThemeLevel] = useState(initialProfile?.level ?? "B1")
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
@@ -320,6 +333,24 @@ export default function AppClient({
 
   // used to force-remount the game (restart) without touching game internals
   const [gameSeed, setGameSeed] = useState(0)
+
+  const sourceLabel = profileSettings.sourceLanguage || ui.upload.tableSource
+  const targetLabel = profileSettings.targetLanguage || ui.upload.tableTarget
+
+  const handleProfileUpdate = (next: {
+    language: string
+    level: string
+    sourceLanguage: string
+    targetLanguage: string
+  }) => {
+    setProfileSettings(next)
+  }
+
+  useEffect(() => {
+    if (profileSettings.level) {
+      setThemeLevel(profileSettings.level)
+    }
+  }, [profileSettings.level])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -485,9 +516,29 @@ export default function AppClient({
     window.localStorage.setItem(WORLD_LISTS_STORAGE_KEY, JSON.stringify(worldLists))
   }, [worldLists])
 
+  const languageFilteredWorlds = useMemo(() => {
+    if (!profileSettings.sourceLanguage && !profileSettings.targetLanguage) {
+      return allWorlds
+    }
+    return allWorlds.filter((world) => {
+      const source = (world as any).source_language || ""
+      const target = (world as any).target_language || ""
+      if (profileSettings.sourceLanguage && source !== profileSettings.sourceLanguage) {
+        return false
+      }
+      if (profileSettings.targetLanguage && target && target !== profileSettings.targetLanguage) {
+        return false
+      }
+      if (profileSettings.targetLanguage && !target) {
+        return false
+      }
+      return true
+    })
+  }, [allWorlds, profileSettings.sourceLanguage, profileSettings.targetLanguage])
+
   const visibleWorlds = useMemo(
-    () => allWorlds.filter((w) => !hiddenWorldIds.includes(w.id)),
-    [allWorlds, hiddenWorldIds]
+    () => languageFilteredWorlds.filter((w) => !hiddenWorldIds.includes(w.id)),
+    [languageFilteredWorlds, hiddenWorldIds]
   )
 
   const uploadedWorldIdSet = useMemo(
@@ -497,14 +548,14 @@ export default function AppClient({
 
   const appendableWorlds = useMemo(
     () =>
-      allWorlds
+      languageFilteredWorlds
         .filter((world) => world.mode === "vocab" && world.submode !== "conjugation")
         .map((world) => ({
           id: world.id,
           title: getWorldTitle(world.id, world.title),
           isUploaded: uploadedWorldIdSet.has(world.id),
         })),
-    [allWorlds, getWorldTitle, uploadedWorldIdSet]
+    [languageFilteredWorlds, getWorldTitle, uploadedWorldIdSet]
   )
 
   const currentWorld = useMemo(() => {
@@ -964,8 +1015,9 @@ export default function AppClient({
         task: "parse_text",
         text,
         mode: desiredMode,
-        sourceLabel: ui.upload.tableSource,
-        targetLabel: ui.upload.tableTarget,
+        sourceLabel,
+        targetLabel,
+        level: profileSettings.level || undefined,
       })
       const items = Array.isArray(result?.items) ? result.items : []
       if (items.length === 0) {
@@ -985,8 +1037,9 @@ export default function AppClient({
         task: "parse_text",
         text,
         mode: desiredMode,
-        sourceLabel: ui.upload.tableTarget,
-        targetLabel: ui.upload.tableSource,
+        sourceLabel: targetLabel,
+        targetLabel: sourceLabel,
+        level: profileSettings.level || undefined,
       })
       const items = Array.isArray(result?.items) ? result.items : []
       if (items.length === 0) {
@@ -1013,8 +1066,9 @@ export default function AppClient({
         task: "parse_text",
         text: allText,
         mode: desiredMode,
-        sourceLabel: ui.upload.tableSource,
-        targetLabel: ui.upload.tableTarget,
+        sourceLabel,
+        targetLabel,
+        level: profileSettings.level || undefined,
       })
       const items = Array.isArray(result?.items) ? result.items : []
       if (items.length > 0) {
@@ -1102,8 +1156,8 @@ export default function AppClient({
           count: themeCount,
           level: themeLevel,
           mode: desiredMode,
-          sourceLabel: ui.upload.tableSource,
-          targetLabel: ui.upload.tableTarget,
+          sourceLabel,
+          targetLabel,
         })
         const items = Array.isArray(result?.items) ? result.items : []
         if (items.length === 0) {
@@ -1126,8 +1180,9 @@ export default function AppClient({
             task: "parse_image",
             image: { data: imageUpload.data, mimeType: imageUpload.mimeType },
             mode: desiredMode,
-            sourceLabel: ui.upload.tableSource,
-            targetLabel: ui.upload.tableTarget,
+            sourceLabel,
+            targetLabel,
+            level: profileSettings.level || undefined,
           })
           const items = Array.isArray(result?.items) ? result.items : []
           if (items.length === 0) {
@@ -1152,8 +1207,9 @@ export default function AppClient({
           task: "parse_text",
           text: fileUploadText,
           mode: desiredMode,
-          sourceLabel: ui.upload.tableSource,
-          targetLabel: ui.upload.tableTarget,
+          sourceLabel,
+          targetLabel,
+          level: profileSettings.level || undefined,
         })
         const items = Array.isArray(result?.items) ? result.items : []
         if (items.length === 0) {
@@ -1332,8 +1388,8 @@ export default function AppClient({
         const result = await callAi({
           task: "conjugate",
           verbs: verbsForConjugation,
-          sourceLabel: ui.upload.tableSource,
-          targetLabel: ui.upload.tableTarget,
+          sourceLabel,
+          targetLabel,
         })
         const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
         conjugationMap = conjugations.reduce<Record<string, any>>((acc, entry) => {
@@ -1383,13 +1439,19 @@ export default function AppClient({
               id: extendedId,
               title: extendedTitle,
               description: `Lista extendida: ${target.title}`,
+              source_language: (target as any).source_language ?? sourceLabel,
+              target_language: (target as any).target_language ?? targetLabel,
               pool: [...(target.pool ?? []), ...pool],
             } as World
             worldsToSave.push(extendedWorld)
             activeId = extendedWorld.id
           }
         } else {
-          const vocabWorld = buildVocabWorld(included, conjugationMap)
+          const vocabWorld = {
+            ...buildVocabWorld(included, conjugationMap),
+            source_language: sourceLabel,
+            target_language: targetLabel,
+          }
           worldsToSave.push(vocabWorld)
           activeId = vocabWorld.id
         }
@@ -1492,7 +1554,13 @@ export default function AppClient({
                   {worldTitle} — {levelLabel}
                 </div>
               </div>
-              <UserMenu />
+              <UserMenu
+                language={profileSettings.language}
+                level={profileSettings.level || "B1"}
+                sourceLanguage={profileSettings.sourceLanguage}
+                targetLanguage={profileSettings.targetLanguage}
+                onUpdateSettings={handleProfileUpdate}
+              />
             </div>
           </div>
 
@@ -1555,7 +1623,13 @@ export default function AppClient({
                     <RotateCcw className="w-4 h-4" />
                     {ui.menu.restart}
                   </Button>
-                  <UserMenu />
+                  <UserMenu
+                    language={profileSettings.language}
+                    level={profileSettings.level || "B1"}
+                    sourceLanguage={profileSettings.sourceLanguage}
+                    targetLanguage={profileSettings.targetLanguage}
+                    onUpdateSettings={handleProfileUpdate}
+                  />
                 </div>
               </div>
             </div>
@@ -1576,6 +1650,8 @@ export default function AppClient({
                 world={currentWorld}
                 levelIndex={Math.min(levelIndex, levelsCount - 1)}
                 onNextLevel={nextLevel}
+                primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
+                secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
               />
             ) : (
               <PhraseMemoryGame
@@ -1679,7 +1755,7 @@ export default function AppClient({
             selectedListId={uploadListId}
             targetWorldId={uploadTargetWorldId}
             appendableWorlds={appendableWorlds}
-            hiddenWorlds={allWorlds
+            hiddenWorlds={languageFilteredWorlds
               .filter((w) => hiddenWorldIds.includes(w.id))
               .map((w) => ({ id: w.id, title: getWorldTitle(w.id, w.title) }))}
             tab={uploadTab}
@@ -1693,6 +1769,8 @@ export default function AppClient({
             themeText={themeText}
             themeCount={themeCount}
             themeLevel={themeLevel}
+            sourceLabel={sourceLabel}
+            targetLabel={targetLabel}
             onChangeName={setUploadName}
             onChangeText={setUploadText}
             onChangeTab={handleChangeUploadTab}
@@ -1818,6 +1896,8 @@ function UploadOverlay({
   themeText,
   themeCount,
   themeLevel,
+  sourceLabel,
+  targetLabel,
   onChangeName,
   onChangeText,
   onChangeTab,
@@ -1862,6 +1942,8 @@ function UploadOverlay({
   themeText: string
   themeCount: number
   themeLevel: string
+  sourceLabel: string
+  targetLabel: string
   onChangeName: (value: string) => void
   onChangeText: (value: string) => void
   onChangeTab: (value: UploadTab) => void
@@ -1939,8 +2021,8 @@ function UploadOverlay({
             <div className="mt-4 overflow-auto max-h-[45vh] rounded-xl border border-neutral-800">
               <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,1.2fr,1fr,1fr,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
                 <div>{ui.upload.reviewInclude}</div>
-                <div>{ui.upload.reviewSource}</div>
-                <div>{ui.upload.reviewTarget}</div>
+                <div>{sourceLabel}</div>
+                <div>{targetLabel}</div>
                 <div>{ui.upload.reviewEmoji}</div>
                 <div>{ui.upload.reviewPos}</div>
                 <div>{ui.upload.reviewConjugate}</div>
@@ -2190,8 +2272,8 @@ function UploadOverlay({
               {tab === "table" && (
                 <div>
                   <div className="grid grid-cols-2 gap-2 text-xs uppercase tracking-wide text-neutral-400">
-                    <div>{ui.upload.tableSource}</div>
-                    <div>{ui.upload.tableTarget}</div>
+                    <div>{sourceLabel}</div>
+                    <div>{targetLabel}</div>
                   </div>
                   <div className="mt-2 space-y-2">
                     {tableRows.map((row, index) => (

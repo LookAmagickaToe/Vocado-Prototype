@@ -1,6 +1,8 @@
 {
   "id": "verbs_conjugation_es",
   "title": "Conjugación (Español)",
+  "source_language": "Español",
+  "target_language": "Español",
   "mode": "vocab",
   "ui": {
     "header": { "levelLabelTemplate": "{verb}", "levelItemTemplate": "{verb}" },

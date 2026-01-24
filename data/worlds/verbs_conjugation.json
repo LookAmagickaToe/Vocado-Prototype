@@ -1,6 +1,8 @@
 {
   "id": "verbs_conjugation",
   "title": "Conjugation",
+  "source_language": "Deutsch",
+  "target_language": "Español",
   "mode": "vocab",
   "submode": "conjugation",
 

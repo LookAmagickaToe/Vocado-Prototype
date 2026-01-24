@@ -1,6 +1,8 @@
 {
   "id": "kitchen_utensils",
   "title": "Utensilios de Cocina",
+  "source_language": "Español",
+  "target_language": "Deutsch",
   "description": "Empareja vocabulario de cocina en español y alemán.",
   "ui": {
     "header": {

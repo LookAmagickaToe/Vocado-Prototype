@@ -1,6 +1,8 @@
 {
   "id": "basic_en_fr",
   "title": "Basic Vocabulary",
+  "source_language": "English",
+  "target_language": "Français",
   "description": "Learn basic English–French vocabulary.",
   "mode": "vocab",
 
@@ -125,4 +127,3 @@
     }
   ]
 }
-

@@ -4,7 +4,35 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
-export default function UserMenu() {
+const LANGUAGES = [
+  "Español",
+  "Deutsch",
+  "English",
+  "Français",
+  "Italiano",
+  "Português",
+]
+
+const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+
+export default function UserMenu({
+  language,
+  level,
+  sourceLanguage,
+  targetLanguage,
+  onUpdateSettings,
+}: {
+  language: string
+  level: string
+  sourceLanguage: string
+  targetLanguage: string
+  onUpdateSettings: (next: {
+    language: string
+    level: string
+    sourceLanguage: string
+    targetLanguage: string
+  }) => void
+}) {
   const router = useRouter()
   const [email, setEmail] = useState<string>("")
   const [open, setOpen] = useState(false)
@@ -31,6 +59,34 @@ export default function UserMenu() {
     router.push("/login")
   }
 
+  const updateProfile = async (
+    nextLanguage: string,
+    nextLevel: string,
+    nextSource: string,
+    nextTarget: string
+  ) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return
+
+    await fetch("/api/auth/profile/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        language: nextLanguage,
+        level: nextLevel,
+        sourceLanguage: nextSource,
+        targetLanguage: nextTarget,
+      }),
+    })
+    onUpdateSettings({
+      language: nextLanguage,
+      level: nextLevel,
+      sourceLanguage: nextSource,
+      targetLanguage: nextTarget,
+    })
+  }
+
   if (!email) return null
 
   return (
@@ -46,6 +102,77 @@ export default function UserMenu() {
       {open && (
         <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-xs text-neutral-200 shadow-xl">
           <div className="truncate text-sm font-medium">{email}</div>
+          <div className="mt-3 space-y-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
+                Language
+              </label>
+              <select
+                value={language}
+                onChange={(e) => updateProfile(e.target.value, level, sourceLanguage, targetLanguage)}
+                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+              >
+                <option value="">Auto</option>
+                {LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
+                Source
+              </label>
+              <select
+                value={sourceLanguage}
+                onChange={(e) => updateProfile(language, level, e.target.value, targetLanguage)}
+                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+              >
+                <option value="">Auto</option>
+                {LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
+                Target
+              </label>
+              <select
+                value={targetLanguage}
+                onChange={(e) => updateProfile(language, level, sourceLanguage, e.target.value)}
+                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+              >
+                <option value="">Auto</option>
+                {LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
+                Level
+              </label>
+              <select
+                value={level}
+                onChange={(e) =>
+                  updateProfile(language, e.target.value, sourceLanguage, targetLanguage)
+                }
+                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+              >
+                {LEVELS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <button
             type="button"
             onClick={signOut}

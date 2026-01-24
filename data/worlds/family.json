@@ -1,6 +1,8 @@
 {
   "id": "family",
   "title": "Familia",
+  "source_language": "Español",
+  "target_language": "Deutsch",
   "description": "Match Spanish and German words.",
   "ui": {
     "header": {

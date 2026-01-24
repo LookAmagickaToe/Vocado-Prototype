@@ -20,20 +20,24 @@ function buildParsePrompt({
   targetLabel,
   desiredMode,
   rawText,
+  level,
 }: {
   sourceLabel: string
   targetLabel: string
   desiredMode?: string | null
   rawText: string
+  level?: string | null
 }) {
   const modeLine = desiredMode
     ? `The user selected mode: "${desiredMode}". Respect it even if you disagree.`
     : "Auto-select mode based on the content."
+  const levelLine = level ? `Target proficiency level: ${level}.` : ""
 
   return [
     "You are extracting vocabulary pairs from user input.",
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     modeLine,
+    levelLine,
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
@@ -55,19 +59,23 @@ function buildImagePrompt({
   sourceLabel,
   targetLabel,
   desiredMode,
+  level,
 }: {
   sourceLabel: string
   targetLabel: string
   desiredMode?: string | null
+  level?: string | null
 }) {
   const modeLine = desiredMode
     ? `The user selected mode: "${desiredMode}". Respect it even if you disagree.`
     : "Auto-select mode based on the content."
+  const levelLine = level ? `Target proficiency level: ${level}.` : ""
 
   return [
     "You are extracting vocabulary pairs from an image of text.",
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     modeLine,
+    levelLine,
     "Return ONLY valid JSON with this shape:",
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
@@ -160,6 +168,7 @@ export async function POST(req: NextRequest) {
       targetLabel,
       desiredMode: body?.mode ?? null,
       rawText,
+      level: typeof body?.level === "string" ? body.level : null,
     })
     parts = [{ text: prompt }]
   } else if (task === "parse_image") {
@@ -171,6 +180,7 @@ export async function POST(req: NextRequest) {
       sourceLabel,
       targetLabel,
       desiredMode: body?.mode ?? null,
+      level: typeof body?.level === "string" ? body.level : null,
     })
     parts = [
       { text: prompt },

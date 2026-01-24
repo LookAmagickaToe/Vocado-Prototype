@@ -1,6 +1,8 @@
 {
   "id": "phrases-basic",
   "title": "Phrases — Basic",
+  "source_language": "Español",
+  "target_language": "Español",
   "description": "Build Spanish phrases in the correct order.",
   "mode": "phrase",
   "chunking": { "itemsPerGame": 1 },
