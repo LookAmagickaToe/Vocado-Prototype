@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client"
 export default function UserMenu() {
   const router = useRouter()
   const [email, setEmail] = useState<string>("")
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -33,15 +34,27 @@ export default function UserMenu() {
   if (!email) return null
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-xs text-neutral-200">
-      <span className="truncate max-w-[140px]">{email}</span>
+    <div className="relative">
       <button
         type="button"
-        onClick={signOut}
-        className="rounded-md border border-neutral-700 px-2 py-1 text-xs hover:text-white"
+        onClick={() => setOpen((prev) => !prev)}
+        className="h-10 w-10 rounded-full border border-neutral-700 bg-neutral-900/70 text-sm font-semibold text-neutral-100"
+        aria-label="Perfil"
       >
-        Logout
+        {email.slice(0, 1).toUpperCase()}
       </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-xs text-neutral-200 shadow-xl">
+          <div className="truncate text-sm font-medium">{email}</div>
+          <button
+            type="button"
+            onClick={signOut}
+            className="mt-3 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-left text-xs hover:text-white"
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   )
 }

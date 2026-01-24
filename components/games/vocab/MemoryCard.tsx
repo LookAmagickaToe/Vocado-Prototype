@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import type { CardModel } from "./types"
+import AutoFitText from "@/components/ui/auto-fit-text"
 
 function ParticleBurst() {
   const particles = Array.from({ length: 18 }, (_, i) => {
@@ -99,21 +100,16 @@ export default function MemoryCard({
             }}
           >
             {model.kind === "word" ? (
-              <div className="px-2 text-center">
-                <div
-                  className="text-[clamp(0.7rem,3.2vw,1rem)] sm:text-[clamp(0.85rem,2.2vw,1.15rem)] font-semibold tracking-tight leading-tight break-words"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {model.front.title}
-                </div>
+              <div className="h-full w-full px-2 text-center">
+                <AutoFitText
+                  text={model.front.title}
+                  maxPx={18}
+                  minPx={6}
+                  className="h-full w-full flex items-center justify-center font-semibold tracking-tight"
+                />
               </div>
             ) : (
-              <div className="px-2 text-center flex flex-col items-center">
+              <div className="h-full w-full px-2 text-center flex flex-col items-center justify-center gap-2">
                 {model.imageSrc ? (
                   <img
                     src={model.imageSrc}
@@ -126,17 +122,14 @@ export default function MemoryCard({
                   </div>
                 )}
 
-                <div
-                  className="mt-2 text-[clamp(0.65rem,2.6vw,0.95rem)] sm:text-[clamp(0.75rem,2vw,1rem)] font-medium leading-tight break-words"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {model.front.subtitle}
-                </div>
+                {model.front.subtitle ? (
+                  <AutoFitText
+                    text={model.front.subtitle}
+                    maxPx={14}
+                    minPx={6}
+                    className="w-full max-h-[35%] font-medium leading-tight flex items-center justify-center"
+                  />
+                ) : null}
               </div>
             )}
           </div>

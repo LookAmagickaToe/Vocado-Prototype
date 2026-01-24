@@ -1376,8 +1376,31 @@ export default function AppClient({
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
       <div className="mx-auto w-full max-w-7xl">
         <div className="grid grid-cols-12 gap-4 items-start md:grid-rows-[auto,1fr]">
-          {/* LEFT: hamburger/menu */}
-          <aside className="col-span-12 md:col-span-2 md:row-span-2">
+          {/* MOBILE TOP BAR */}
+          <div className="col-span-12 md:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(true)}
+                className="h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
+                aria-label="Menú"
+              >
+                ☰
+              </button>
+              <div className="text-center flex-1">
+                <div className="text-2xl font-semibold tracking-tight">
+                  voc<span className="text-green-500">ado</span>
+                </div>
+                <div className="text-xs text-neutral-300 mt-1">
+                  {worldTitle} — {levelLabel}
+                </div>
+              </div>
+              <UserMenu />
+            </div>
+          </div>
+
+          {/* DESKTOP LEFT MENU */}
+          <aside className="hidden md:block md:col-span-2 md:row-span-2">
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur">
               <button
                 type="button"
@@ -1417,17 +1440,17 @@ export default function AppClient({
           {/* CENTER HEADER */}
           <div className="col-span-12 md:col-span-10 md:col-start-3 md:row-start-1">
             <div className="w-full">
-              <div className="flex items-end justify-between gap-4 mb-6">
+              <div className="hidden md:flex items-end justify-between gap-4 mb-6">
                 <div>
-                <h1 className="text-3xl font-semibold tracking-tight">
+                  <h1 className="text-3xl font-semibold tracking-tight">
                     voc<span className="text-green-500">ado</span>
-                </h1>                  
-                <div className="mt-1 text-sm text-neutral-300">
+                  </h1>
+                  <div className="mt-1 text-sm text-neutral-300">
                     {worldTitle} — {levelLabel}
                   </div>
-                    <p className="text-sm text-neutral-300 mt-1">
-                        {headerInstructions}
-                    </p>
+                  <p className="text-sm text-neutral-300 mt-1">
+                    {headerInstructions}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -1441,26 +1464,83 @@ export default function AppClient({
             </div>
           </div>
 
-          {/* GAME AREA (center+right is inside the component) */}
-          <div className="col-span-12 md:col-span-10 md:col-start-3 md:row-start-2">
-            {currentWorld.mode === "vocab" ? (
-                <VocabMemoryGame
-                key={`${worldId}:${levelIndex}:${gameSeed}`}
-                world={currentWorld}
-                levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                onNextLevel={nextLevel}
-                />
-            ) : (
-                <PhraseMemoryGame
-                key={`${worldId}:${levelIndex}:${gameSeed}`}
-                world={currentWorld}
-                levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                onNextLevel={nextLevel}
-                />
-            )}
+          {/* GAME AREA */}
+          <div className="col-span-12 md:col-span-10 md:col-start-3 md:row-start-2 space-y-3">
+            <div className="flex items-center justify-between md:hidden">
+              <div className="text-xs text-neutral-300">{headerInstructions}</div>
+              <Button onClick={restart} className="flex items-center gap-2 text-xs px-2 py-1">
+                <RotateCcw className="w-3 h-3" />
+                {ui.menu.restart}
+              </Button>
             </div>
+            {currentWorld.mode === "vocab" ? (
+              <VocabMemoryGame
+                key={`${worldId}:${levelIndex}:${gameSeed}`}
+                world={currentWorld}
+                levelIndex={Math.min(levelIndex, levelsCount - 1)}
+                onNextLevel={nextLevel}
+              />
+            ) : (
+              <PhraseMemoryGame
+                key={`${worldId}:${levelIndex}:${gameSeed}`}
+                world={currentWorld}
+                levelIndex={Math.min(levelIndex, levelsCount - 1)}
+                onNextLevel={nextLevel}
+              />
+            )}
+          </div>
         </div>
       </div>
+
+      {/* MOBILE MENU OVERLAY */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setIsMenuOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-[72vw] max-w-[320px] bg-neutral-950 border-r border-neutral-800 p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">{ui.menu.title}</div>
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(false)}
+                className="rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-neutral-200">
+              <button
+                type="button"
+                onClick={() => {
+                  openWorlds()
+                  setIsMenuOpen(false)
+                }}
+                className="block w-full text-left hover:text-white"
+              >
+                {ui.menu.worlds}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openUpload()
+                  setIsMenuOpen(false)
+                }}
+                className="block w-full text-left hover:text-white"
+              >
+                {ui.menu.upload}
+              </button>
+              <button className="block w-full text-left hover:text-white">
+                {ui.menu.manage}
+              </button>
+              <button className="block w-full text-left hover:text-white">
+                {ui.menu.locked}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WORLDS OVERLAY */}
       <AnimatePresence>

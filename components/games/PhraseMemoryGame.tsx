@@ -10,6 +10,7 @@ import { formatTemplate } from "@/lib/ui"
 
 
 import { motion } from "framer-motion"
+import AutoFitText from "@/components/ui/auto-fit-text"
 
 type PhraseCardModel = {
   key: string
@@ -300,7 +301,7 @@ export default function PhraseMemoryGame({
             {/* Board */}
             <div className="bg-neutral-900/40 backdrop-blur rounded-2xl p-3 sm:p-5 shadow-sm border border-neutral-800">
               <div className="max-h-[60vh] overflow-auto pr-1">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
                   {cards.map((c) => {
                     const isRevealed = revealedKeys.has(c.key)
 
@@ -319,19 +320,14 @@ export default function PhraseMemoryGame({
                       >
                         <div className="absolute inset-0 flex items-center justify-center">
                           {isFaceUp(c.key) ? (
-                            <div
-                              className={`text-[clamp(0.7rem,3.2vw,1rem)] sm:text-[clamp(0.85rem,2.2vw,1.1rem)] font-semibold leading-tight break-words ${tokenColor(
+                            <AutoFitText
+                              text={c.text}
+                              maxPx={18}
+                              minPx={6}
+                              className={`h-full w-full px-2 flex items-center justify-center font-semibold leading-tight ${tokenColor(
                                 c.type
                               )}`}
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {c.text}
-                            </div>
+                            />
                           ) : (
                             <img
                               src="/card/card-back.png"

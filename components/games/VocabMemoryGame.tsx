@@ -343,7 +343,7 @@ export default function VocabMemoryGame({
           }}
         >
           <div className="max-h-[60vh] overflow-auto pr-1">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
               {slots.map((slot) => {
                 const model = renderModelForSlot(slot)
                 return (
