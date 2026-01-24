@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       typeof body?.sourceLanguage === "string" ? body.sourceLanguage.trim() : ""
     const targetLanguage =
       typeof body?.targetLanguage === "string" ? body.targetLanguage.trim() : ""
+    const newsCategory =
+      typeof body?.newsCategory === "string" ? body.newsCategory.trim() : ""
 
     const { error } = await supabaseAdmin
       .from("profiles")
@@ -29,6 +31,7 @@ export async function POST(req: Request) {
         level: level || null,
         source_language: sourceLanguage || null,
         target_language: targetLanguage || null,
+        news_category: newsCategory || null,
       })
       .eq("id", userId)
 

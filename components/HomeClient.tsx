@@ -17,6 +17,7 @@ type ProfileSettings = {
   level: string
   sourceLanguage: string
   targetLanguage: string
+  newsCategory?: string
 }
 
 type LastPlayed = {
@@ -47,11 +48,7 @@ type StoredList = {
   name: string
 }
 
-export default function HomeClient({
-  profile,
-}: {
-  profile: ProfileSettings
-}) {
+export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const router = useRouter()
   const [profileState, setProfileState] = useState(profile)
   const [isSad, setIsSad] = useState(false)
@@ -59,7 +56,9 @@ export default function HomeClient({
   const [wordsLearned, setWordsLearned] = useState(0)
   const [dailyGames, setDailyGames] = useState(0)
   const [dailyUploadDone, setDailyUploadDone] = useState(false)
+  const [dailyNewsDone, setDailyNewsDone] = useState(false)
   const [lastPlayed, setLastPlayed] = useState<LastPlayed | null>(null)
+  const [topNewsTitle, setTopNewsTitle] = useState("")
   const [translateInput, setTranslateInput] = useState("")
   const [translateResult, setTranslateResult] = useState<ReviewItem | null>(null)
   const [translateError, setTranslateError] = useState<string | null>(null)
@@ -147,8 +146,9 @@ export default function HomeClient({
         if (storedDate === today) {
           setDailyGames(parsed?.games ?? 0)
           setDailyUploadDone(!!parsed?.upload)
+          setDailyNewsDone(!!parsed?.news)
         } else {
-          const reset = { date: today, games: 0, upload: false }
+          const reset = { date: today, games: 0, upload: false, news: false }
           window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
         }
       } catch {
@@ -158,7 +158,7 @@ export default function HomeClient({
       const today = now.toISOString().slice(0, 10)
       window.localStorage.setItem(
         DAILY_STATE_STORAGE_KEY,
-        JSON.stringify({ date: today, games: 0, upload: false })
+        JSON.stringify({ date: today, games: 0, upload: false, news: false })
       )
     }
 
@@ -173,18 +173,48 @@ export default function HomeClient({
         // ignore
       }
     }
-  }, [])
+
+    const loadTopNews = async () => {
+      try {
+        const preferred = profileState.newsCategory || "world"
+        const cacheKey = `vocado-news-cache-${preferred}`
+        const cached = window.localStorage.getItem(cacheKey)
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached)
+            const first = Array.isArray(parsed?.items) ? parsed.items[0] : null
+            if (first?.title) {
+              setTopNewsTitle(first.title)
+              return
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const response = await fetch(`/api/news/tagesschau?ressort=${preferred}`)
+        const data = await response.json()
+        const items = Array.isArray(data?.items) ? data.items : []
+        const limited = items.slice(0, 3)
+        const first = limited[0]
+        setTopNewsTitle(first?.title ?? "")
+        window.localStorage.setItem(cacheKey, JSON.stringify({ items: limited }))
+      } catch {
+        setTopNewsTitle("")
+      }
+    }
+    loadTopNews()
+  }, [profileState.newsCategory])
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10)
     window.localStorage.setItem(
       DAILY_STATE_STORAGE_KEY,
-      JSON.stringify({ date: today, games: dailyGames, upload: dailyUploadDone })
+      JSON.stringify({ date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone })
     )
-  }, [dailyGames, dailyUploadDone])
+  }, [dailyGames, dailyUploadDone, dailyNewsDone])
 
   useEffect(() => {
-    const loadListsAndWorlds = async () => {
+      const loadListsAndWorlds = async () => {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
@@ -212,6 +242,26 @@ export default function HomeClient({
       }
     }
     loadListsAndWorlds()
+  }, [])
+
+  useEffect(() => {
+    const syncProfileFromStorage = () => {
+      if (typeof window === "undefined") return
+      const raw = window.localStorage.getItem("vocado-profile-settings")
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw)
+        if (
+          parsed &&
+          (parsed.level || parsed.sourceLanguage || parsed.targetLanguage || parsed.newsCategory)
+        ) {
+          setProfileState((prev) => ({ ...prev, ...parsed }))
+        }
+      } catch {
+        // ignore
+      }
+    }
+    syncProfileFromStorage()
   }, [])
 
   const mascotSrc = isSad ? "/mascot/sad_vocado.png" : "/mascot/happy_vocado.png"
@@ -382,8 +432,8 @@ export default function HomeClient({
       if (!dailyUploadDone) {
         setDailyUploadDone(true)
         const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(currentSeeds + 5))
-        setSeeds(currentSeeds + 5)
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(currentSeeds + 10))
+        setSeeds(currentSeeds + 10)
       }
       setTranslateInput("")
       setTranslateResult(null)
@@ -405,6 +455,7 @@ export default function HomeClient({
             level={profileState.level || "B1"}
             sourceLanguage={profileState.sourceLanguage}
             targetLanguage={profileState.targetLanguage}
+            newsCategory={profileState.newsCategory}
             onUpdateSettings={setProfileState}
           />
         </header>
@@ -433,7 +484,7 @@ export default function HomeClient({
                 {ui.goalPlay}
               </span>
               <span className="text-xs text-neutral-400">
-                {ui.goalPlayProgress} {Math.min(dailyGames, 3)}/3
+                {ui.goalPlayProgress} {Math.min(dailyGames, 3)}/3 · 45🌱
               </span>
             </li>
             <li className="flex items-center justify-between">
@@ -444,15 +495,19 @@ export default function HomeClient({
                 {ui.goalUpload}
               </span>
               <span className="text-xs text-neutral-400">
-                {ui.goalUploadProgress} {dailyUploadDone ? 1 : 0}/1
+                {ui.goalUploadProgress} {dailyUploadDone ? 1 : 0}/1 · 10🌱
               </span>
             </li>
             <li className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]" />
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyNewsDone ? "✓" : ""}
+                </span>
                 {ui.goalNews}
               </span>
-              <span className="text-xs text-neutral-400">0/1</span>
+              <span className="text-xs text-neutral-400">
+                {dailyNewsDone ? 1 : 0}/1 · 30🌱
+              </span>
             </li>
           </ul>
         </section>
@@ -501,7 +556,9 @@ export default function HomeClient({
           >
             {ui.newsAction}
           </button>
-          <div className="mt-3 text-sm text-neutral-300">{ui.newsTitle}</div>
+          <div className="mt-3 text-sm text-neutral-300">
+            {topNewsTitle || ui.newsTitle}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">

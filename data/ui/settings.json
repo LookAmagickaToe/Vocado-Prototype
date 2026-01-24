@@ -83,7 +83,20 @@
   "news": {
     "readButton": "Leer periódico",
     "summaryTitle": "Resumen",
-    "sourceLabel": "Fuente"
+    "sourceLabel": "Fuente",
+    "title": "Noticias",
+    "linkLabel": "Enlace de la noticia",
+    "linkPlaceholder": "Pega el enlace del artículo",
+    "generateButton": "Generar",
+    "playButton": "Jugar",
+    "loading": "Procesando...",
+    "vocabTitle": "Palabras aprendidas",
+    "categoryLabel": "Categoría",
+    "categoryOptions": {
+      "world": "World",
+      "wirtschaft": "Economy",
+      "sport": "Sport"
+    }
   },
   "conjugationWorld": {
     "titleSuffix": "— Conjugación",

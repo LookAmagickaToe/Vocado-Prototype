@@ -168,7 +168,9 @@ function buildNewsPrompt({
   level?: string | null
   rawText: string
 }) {
-  const levelLine = level ? `Target proficiency level: ${level}.` : ""
+  const levelLine = level
+    ? `Target proficiency level: ${level}. Use vocabulary, sentence length, and grammar strictly appropriate for this level.`
+    : ""
   return [
     "You are summarizing a news article and extracting vocabulary.",
     `Summary language must be: "${targetLabel}".`,
@@ -176,7 +178,10 @@ function buildNewsPrompt({
     levelLine,
     "Return ONLY valid JSON with this shape:",
     `{"summary":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
-    "summary: 3-7 short phrases, each one sentence, in the target language.",
+    "summary: 3-7 sentences forming a single flowing mini-article, not bullet points.",
+    "If level is A1/A2: use very short sentences, common words, present tense when possible, no complex clauses.",
+    "If level is B1/B2: medium length sentences, limited subordinate clauses, clear connectors.",
+    "If level is C1/C2: more natural flow, richer vocabulary, but still concise.",
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",

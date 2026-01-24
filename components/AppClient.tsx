@@ -287,6 +287,7 @@ type AppClientProps = {
     level?: string
     sourceLanguage?: string
     targetLanguage?: string
+    newsCategory?: string
   }
 }
 
@@ -330,6 +331,7 @@ export default function AppClient({
     level: initialProfile?.level ?? "",
     sourceLanguage: initialProfile?.sourceLanguage ?? "",
     targetLanguage: initialProfile?.targetLanguage ?? "",
+    newsCategory: initialProfile?.newsCategory ?? "",
   })
   const [isProcessingUpload, setIsProcessingUpload] = useState(false)
   const [tableRows, setTableRows] = useState<Array<{ source: string; target: string }>>([
@@ -364,6 +366,7 @@ export default function AppClient({
     level: string
     sourceLanguage: string
     targetLanguage: string
+    newsCategory?: string
   }) => {
     setProfileSettings(next)
   }
@@ -404,7 +407,7 @@ export default function AppClient({
 
     const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
     const today = new Date().toISOString().slice(0, 10)
-    let dailyState = { date: today, games: 0, upload: false }
+    let dailyState = { date: today, games: 0, upload: false, news: false }
     if (rawDaily) {
       try {
         const parsed = JSON.parse(rawDaily)
@@ -413,6 +416,7 @@ export default function AppClient({
             date: today,
             games: parsed?.games ?? 0,
             upload: !!parsed?.upload,
+            news: !!parsed?.news,
           }
         }
       } catch {
@@ -432,10 +436,12 @@ export default function AppClient({
     }
     window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
 
-    const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-    const currentWeekly = Number(rawWeekly || "0") || 0
-    const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
-    window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+    if (isNew) {
+      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+      const currentWeekly = Number(rawWeekly || "0") || 0
+      const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+    }
 
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     setSeeds(finalSeeds)
@@ -752,6 +758,17 @@ export default function AppClient({
         summary: world.news.summary,
         sourceUrl: world.news.sourceUrl,
         title: world.news.title ?? world.title,
+        items:
+          world.mode === "vocab"
+            ? world.pool.map((item) => ({
+                source: item.es,
+                target: item.de,
+                pos: item.pos ?? "other",
+                emoji: item.image?.type === "emoji" ? item.image.value : "📰",
+                explanation: item.explanation,
+                example: item.example,
+              }))
+            : [],
       })
     )
     window.location.href = "/news"
@@ -1789,6 +1806,7 @@ export default function AppClient({
                   sourceLanguage={profileSettings.sourceLanguage}
                   targetLanguage={profileSettings.targetLanguage}
                   onUpdateSettings={handleProfileUpdate}
+                  newsCategory={profileSettings.newsCategory}
                 />
                 <div className="text-xs text-neutral-200">
                   <span className="font-semibold">{seeds}</span> 🌱
@@ -1883,6 +1901,7 @@ export default function AppClient({
                     sourceLanguage={profileSettings.sourceLanguage}
                     targetLanguage={profileSettings.targetLanguage}
                     onUpdateSettings={handleProfileUpdate}
+                    newsCategory={profileSettings.newsCategory}
                   />
                 </div>
               </div>

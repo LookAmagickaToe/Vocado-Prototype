@@ -25,10 +25,12 @@ export default function UserMenu({
   level: string
   sourceLanguage: string
   targetLanguage: string
+  newsCategory?: string
   onUpdateSettings: (next: {
     level: string
     sourceLanguage: string
     targetLanguage: string
+    newsCategory?: string
   }) => void
 }) {
   const router = useRouter()
@@ -38,6 +40,9 @@ export default function UserMenu({
   const [draftLevel, setDraftLevel] = useState(level)
   const [draftSource, setDraftSource] = useState(sourceLanguage)
   const [draftTarget, setDraftTarget] = useState(targetLanguage)
+  const [draftNewsCategory, setDraftNewsCategory] = useState(
+    newsCategory || "world"
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -62,7 +67,8 @@ export default function UserMenu({
     setDraftLevel(level)
     setDraftSource(sourceLanguage)
     setDraftTarget(targetLanguage)
-  }, [level, sourceLanguage, targetLanguage])
+    setDraftNewsCategory(newsCategory || "world")
+  }, [level, sourceLanguage, targetLanguage, newsCategory])
 
   useEffect(() => {
     if (!open) return
@@ -93,6 +99,7 @@ export default function UserMenu({
         level: draftLevel,
         sourceLanguage: draftSource,
         targetLanguage: draftTarget,
+        newsCategory: draftNewsCategory,
       }),
     })
       .then(async (res) => {
@@ -104,7 +111,19 @@ export default function UserMenu({
           level: draftLevel,
           sourceLanguage: draftSource,
           targetLanguage: draftTarget,
+          newsCategory: draftNewsCategory,
         })
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "vocado-profile-settings",
+            JSON.stringify({
+              level: draftLevel,
+              sourceLanguage: draftSource,
+              targetLanguage: draftTarget,
+              newsCategory: draftNewsCategory,
+            })
+          )
+        }
         setOpen(false)
       })
       .catch((err) => {
@@ -179,6 +198,26 @@ export default function UserMenu({
                     {item}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-neutral-400">
+                News
+              </label>
+              <select
+                value={draftNewsCategory}
+                onChange={(e) => setDraftNewsCategory(e.target.value)}
+                className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+              >
+                <option value="world">
+                  {uiSettings?.news?.categoryOptions?.world ?? "World"}
+                </option>
+                <option value="wirtschaft">
+                  {uiSettings?.news?.categoryOptions?.wirtschaft ?? "Economy"}
+                </option>
+                <option value="sport">
+                  {uiSettings?.news?.categoryOptions?.sport ?? "Sport"}
+                </option>
               </select>
             </div>
             {saveError && <div className="text-[11px] text-red-400">{saveError}</div>}

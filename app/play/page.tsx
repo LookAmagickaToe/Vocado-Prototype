@@ -39,7 +39,7 @@ export default async function PlayPage() {
 
   const { data: profileRow } = await supabaseAdmin
     .from("profiles")
-    .select("level,source_language,target_language")
+    .select("level,source_language,target_language,news_category")
     .eq("id", userId)
     .maybeSingle()
 
@@ -81,6 +81,7 @@ export default async function PlayPage() {
         level: profileRow?.level ?? "",
         sourceLanguage: profileRow?.source_language ?? "",
         targetLanguage: profileRow?.target_language ?? "",
+        newsCategory: profileRow?.news_category ?? "",
       }}
     />
   )
