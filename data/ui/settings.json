@@ -83,5 +83,20 @@
     "secondaryLabel": "Conjugación:",
     "rightTitle": "Matches",
     "emptyHint": "Encuentra una pareja para empezar."
+  },
+  "home": {
+    "title": "Inicio",
+    "wordsLearnedLabel": "Palabras aprendidas esta semana",
+    "goalsTitle": "Objetivos diarios",
+    "goalPlay": "Jugar 3 partidas",
+    "goalUpload": "Subir nuevas palabras",
+    "goalNews": "Jugar el periódico diario",
+    "lastPlayedTitle": "Último mundo jugado",
+    "lastPlayedAction": "Reanudar",
+    "uploadAction": "Subir lista",
+    "worldsAction": "Mundos",
+    "newsAction": "Noticias",
+    "newsTitle": "Título del artículo destacado",
+    "seedsLabel": "Semillas"
   }
 }

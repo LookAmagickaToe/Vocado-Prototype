@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,8 @@ const WORLD_LISTS_STORAGE_KEY = "vocab-memory-world-lists"
 const WORLD_TITLE_OVERRIDES_STORAGE_KEY = "vocab-memory-world-title-overrides"
 const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocab-memory-world-list-collapsed"
 const HIDDEN_WORLDS_STORAGE_KEY = "vocab-memory-hidden-worlds"
+const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
+const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
 
 type WorldList = {
   id: string
@@ -278,6 +281,7 @@ export default function AppClient({
   initialSupabaseLoaded = false,
   initialProfile,
 }: AppClientProps) {
+  const searchParams = useSearchParams()
   const [isAuthed, setIsAuthed] = useState(true)
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(initialSupabaseLoaded)
   const [uploadedWorlds, setUploadedWorlds] = useState<World[]>(initialUploadedWorlds)
@@ -373,6 +377,47 @@ export default function AppClient({
     if (typeof window === "undefined") return
     window.localStorage.setItem(UPLOADED_WORLDS_STORAGE_KEY, JSON.stringify(uploadedWorlds))
   }, [uploadedWorlds])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(LAST_LOGIN_STORAGE_KEY, String(Date.now()))
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const current = allWorlds.find((w) => w.id === worldId)
+    if (!current) return
+    const payload = {
+      id: current.id,
+      title: getWorldTitle(current.id, current.title),
+      levelIndex,
+      updatedAt: Date.now(),
+    }
+    window.localStorage.setItem(LAST_PLAYED_STORAGE_KEY, JSON.stringify(payload))
+  }, [worldId, levelIndex, allWorlds, getWorldTitle])
+
+  useEffect(() => {
+    if (!searchParams) return
+    const open = searchParams.get("open")
+    if (open === "upload") {
+      setIsUploadOpen(true)
+      setIsWorldsOpen(false)
+      setIsMenuOpen(false)
+    }
+    if (open === "worlds") {
+      setIsWorldsOpen(true)
+      setIsUploadOpen(false)
+      setIsMenuOpen(false)
+    }
+    const worldParam = searchParams.get("world")
+    if (worldParam) {
+      const exists = allWorlds.find((w) => w.id === worldParam)
+      if (exists) {
+        setWorldId(worldParam)
+        setLevelIndex(0)
+      }
+    }
+  }, [searchParams, allWorlds])
 
   useEffect(() => {
     if (typeof window === "undefined") return
