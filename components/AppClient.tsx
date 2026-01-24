@@ -1895,47 +1895,49 @@ export default function AppClient({
   const nextLevel = () => {
     if (!currentWorld || levelsCount === 0) return
     setLevelIndex((i) => {
-        const next = i + 1
-        return next >= levelsCount ? 0 : next // wrap to level 0 (or clamp if you prefer)
+      const next = i + 1
+      return next >= levelsCount ? 0 : next // wrap to level 0 (or clamp if you prefer)
     })
     setGameSeed((s) => s + 1) // force remount so the game resets cleanly
-    }
-    const headerInstructions =
-        currentWorld?.ui?.page?.instructions ??
-        currentWorld?.description ??
-        (currentWorld?.mode === "vocab"
-            ? "Empareja las palabras en español con las palabras en alemán."
-            : "Construye la frase en el orden correcto.")
+  }
+
+  const headerInstructions =
+    currentWorld?.ui?.page?.instructions ??
+    currentWorld?.description ??
+    (currentWorld?.mode === "vocab"
+      ? "Empareja las palabras en español con las palabras en alemán."
+      : "Construye la frase en el orden correcto.")
 
   const currentChunk = useMemo(() => {
     if (!currentWorld) return []
     const k = currentWorld.chunking.itemsPerGame
     const start = Math.min(levelIndex, Math.max(0, levelsCount - 1)) * k
     return currentWorld.pool.slice(start, start + k)
-    }, [currentWorld, levelIndex, levelsCount])
+  }, [currentWorld, levelIndex, levelsCount])
 
-    const chunkVerb = useMemo(() => {
+  const chunkVerb = useMemo(() => {
     if (!currentWorld || currentWorld.mode !== "vocab") return ""
     const first = currentChunk[0]
     if (!first) return ""
     // types: VocabPair has id + es, safe here because mode === "vocab"
     return extractVerbLabelFromPair(first as any)
-    }, [currentWorld?.mode, currentChunk])
-    
-    const levelLabelTemplate =
-    currentWorld?.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
-    const currentVerb =
-    currentWorld?.mode === "vocab"
-        ? extractVerbLabelFromPair(
-            (currentWorld.pool[Math.min(levelIndex, Math.max(0, levelsCount - 1)) * currentWorld.chunking.itemsPerGame] as any)
-        )
-        : ""
+  }, [currentWorld?.mode, currentChunk])
 
-    const levelLabel = formatTemplate(levelLabelTemplate, {
+  const levelLabelTemplate = currentWorld?.ui?.header?.levelLabelTemplate ?? "Nivel {i}/{n}"
+  const currentVerb =
+    currentWorld?.mode === "vocab"
+      ? extractVerbLabelFromPair(
+          currentWorld.pool[
+            Math.min(levelIndex, Math.max(0, levelsCount - 1)) * currentWorld.chunking.itemsPerGame
+          ] as any
+        )
+      : ""
+
+  const levelLabel = formatTemplate(levelLabelTemplate, {
     i: safeLevel,
     n: levelsCount,
     verb: currentVerb,
-    })
+  })
 
   if (!currentWorld) {
     return (
@@ -1944,13 +1946,13 @@ export default function AppClient({
           <div className="flex items-center justify-between">
             <button
               type="button"
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      window.location.href = "/"
-                    }
-                  }}
-                  className="text-2xl font-semibold tracking-tight"
-                >
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/"
+                }
+              }}
+              className="text-2xl font-semibold tracking-tight"
+            >
               voc<span className="text-green-500">ado</span>
             </button>
             <UserMenu
@@ -2001,15 +2003,15 @@ export default function AppClient({
                     if (typeof window !== "undefined") {
                       window.location.href = "/"
                     }
-                    }}
-                    className="text-2xl font-semibold tracking-tight"
-                  >
-                    voc<span className="text-green-500">ado</span>
-                  </button>
-                  <div className="text-xs text-neutral-300 mt-1">
-                    {worldTitle} — {levelLabel}
-                  </div>
+                  }}
+                  className="text-2xl font-semibold tracking-tight"
+                >
+                  voc<span className="text-green-500">ado</span>
+                </button>
+                <div className="text-xs text-neutral-300 mt-1">
+                  {worldTitle} — {levelLabel}
                 </div>
+              </div>
               <div className="flex flex-col items-end gap-1">
                 <UserMenu
                   level={profileSettings.level || "B1"}
