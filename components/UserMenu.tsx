@@ -20,6 +20,7 @@ export default function UserMenu({
   level,
   sourceLanguage,
   targetLanguage,
+  newsCategory,
   onUpdateSettings,
 }: {
   level: string
