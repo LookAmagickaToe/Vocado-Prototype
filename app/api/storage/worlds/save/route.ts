@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function safeSegment(value: string) {
   const cleaned = value
@@ -29,7 +31,8 @@ export async function POST(req: Request) {
     const body = await req.json()
     const worlds = Array.isArray(body?.worlds) ? body.worlds : []
     const rawListId = typeof body?.listId === "string" ? body.listId : null
-    const listId = rawListId && rawListId.trim().length > 0 ? rawListId : null
+    const trimmedListId = rawListId && rawListId.trim().length > 0 ? rawListId.trim() : null
+    const listId = trimmedListId && UUID_REGEX.test(trimmedListId) ? trimmedListId : null
     const positions = typeof body?.positions === "object" && body?.positions ? body.positions : {}
 
     if (!worlds.length) {

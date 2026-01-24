@@ -43,6 +43,32 @@ const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const NEWS_STORAGE_KEY = "vocado-news-current"
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const isUuid = (value: string) => UUID_REGEX.test(value)
+
+const generateUuid = () => {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID()
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16)
+      crypto.getRandomValues(bytes)
+      bytes[6] = (bytes[6] & 0x0f) | 0x40
+      bytes[8] = (bytes[8] & 0x3f) | 0x80
+      const toHex = (b: number) => b.toString(16).padStart(2, "0")
+      const hex = Array.from(bytes, toHex).join("")
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(
+        16,
+        20
+      )}-${hex.slice(20)}`
+    }
+  }
+  return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+}
+
 type WorldList = {
   id: string
   name: string
@@ -777,14 +803,14 @@ export default function AppClient({
   const createList = () => {
     const name = newListName.trim()
     if (!name) return
-    setWorldLists((prev) => [...prev, { id: `list-${Date.now()}`, name, worldIds: [] }])
+    setWorldLists((prev) => [...prev, { id: generateUuid(), name, worldIds: [] }])
     setNewListName("")
   }
 
   const addList = (name: string) => {
     const trimmed = name.trim()
     if (!trimmed) return ""
-    const id = `list-${Date.now()}`
+    const id = generateUuid()
     setWorldLists((prev) => [...prev, { id, name: trimmed, worldIds: [] }])
     return id
   }
@@ -1027,6 +1053,30 @@ export default function AppClient({
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return
+
+    const invalidLists = worldLists.filter((list) => !isUuid(list.id))
+    if (invalidLists.length > 0) {
+      const idMap = new Map<string, string>()
+      invalidLists.forEach((list) => {
+        idMap.set(list.id, generateUuid())
+      })
+      setWorldLists((prev) =>
+        prev.map((list) => ({
+          ...list,
+          id: idMap.get(list.id) ?? list.id,
+        }))
+      )
+      setCollapsedListIds((prev) => {
+        const next: Record<string, boolean> = {}
+        Object.entries(prev).forEach(([key, value]) => {
+          const mapped = idMap.get(key) ?? key
+          next[mapped] = value
+        })
+        return next
+      })
+      setUploadListId((prev) => idMap.get(prev) ?? prev)
+      return
+    }
 
     const listPayload = worldLists.map((list, index) => ({
       id: list.id,

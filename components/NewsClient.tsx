@@ -4,13 +4,41 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
 import uiSettings from "@/data/ui/settings.json"
+import pointsConfig from "@/data/ui/points.json"
 import type { VocabWorld } from "@/types/worlds"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import { supabase } from "@/lib/supabase/client"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
+const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
 const NEWS_STORAGE_KEY = "vocado-news-current"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
+const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const isUuid = (value: string) => UUID_REGEX.test(value)
+
+const generateUuid = () => {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID()
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16)
+      crypto.getRandomValues(bytes)
+      bytes[6] = (bytes[6] & 0x0f) | 0x40
+      bytes[8] = (bytes[8] & 0x3f) | 0x80
+      const toHex = (b: number) => b.toString(16).padStart(2, "0")
+      const hex = Array.from(bytes, toHex).join("")
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(
+        16,
+        20
+      )}-${hex.slice(20)}`
+    }
+  }
+  return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+}
 
 type ProfileSettings = {
   level: string
@@ -274,11 +302,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const existing = lists.find(
       (list: any) => typeof list?.name === "string" && list.name === "Vocado Diario"
     )
-    if (existing?.id) {
+    if (existing?.id && isUuid(existing.id)) {
       return existing.id
     }
 
-    const listId = "list-vocado-diario"
+    const listId = generateUuid()
     const saveList = await fetch("/api/storage/state", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -308,6 +336,82 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (!response.ok) {
       const data = await response.json().catch(() => null)
       throw new Error(data?.error ?? "Save failed")
+    }
+  }
+
+  const awardExperience = (moves: number, wordsLearnedCount: number, worldId: string) => {
+    if (typeof window === "undefined") return
+    const nMin = Number(pointsConfig?.nMin ?? 15)
+    const sMax = Number(pointsConfig?.sMax ?? 100)
+    const mFirst = Number(pointsConfig?.mFirst ?? 1.5)
+    const n = Math.max(1, moves)
+    const sRaw = Math.round(sMax * (nMin / n))
+
+    const rawBestStore = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
+    let bestMap: Record<string, number> = {}
+    if (rawBestStore) {
+      try {
+        bestMap = JSON.parse(rawBestStore)
+      } catch {
+        bestMap = {}
+      }
+    }
+    const key = `${worldId}:0`
+    const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
+    const isNew = sBest === 0
+    const payout = isNew ? Math.round(sRaw * mFirst) : Math.max(0, sRaw - sBest)
+    const newBest = Math.max(sRaw, sBest)
+    bestMap[key] = newBest
+    window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
+
+    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const nextSeeds = currentSeeds + payout
+    window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+    setSeeds(nextSeeds)
+
+    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+    const today = new Date().toISOString().slice(0, 10)
+    let dailyState = { date: today, games: 0, upload: false, news: false }
+    if (rawDaily) {
+      try {
+        const parsed = JSON.parse(rawDaily)
+        if (parsed?.date === today) {
+          dailyState = {
+            date: today,
+            games: parsed?.games ?? 0,
+            upload: !!parsed?.upload,
+            news: !!parsed?.news,
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    dailyState.games = Math.min(3, dailyState.games + 1)
+    if (dailyState.games === 3) {
+      const dailyRewardKey = `${today}-games`
+      const rewarded = window.localStorage.getItem(dailyRewardKey) === "1"
+      if (!rewarded) {
+        const bonusSeeds =
+          Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(bonusSeeds + 45))
+        window.localStorage.setItem(dailyRewardKey, "1")
+      }
+    }
+    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
+
+    if (isNew) {
+      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+      const currentWeekly = Number(rawWeekly || "0") || 0
+      const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+    }
+
+    const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    return {
+      payout,
+      totalBefore: currentSeeds,
+      totalAfter: finalSeeds,
     }
   }
 
@@ -517,6 +621,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               primaryLabelOverride={`${sourceLabel}:`}
               secondaryLabelOverride={`${targetLabel}:`}
               nextLabelOverride={ui.readButton}
+              onWin={(moves, wordsLearnedCount) =>
+                awardExperience(moves, wordsLearnedCount, world.id)
+              }
             />
           </div>
         )}
