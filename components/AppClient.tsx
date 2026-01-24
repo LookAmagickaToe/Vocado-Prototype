@@ -47,6 +47,9 @@ type ReviewItem = {
   pos: "verb" | "noun" | "adj" | "other"
   lemma?: string
   emoji?: string
+  explanation?: string
+  example?: string
+  syllables?: string
   include: boolean
   conjugate: boolean
 }
@@ -139,6 +142,7 @@ const ui = {
     reviewEmoji: uiSettings?.upload?.reviewEmoji ?? "Emoji",
     reviewPos: uiSettings?.upload?.reviewPos ?? "Tipo",
     reviewConjugate: uiSettings?.upload?.reviewConjugate ?? "Conjugación",
+    reviewSyllables: uiSettings?.upload?.reviewSyllables ?? "Sílabas",
     posVerb: uiSettings?.upload?.posVerb ?? "verbo",
     posNoun: uiSettings?.upload?.posNoun ?? "sustantivo",
     posAdj: uiSettings?.upload?.posAdj ?? "adjetivo",
@@ -895,6 +899,9 @@ export default function AppClient({
   const buildReviewItemsFromAi = (items: any[]) =>
     items.map((item, index) => {
       const pos = normalizePos(item?.pos)
+      const explanation = normalizeText(item?.explanation)
+      const example = normalizeText(item?.example)
+      const syllables = normalizeText(item?.syllables)
       return {
         id: `review-${Date.now()}-${index}`,
         source: normalizeText(item?.source),
@@ -902,6 +909,9 @@ export default function AppClient({
         pos,
         lemma: normalizeText(item?.lemma) || undefined,
         emoji: normalizeEmoji(item?.emoji),
+        explanation: explanation || undefined,
+        example: example || undefined,
+        syllables: syllables || undefined,
         include: true,
         conjugate: pos === "verb",
       } as ReviewItem
@@ -1165,17 +1175,41 @@ export default function AppClient({
     }
   }
 
-  const buildVocabPoolFromItems = (items: ReviewItem[], idPrefix: string) =>
-    items.map((item, index) => ({
-      id: `${idPrefix}-${index}-${item.source}`,
-      es: item.source,
-      de: item.target,
-      image: { type: "emoji", value: item.emoji?.trim() || "📝" },
-      pos: item.pos,
-      explanation: `Auto: ${item.source} → ${item.target}`,
-    }))
+  const buildVocabPoolFromItems = (
+    items: ReviewItem[],
+    idPrefix: string,
+    conjugationMap?: Record<string, any>
+  ) =>
+    items.map((item, index) => {
+      const verbKey = (item.lemma?.trim() || item.target)?.trim()
+      const conjugation =
+        item.pos === "verb" && verbKey && conjugationMap
+          ? conjugationMap[verbKey]
+          : undefined
+      const explanation =
+        item.explanation?.trim() ||
+        `Significado de ${item.source}.`
+      const example =
+        item.example?.trim() ||
+        `Ejemplo: ${item.source}.`
+      const syllables = item.syllables?.trim()
+      const explanationWithSyllables =
+        item.pos === "verb" && syllables && item.target
+          ? `${explanation}\n${item.target}\n${syllables}`
+          : explanation
+      return {
+        id: `${idPrefix}-${index}-${item.source}`,
+        es: item.source,
+        de: item.target,
+        image: { type: "emoji", value: item.emoji?.trim() || "📝" },
+        pos: item.pos,
+        explanation: explanationWithSyllables,
+        example,
+        conjugation,
+      }
+    })
 
-  const buildVocabWorld = (items: ReviewItem[]): World => {
+  const buildVocabWorld = (items: ReviewItem[], conjugationMap?: Record<string, any>): World => {
     const id = `upload-${Date.now()}`
     const title = uploadName.trim() || "Uploaded list"
     return {
@@ -1183,7 +1217,7 @@ export default function AppClient({
       title,
       description: `Lista personalizada: ${title}`,
       mode: "vocab",
-      pool: buildVocabPoolFromItems(items, id),
+      pool: buildVocabPoolFromItems(items, id, conjugationMap),
       chunking: { mode: "sequential", itemsPerGame: 8 },
       ui: {
         header: {
@@ -1280,6 +1314,45 @@ export default function AppClient({
       const worldsToSave: World[] = []
       let activeId: string | undefined = undefined
 
+      const verbsForConjugation = included
+        .filter((item) => item.pos === "verb" && (reviewMode === "conjugation" || item.conjugate))
+        .map((item) => ({
+          lemma: item.lemma?.trim() || item.target,
+          translation: item.source,
+        }))
+        .filter((item) => item.lemma)
+
+      if (reviewMode === "conjugation" && verbsForConjugation.length === 0) {
+        setUploadError(ui.upload.errorNoVerbs)
+        return
+      }
+
+      let conjugationMap: Record<string, any> | undefined = undefined
+      if (verbsForConjugation.length > 0) {
+        const result = await callAi({
+          task: "conjugate",
+          verbs: verbsForConjugation,
+          sourceLabel: ui.upload.tableSource,
+          targetLabel: ui.upload.tableTarget,
+        })
+        const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
+        conjugationMap = conjugations.reduce<Record<string, any>>((acc, entry) => {
+          if (entry?.verb) {
+            acc[entry.verb] = {
+              infinitive: entry.verb,
+              translation: entry.translation ?? "",
+              sections: Array.isArray(entry.sections) ? entry.sections : [],
+            }
+          }
+          return acc
+        }, {})
+        const conjugationWorld = buildConjugationWorld(conjugations)
+        worldsToSave.push(conjugationWorld)
+        if (reviewMode === "conjugation") {
+          activeId = conjugationWorld.id
+        }
+      }
+
       if (reviewMode === "vocab") {
         const appendTargetId = uploadTargetWorldId !== "new" ? uploadTargetWorldId : ""
         if (appendTargetId) {
@@ -1290,7 +1363,11 @@ export default function AppClient({
             setUploadError(ui.upload.errorNoItems)
             return
           }
-          const pool = buildVocabPoolFromItems(included, `append-${Date.now()}`)
+          const pool = buildVocabPoolFromItems(
+            included,
+            `append-${Date.now()}`,
+            conjugationMap
+          )
           if (uploadedWorldIdSet.has(target.id)) {
             const updatedWorld = {
               ...target,
@@ -1312,37 +1389,9 @@ export default function AppClient({
             activeId = extendedWorld.id
           }
         } else {
-          const vocabWorld = buildVocabWorld(included)
+          const vocabWorld = buildVocabWorld(included, conjugationMap)
           worldsToSave.push(vocabWorld)
           activeId = vocabWorld.id
-        }
-      }
-
-      const verbsForConjugation = included
-        .filter((item) => item.pos === "verb" && (reviewMode === "conjugation" || item.conjugate))
-        .map((item) => ({
-          lemma: item.lemma?.trim() || item.target,
-          translation: item.source,
-        }))
-        .filter((item) => item.lemma)
-
-      if (reviewMode === "conjugation" && verbsForConjugation.length === 0) {
-        setUploadError(ui.upload.errorNoVerbs)
-        return
-      }
-
-      if (verbsForConjugation.length > 0) {
-        const result = await callAi({
-          task: "conjugate",
-          verbs: verbsForConjugation,
-          sourceLabel: ui.upload.tableSource,
-          targetLabel: ui.upload.tableTarget,
-        })
-        const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
-        const conjugationWorld = buildConjugationWorld(conjugations)
-        worldsToSave.push(conjugationWorld)
-        if (reviewMode === "conjugation") {
-          activeId = conjugationWorld.id
         }
       }
 
@@ -1769,17 +1818,11 @@ function UploadOverlay({
   themeText,
   themeCount,
   themeLevel,
-  themeText,
-  themeCount,
-  themeLevel,
   onChangeName,
   onChangeText,
   onChangeTab,
   onChangeModeSelection,
   onChangeTargetWorldId,
-  onChangeThemeText,
-  onChangeThemeCount,
-  onChangeThemeLevel,
   onChangeThemeText,
   onChangeThemeCount,
   onChangeThemeLevel,
@@ -1894,20 +1937,23 @@ function UploadOverlay({
             </div>
             <div className="mt-2 text-sm text-neutral-300">{ui.upload.reviewHint}</div>
             <div className="mt-4 overflow-auto max-h-[45vh] rounded-xl border border-neutral-800">
-              <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
+              <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,1.2fr,1fr,1fr,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
                 <div>{ui.upload.reviewInclude}</div>
                 <div>{ui.upload.reviewSource}</div>
                 <div>{ui.upload.reviewTarget}</div>
                 <div>{ui.upload.reviewEmoji}</div>
                 <div>{ui.upload.reviewPos}</div>
                 <div>{ui.upload.reviewConjugate}</div>
+                <div>{ui.upload.reviewExplanation ?? "Explicación"}</div>
+                <div>{ui.upload.reviewExample ?? "Ejemplo"}</div>
+                <div>{ui.upload.reviewSyllables ?? "Sílabas"}</div>
                 <div></div>
               </div>
               <div className="divide-y divide-neutral-800">
                 {reviewItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,auto] gap-2 p-3 items-center"
+                    className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,1.2fr,1fr,1fr,auto] gap-2 p-3 items-center"
                   >
                     <input
                       type="checkbox"
@@ -1962,6 +2008,30 @@ function UploadOverlay({
                       onChange={(e) =>
                         onUpdateReviewItem(item.id, { conjugate: e.target.checked })
                       }
+                    />
+                    <input
+                      type="text"
+                      value={item.explanation ?? ""}
+                      onChange={(e) =>
+                        onUpdateReviewItem(item.id, { explanation: e.target.value })
+                      }
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                    />
+                    <input
+                      type="text"
+                      value={item.example ?? ""}
+                      onChange={(e) =>
+                        onUpdateReviewItem(item.id, { example: e.target.value })
+                      }
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                    />
+                    <input
+                      type="text"
+                      value={item.syllables ?? ""}
+                      onChange={(e) =>
+                        onUpdateReviewItem(item.id, { syllables: e.target.value })
+                      }
+                      className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
                     />
                     <button
                       type="button"

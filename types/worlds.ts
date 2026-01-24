@@ -19,6 +19,7 @@ export type VocabPair = {
   de: string
   image: CardImage
   explanation?: string
+  example?: string
   pos?: "verb" | "noun" | "adj" | "other"
   conjugation?: Conjugation
 }
