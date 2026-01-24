@@ -2130,14 +2130,12 @@ export default function AppClient({
               </Button>
             </div>
             {currentWorld?.mode === "vocab" ? (
-              {currentWorld ? (
+              currentWorld ? (
                 <VocabMemoryGame
                   key={`${worldId}:${levelIndex}:${gameSeed}`}
                   world={currentWorld}
                   levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                  onNextLevel={
-                    isNewsWorld ? () => openNewsSummary(currentWorld) : nextLevel
-                  }
+                  onNextLevel={isNewsWorld ? () => openNewsSummary(currentWorld) : nextLevel}
                   primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                   secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
@@ -2150,25 +2148,23 @@ export default function AppClient({
                     )
                   }
                 />
-              ) : null}
-            ) : (
-              currentWorld ? (
-                <PhraseMemoryGame
-                  key={`${worldId}:${levelIndex}:${gameSeed}`}
-                  world={currentWorld}
-                  levelIndex={Math.min(levelIndex, levelsCount - 1)}
-                  onNextLevel={nextLevel}
-                  onWin={(moves, wordsLearnedCount) =>
-                    awardExperience(
-                      moves,
-                      currentWorld.id,
-                      Math.min(levelIndex, levelsCount - 1),
-                      wordsLearnedCount
-                    )
-                  }
-                />
               ) : null
-            )}
+            ) : currentWorld ? (
+              <PhraseMemoryGame
+                key={`${worldId}:${levelIndex}:${gameSeed}`}
+                world={currentWorld}
+                levelIndex={Math.min(levelIndex, levelsCount - 1)}
+                onNextLevel={nextLevel}
+                onWin={(moves, wordsLearnedCount) =>
+                  awardExperience(
+                    moves,
+                    currentWorld.id,
+                    Math.min(levelIndex, levelsCount - 1),
+                    wordsLearnedCount
+                  )
+                }
+              />
+            ) : null}
           </div>
         </div>
       </div>
