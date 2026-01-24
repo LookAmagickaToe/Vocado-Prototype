@@ -21,6 +21,7 @@ import phrases_basic from "@/data/worlds/phrases_basic.json"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
 import type { World } from "@/types/worlds"
 import uiSettings from "@/data/ui/settings.json"
+import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
 
@@ -36,6 +37,10 @@ const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocab-memory-world-list-collapsed"
 const HIDDEN_WORLDS_STORAGE_KEY = "vocab-memory-hidden-worlds"
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
+const SEEDS_STORAGE_KEY = "vocado-seeds"
+const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
+const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
+const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 
 type WorldList = {
   id: string
@@ -348,6 +353,76 @@ export default function AppClient({
     targetLanguage: string
   }) => {
     setProfileSettings(next)
+  }
+
+  const awardExperience = (
+    moves: number,
+    worldIdValue: string,
+    levelIdx: number,
+    wordsLearnedCount: number
+  ) => {
+    if (typeof window === "undefined") return
+    const nMin = Number(pointsConfig?.nMin ?? 15)
+    const sMax = Number(pointsConfig?.sMax ?? 100)
+    const mFirst = Number(pointsConfig?.mFirst ?? 1.5)
+    const n = Math.max(1, moves)
+    const sRaw = Math.round(sMax * (nMin / n))
+
+    const rawBestStore = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
+    let bestMap: Record<string, number> = {}
+    if (rawBestStore) {
+      try {
+        bestMap = JSON.parse(rawBestStore)
+      } catch {
+        bestMap = {}
+      }
+    }
+    const key = `${worldIdValue}:${levelIdx}`
+    const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
+    const isNew = sBest === 0
+    const payout = isNew ? Math.round(sRaw * mFirst) : Math.max(0, sRaw - sBest)
+    const newBest = Math.max(sRaw, sBest)
+    bestMap[key] = newBest
+    window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
+
+    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const nextSeeds = currentSeeds + payout
+    window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+
+    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+    const today = new Date().toISOString().slice(0, 10)
+    let dailyState = { date: today, games: 0, upload: false }
+    if (rawDaily) {
+      try {
+        const parsed = JSON.parse(rawDaily)
+        if (parsed?.date === today) {
+          dailyState = {
+            date: today,
+            games: parsed?.games ?? 0,
+            upload: !!parsed?.upload,
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    dailyState.games = Math.min(3, dailyState.games + 1)
+    if (dailyState.games === 3) {
+      const dailyRewardKey = `${today}-games`
+      const rewarded = window.localStorage.getItem(dailyRewardKey) === "1"
+      if (!rewarded) {
+        const bonusSeeds =
+          Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(bonusSeeds + 45))
+        window.localStorage.setItem(dailyRewardKey, "1")
+      }
+    }
+    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
+
+    const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+    const currentWeekly = Number(rawWeekly || "0") || 0
+    const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
+    window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
   }
 
   useEffect(() => {
@@ -1714,6 +1789,14 @@ export default function AppClient({
                 onNextLevel={nextLevel}
                 primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                 secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
+                onWin={(moves, wordsLearnedCount) =>
+                  awardExperience(
+                    moves,
+                    currentWorld.id,
+                    Math.min(levelIndex, levelsCount - 1),
+                    wordsLearnedCount
+                  )
+                }
               />
             ) : (
               <PhraseMemoryGame
@@ -1721,6 +1804,14 @@ export default function AppClient({
                 world={currentWorld}
                 levelIndex={Math.min(levelIndex, levelsCount - 1)}
                 onNextLevel={nextLevel}
+                onWin={(moves, wordsLearnedCount) =>
+                  awardExperience(
+                    moves,
+                    currentWorld.id,
+                    Math.min(levelIndex, levelsCount - 1),
+                    wordsLearnedCount
+                  )
+                }
               />
             )}
           </div>

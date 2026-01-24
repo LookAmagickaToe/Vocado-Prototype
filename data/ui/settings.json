@@ -91,6 +91,8 @@
     "goalPlay": "Jugar 3 partidas",
     "goalUpload": "Subir nuevas palabras",
     "goalNews": "Jugar el periódico diario",
+    "goalPlayProgress": "Partidas",
+    "goalUploadProgress": "Listas nuevas",
     "lastPlayedTitle": "Último mundo jugado",
     "lastPlayedAction": "Reanudar",
     "uploadAction": "Subir lista",

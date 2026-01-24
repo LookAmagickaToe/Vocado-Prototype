@@ -74,12 +74,14 @@ export default function VocabMemoryGame({
   onNextLevel,
   primaryLabelOverride,
   secondaryLabelOverride,
+  onWin,
 }: {
   world: VocabWorld
   levelIndex: number
   onNextLevel: () => void
   primaryLabelOverride?: string
   secondaryLabelOverride?: string
+  onWin?: (moves: number, wordsLearnedCount: number) => void
 }) {
     const VOCAB = useMemo(() => {
         const k = world.chunking.itemsPerGame
@@ -106,6 +108,7 @@ export default function VocabMemoryGame({
     const [justMatchedKeys, setJustMatchedKeys] = useState<string[]>([])
     const [isWon, setIsWon] = useState(false)
     const [showWinOverlay, setShowWinOverlay] = useState(false)
+    const [hasReportedWin, setHasReportedWin] = useState(false)
 
     const primaryLabel =
       primaryLabelOverride ??
@@ -141,6 +144,7 @@ export default function VocabMemoryGame({
       setCarouselIndex(0)
       setMoves(0)
       setPendingResolution(null)
+      setHasReportedWin(false)
     }, [baseDeck])
 
 
@@ -150,6 +154,12 @@ export default function VocabMemoryGame({
             setShowWinOverlay(true)
         }
     }, [matchedPairIds, VOCAB.length])
+
+    useEffect(() => {
+      if (!isWon || hasReportedWin) return
+      onWin?.(moves, VOCAB.length)
+      setHasReportedWin(true)
+    }, [isWon, moves, onWin, hasReportedWin, VOCAB.length])
 
     const isCardFaceUp = (slotKey: string) => {
       const s = slots.find((x) => x.slotKey === slotKey)

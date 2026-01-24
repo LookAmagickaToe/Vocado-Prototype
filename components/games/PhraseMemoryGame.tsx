@@ -88,10 +88,12 @@ export default function PhraseMemoryGame({
     world,
     levelIndex,
     onNextLevel,
+    onWin,
 }: {
       world: PhraseWorld
     levelIndex: number
     onNextLevel:()=>void
+    onWin?: (moves: number, wordsLearnedCount: number) => void
 }) {
     const [phraseIdx, setPhraseIdx] = useState(0)
 
@@ -122,6 +124,7 @@ export default function PhraseMemoryGame({
     const [won, setWon] = useState(false)
     const [showWinOverlay, setShowWinOverlay] = useState(false)
     const [runSeed, setRunSeed] = useState(0)
+    const [hasReportedWin, setHasReportedWin] = useState(false)
     type Phase = "intro" | "preview" | "play"
     const [phase, setPhase] = useState<Phase>("intro")
 
@@ -148,6 +151,7 @@ export default function PhraseMemoryGame({
         setMoves(0)
         setWon(false)
         setShowWinOverlay(false)
+        setHasReportedWin(false)
         setPhase("intro")
     }, [deck, levelIndex, world.id, phraseIdx])
     useEffect(() => {
@@ -168,6 +172,12 @@ export default function PhraseMemoryGame({
         setShowWinOverlay(true)
     }
     }, [expectedIndex, phrase])
+
+    useEffect(() => {
+      if (!won || hasReportedWin || !phrase) return
+      onWin?.(moves, phrase.tokens.length)
+      setHasReportedWin(true)
+    }, [won, moves, onWin, hasReportedWin, phrase])
 
     const isFaceUp = (key: string) => phase === "preview" || revealedKeys.has(key) || tempFlippedKey === key
 

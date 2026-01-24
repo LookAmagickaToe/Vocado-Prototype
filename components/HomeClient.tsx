@@ -9,6 +9,9 @@ import { supabase } from "@/lib/supabase/client"
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const SEEDS_STORAGE_KEY = "vocado-seeds"
+const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
+const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 
 type ProfileSettings = {
   level: string
@@ -54,6 +57,8 @@ export default function HomeClient({
   const [isSad, setIsSad] = useState(false)
   const [seeds, setSeeds] = useState(0)
   const [wordsLearned, setWordsLearned] = useState(0)
+  const [dailyGames, setDailyGames] = useState(0)
+  const [dailyUploadDone, setDailyUploadDone] = useState(false)
   const [lastPlayed, setLastPlayed] = useState<LastPlayed | null>(null)
   const [translateInput, setTranslateInput] = useState("")
   const [translateResult, setTranslateResult] = useState<ReviewItem | null>(null)
@@ -76,6 +81,8 @@ export default function HomeClient({
       goalPlay: uiSettings?.home?.goalPlay ?? "Jugar 3 partidas",
       goalUpload: uiSettings?.home?.goalUpload ?? "Subir nuevas palabras",
       goalNews: uiSettings?.home?.goalNews ?? "Jugar el periódico diario",
+      goalPlayProgress: uiSettings?.home?.goalPlayProgress ?? "Partidas",
+      goalUploadProgress: uiSettings?.home?.goalUploadProgress ?? "Listas nuevas",
       lastPlayedTitle: uiSettings?.home?.lastPlayedTitle ?? "Último mundo jugado",
       lastPlayedAction: uiSettings?.home?.lastPlayedAction ?? "Reanudar",
       uploadAction: uiSettings?.home?.uploadAction ?? "Subir lista",
@@ -113,8 +120,47 @@ export default function HomeClient({
     const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
     setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
 
-    const rawWords = window.localStorage.getItem("vocado-words-week")
+    const now = new Date()
+    const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+    const weekStart = rawWeekStart ? new Date(rawWeekStart) : null
+    const weekStartNormalized = (() => {
+      const date = new Date()
+      const day = date.getDay()
+      const diff = (day + 6) % 7
+      date.setDate(date.getDate() - diff)
+      date.setHours(0, 0, 0, 0)
+      return date
+    })()
+    if (!weekStart || weekStart.getTime() !== weekStartNormalized.getTime()) {
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized.toISOString())
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+    }
+    const rawWords = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
     setWordsLearned(rawWords ? Number(rawWords) || 0 : 0)
+
+    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+    if (rawDaily) {
+      try {
+        const parsed = JSON.parse(rawDaily)
+        const storedDate = parsed?.date
+        const today = now.toISOString().slice(0, 10)
+        if (storedDate === today) {
+          setDailyGames(parsed?.games ?? 0)
+          setDailyUploadDone(!!parsed?.upload)
+        } else {
+          const reset = { date: today, games: 0, upload: false }
+          window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      const today = now.toISOString().slice(0, 10)
+      window.localStorage.setItem(
+        DAILY_STATE_STORAGE_KEY,
+        JSON.stringify({ date: today, games: 0, upload: false })
+      )
+    }
 
     const rawLast = window.localStorage.getItem(LAST_PLAYED_STORAGE_KEY)
     if (rawLast) {
@@ -128,6 +174,14 @@ export default function HomeClient({
       }
     }
   }, [])
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    window.localStorage.setItem(
+      DAILY_STATE_STORAGE_KEY,
+      JSON.stringify({ date: today, games: dailyGames, upload: dailyUploadDone })
+    )
+  }, [dailyGames, dailyUploadDone])
 
   useEffect(() => {
     const loadListsAndWorlds = async () => {
@@ -325,6 +379,12 @@ export default function HomeClient({
         }
         await saveWorlds([newWorld], selectedListId || null)
       }
+      if (!dailyUploadDone) {
+        setDailyUploadDone(true)
+        const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(currentSeeds + 5))
+        setSeeds(currentSeeds + 5)
+      }
       setTranslateInput("")
       setTranslateResult(null)
       setNewWorldName("")
@@ -365,9 +425,35 @@ export default function HomeClient({
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
           <div className="text-sm font-semibold text-neutral-100">{ui.goalsTitle}</div>
           <ul className="mt-3 space-y-2 text-sm text-neutral-200">
-            <li>• {ui.goalPlay}</li>
-            <li>• {ui.goalUpload}</li>
-            <li>• {ui.goalNews}</li>
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyGames >= 3 ? "✓" : ""}
+                </span>
+                {ui.goalPlay}
+              </span>
+              <span className="text-xs text-neutral-400">
+                {ui.goalPlayProgress} {Math.min(dailyGames, 3)}/3
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyUploadDone ? "✓" : ""}
+                </span>
+                {ui.goalUpload}
+              </span>
+              <span className="text-xs text-neutral-400">
+                {ui.goalUploadProgress} {dailyUploadDone ? 1 : 0}/1
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]" />
+                {ui.goalNews}
+              </span>
+              <span className="text-xs text-neutral-400">0/1</span>
+            </li>
           </ul>
         </section>
 
