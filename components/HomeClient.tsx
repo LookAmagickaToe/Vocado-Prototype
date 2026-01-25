@@ -12,6 +12,7 @@ const SEEDS_STORAGE_KEY = "vocado-seeds"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
+const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
 
 type ProfileSettings = {
   level: string
@@ -90,6 +91,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const [newWorldName, setNewWorldName] = useState("")
   const [selectedListId, setSelectedListId] = useState("")
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [showTutorial, setShowTutorial] = useState(false)
+  const [tutorialSource, setTutorialSource] = useState(profile.sourceLanguage || "")
+  const [tutorialTarget, setTutorialTarget] = useState(profile.targetLanguage || "")
+  const [tutorialNews, setTutorialNews] = useState(profile.newsCategory || "world")
+  const [tutorialSaving, setTutorialSaving] = useState(false)
+  const [tutorialError, setTutorialError] = useState<string | null>(null)
+  const [onboardingKey, setOnboardingKey] = useState<string | null>(null)
 
   const uiSettings = useMemo(
     () => getUiSettings(profileState.sourceLanguage),
@@ -122,6 +130,23 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       listSelectLabel: uiSettings?.home?.listSelectLabel ?? "Lista",
       worldNameLabel: uiSettings?.home?.worldNameLabel ?? "Nombre del mundo",
       confirmAdd: uiSettings?.home?.confirmAdd ?? "Guardar",
+      onboardingTitle: uiSettings?.onboarding?.title ?? "Bienvenido a Vocado",
+      onboardingSubtitle:
+        uiSettings?.onboarding?.subtitle ??
+        "Configura tu idioma y noticias favoritas para empezar.",
+      onboardingSource: uiSettings?.onboarding?.sourceLabel ?? "Idioma de origen",
+      onboardingTarget: uiSettings?.onboarding?.targetLabel ?? "Idioma objetivo",
+      onboardingNews: uiSettings?.onboarding?.newsLabel ?? "Noticias",
+      onboardingStart: uiSettings?.onboarding?.start ?? "Crear primer mundo",
+    }),
+    [uiSettings]
+  )
+
+  const newsCategoryLabels = useMemo(
+    () => ({
+      world: uiSettings?.news?.categoryOptions?.world ?? "World",
+      wirtschaft: uiSettings?.news?.categoryOptions?.wirtschaft ?? "Economy",
+      sport: uiSettings?.news?.categoryOptions?.sport ?? "Sport",
     }),
     [uiSettings]
   )
@@ -155,6 +180,33 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       // ignore sync errors
     }
   }
+
+  useEffect(() => {
+    setTutorialSource(profileState.sourceLanguage || "")
+    setTutorialTarget(profileState.targetLanguage || "")
+    setTutorialNews(profileState.newsCategory || "world")
+  }, [profileState.sourceLanguage, profileState.targetLanguage, profileState.newsCategory])
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return
+      const userId = data.user?.id ?? ""
+      const key = userId ? `${ONBOARDING_STORAGE_KEY}:${userId}` : ONBOARDING_STORAGE_KEY
+      setOnboardingKey(key)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const key = onboardingKey || ONBOARDING_STORAGE_KEY
+    const alreadyOnboarded = window.localStorage.getItem(key)
+    if (alreadyOnboarded) return
+    setShowTutorial(true)
+  }, [onboardingKey])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -602,6 +654,51 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
+  const saveTutorialProfile = async () => {
+    setTutorialSaving(true)
+    setTutorialError(null)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) throw new Error("No session")
+      const nextProfile = {
+        level: profileState.level || "A2",
+        sourceLanguage: tutorialSource,
+        targetLanguage: tutorialTarget,
+        newsCategory: tutorialNews,
+      }
+      const res = await fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(nextProfile),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? "Save failed")
+      }
+      setProfileState((prev) => ({ ...prev, ...nextProfile }))
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
+        const key = onboardingKey || ONBOARDING_STORAGE_KEY
+        window.localStorage.setItem(key, "1")
+      }
+      setShowTutorial(false)
+      router.push("/play?open=upload")
+    } catch (err) {
+      setTutorialError((err as Error).message)
+    } finally {
+      setTutorialSaving(false)
+    }
+  }
+
+  const dismissTutorial = () => {
+    if (typeof window !== "undefined") {
+      const key = onboardingKey || ONBOARDING_STORAGE_KEY
+      window.localStorage.setItem(key, "1")
+    }
+    setShowTutorial(false)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
       <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -836,6 +933,85 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           {translateError && <div className="mt-3 text-xs text-red-400">{translateError}</div>}
         </section>
       </div>
+
+      {showTutorial && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-8">
+          <div className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950/95 p-6 text-neutral-100 shadow-2xl">
+            <button
+              type="button"
+              onClick={dismissTutorial}
+              className="absolute right-4 top-4 rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-200"
+            >
+              ✕
+            </button>
+            <div className="space-y-4">
+              <div>
+                <div className="text-2xl font-semibold">{ui.onboardingTitle}</div>
+                <div className="mt-1 text-sm text-neutral-300">{ui.onboardingSubtitle}</div>
+              </div>
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-xs uppercase tracking-wide text-neutral-400">
+                    {ui.onboardingSource}
+                  </label>
+                  <select
+                    value={tutorialSource}
+                    onChange={(e) => setTutorialSource(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                  >
+                    <option value="">Auto</option>
+                    <option value="Español">Español</option>
+                    <option value="Deutsch">Deutsch</option>
+                    <option value="English">English</option>
+                    <option value="Français">Français</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wide text-neutral-400">
+                    {ui.onboardingTarget}
+                  </label>
+                  <select
+                    value={tutorialTarget}
+                    onChange={(e) => setTutorialTarget(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                  >
+                    <option value="">Auto</option>
+                    <option value="Español">Español</option>
+                    <option value="Deutsch">Deutsch</option>
+                    <option value="English">English</option>
+                    <option value="Français">Français</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wide text-neutral-400">
+                    {ui.onboardingNews}
+                  </label>
+                  <select
+                    value={tutorialNews}
+                    onChange={(e) => setTutorialNews(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                  >
+                    <option value="world">{newsCategoryLabels.world}</option>
+                    <option value="wirtschaft">{newsCategoryLabels.wirtschaft}</option>
+                    <option value="sport">{newsCategoryLabels.sport}</option>
+                  </select>
+                </div>
+              </div>
+              {tutorialError && <div className="text-sm text-red-400">{tutorialError}</div>}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={saveTutorialProfile}
+                  className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
+                  disabled={tutorialSaving}
+                >
+                  {tutorialSaving ? "..." : ui.onboardingStart}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

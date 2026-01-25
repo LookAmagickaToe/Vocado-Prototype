@@ -2249,57 +2249,6 @@ export default function AppClient({
     </div>
   ) : null
 
-  if (!currentWorld) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
-        <div className="mx-auto w-full max-w-3xl space-y-4">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.location.href = "/"
-                }
-              }}
-              className="text-2xl font-semibold tracking-tight"
-            >
-              voc<span className="text-green-500">ado</span>
-            </button>
-            <UserMenu
-              level={profileSettings.level || "B1"}
-              sourceLanguage={profileSettings.sourceLanguage}
-              targetLanguage={profileSettings.targetLanguage}
-              newsCategory={profileSettings.newsCategory}
-              onUpdateSettings={handleProfileUpdate}
-            />
-          </div>
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6 text-sm text-neutral-200">
-            No tienes mundos todavía. Crea uno desde el menú de mundos o sube una lista.
-          </div>
-          <div className="flex gap-3">
-            <Button
-              onClick={() => {
-                setIsWorldsOpen(true)
-              }}
-              className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
-            >
-              {ui.menu.worlds}
-            </Button>
-            <Button
-              onClick={() => {
-                openUpload()
-              }}
-              className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
-            >
-              {ui.menu.upload}
-            </Button>
-          </div>
-        </div>
-        {welcomeOverlay}
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
       <div className="mx-auto w-full max-w-7xl">
@@ -2440,6 +2389,25 @@ export default function AppClient({
                 {ui.menu.restart}
               </Button>
             </div>
+            {!currentWorld && (
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5 text-sm text-neutral-200">
+                <div className="text-sm text-neutral-300">{ui.worldsOverlay.description}</div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button
+                    onClick={() => setIsWorldsOpen(true)}
+                    className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
+                  >
+                    {ui.menu.worlds}
+                  </Button>
+                  <Button
+                    onClick={() => openUpload()}
+                    className="border border-neutral-800 bg-neutral-900/60 text-neutral-100"
+                  >
+                    {ui.menu.upload}
+                  </Button>
+                </div>
+              </div>
+            )}
             {currentWorld?.mode === "vocab" ? (
               currentWorld ? (
                 <VocabMemoryGame
@@ -2481,8 +2449,6 @@ export default function AppClient({
           </div>
         </div>
       </div>
-
-      {welcomeOverlay}
 
       {/* MOBILE MENU OVERLAY */}
       {isMenuOpen && (
