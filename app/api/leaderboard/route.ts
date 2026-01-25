@@ -46,10 +46,23 @@ export async function GET(req: Request) {
     }
 
     const rows = (data ?? []).map((row) => {
-      const weeklyScore =
-        row.weekly_seeds_week_start === weekStart
-          ? Number(row.weekly_seeds ?? 0) || 0
-          : 0
+      let validWeek = false
+      if (row.weekly_seeds_week_start) {
+        try {
+          // Allow for timezone differences (client vs server)
+          // If the stored monday is within 48 hours of server's monday, count it.
+          const rowDate = new Date(row.weekly_seeds_week_start).getTime()
+          const serverDate = new Date(weekStart).getTime()
+          const diffHours = Math.abs(rowDate - serverDate) / (1000 * 60 * 60)
+          if (diffHours < 48) {
+            validWeek = true
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const weeklyScore = validWeek ? Number(row.weekly_seeds ?? 0) || 0 : 0
       return {
         username: row.username || "User",
         score: scope === "weekly" ? weeklyScore : Number(row.seeds ?? 0) || 0,
