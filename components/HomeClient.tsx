@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import UserMenu from "@/components/UserMenu"
+import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
 import { getUiSettings } from "@/lib/ui-settings"
 import { supabase } from "@/lib/supabase/client"
 
@@ -102,12 +103,9 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   >([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
-  const [tutorialSource, setTutorialSource] = useState(profile.sourceLanguage || "")
-  const [tutorialTarget, setTutorialTarget] = useState(profile.targetLanguage || "")
-  const [tutorialNews, setTutorialNews] = useState(profile.newsCategory || "world")
-  const [tutorialLevel, setTutorialLevel] = useState(profile.level || "A2")
-  const [tutorialSaving, setTutorialSaving] = useState(false)
-  const [tutorialError, setTutorialError] = useState<string | null>(null)
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome")
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
   const [onboardingKey, setOnboardingKey] = useState<string | null>(null)
 
   const uiSettings = useMemo(
@@ -168,6 +166,18 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       onboardingLevelB2: uiSettings?.onboarding?.levelB2 ?? "B2",
       onboardingLevelC1: uiSettings?.onboarding?.levelC1 ?? "C1",
       onboardingLevelC2: uiSettings?.onboarding?.levelC2 ?? "C2",
+      tutorial: {
+        welcomeTitle: uiSettings?.onboarding?.title ?? "Bienvenido a Vocado",
+        welcomeSubtitle: uiSettings?.onboarding?.subtitle ?? "Configura tu idioma y noticias favoritas para empezar.",
+        sourceLabel: uiSettings?.onboarding?.sourceLabel ?? "Idioma de origen",
+        targetLabel: uiSettings?.onboarding?.targetLabel ?? "Idioma objetivo",
+        levelLabel: uiSettings?.onboarding?.levelLabel ?? "Nivel",
+        newsLabel: uiSettings?.onboarding?.newsLabel ?? "Noticias",
+        startJourney: uiSettings?.onboarding?.start ?? "Crear primer mundo",
+        saving: "Guardando...",
+        // Map tour strings if needed, or fallback to defaults in TutorialOverlay
+        letsPlay: "Vamos a jugar",
+      }
     }),
     [uiSettings]
   )
@@ -214,12 +224,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
-  useEffect(() => {
-    setTutorialSource(profileState.sourceLanguage || "")
-    setTutorialTarget(profileState.targetLanguage || "")
-    setTutorialNews(profileState.newsCategory || "world")
-    setTutorialLevel(profileState.level || "A2")
-  }, [profileState.sourceLanguage, profileState.targetLanguage, profileState.newsCategory])
+
 
   useEffect(() => {
     let mounted = true
@@ -525,7 +530,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       const worlds = Array.isArray(data?.worlds) ? data.worlds : []
       const lists = Array.isArray(data?.lists) ? data.lists : []
       const filteredWorlds = worlds
-        .map((entry: any) => ({
+        .map((entry: { worldId: string; title?: string; json?: any }) => ({
           worldId: entry.worldId,
           title: entry.title ?? entry?.json?.title ?? entry.worldId,
           json: entry.json,
@@ -881,8 +886,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
         let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
         weeklySeeds += 10
-        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
-        syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart)
+        syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart || new Date().toISOString())
       }
       setTranslateInput("")
       setTranslateResult(null)
@@ -892,18 +896,18 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
-  const saveTutorialProfile = async () => {
-    setTutorialSaving(true)
-    setTutorialError(null)
+  const handleSaveProfile = async (data: { source: string; target: string; level: string; news: string }) => {
+    setProfileSaving(true)
+    setProfileError(null)
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) throw new Error("No session")
       const nextProfile = {
-        level: tutorialLevel || profileState.level || "A2",
-        sourceLanguage: tutorialSource,
-        targetLanguage: tutorialTarget,
-        newsCategory: tutorialNews,
+        level: data.level || "A2",
+        sourceLanguage: data.source,
+        targetLanguage: data.target,
+        newsCategory: data.news,
         onboardingDone: true,
       }
       if (typeof window !== "undefined") {
@@ -921,14 +925,14 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         body: JSON.stringify(nextProfile),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? "Save failed")
+        const resData = await res.json().catch(() => null)
+        throw new Error(resData?.error ?? "Save failed")
       }
     } catch (err) {
       console.warn("[onboarding] profile update failed", (err as Error).message)
-      setTutorialError((err as Error).message)
+      setProfileError((err as Error).message)
     } finally {
-      setTutorialSaving(false)
+      setProfileSaving(false)
     }
   }
 
@@ -1246,99 +1250,19 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       </div>
 
       {showTutorial && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950/95 p-6 text-neutral-100 shadow-2xl">
-            <button
-              type="button"
-              onClick={dismissTutorial}
-              className="absolute right-4 top-4 rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-200"
-            >
-              ✕
-            </button>
-            <div className="space-y-4">
-              <div>
-                <div className="text-2xl font-semibold">{ui.onboardingTitle}</div>
-                <div className="mt-1 text-sm text-neutral-300">{ui.onboardingSubtitle}</div>
-              </div>
-              <div className="grid gap-4">
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-neutral-400">
-                    {ui.onboardingLevel}
-                  </label>
-                  <select
-                    value={tutorialLevel}
-                    onChange={(e) => setTutorialLevel(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                  >
-                    <option value="A1">{ui.onboardingLevelA1}</option>
-                    <option value="A2">{ui.onboardingLevelA2}</option>
-                    <option value="B1">{ui.onboardingLevelB1}</option>
-                    <option value="B2">{ui.onboardingLevelB2}</option>
-                    <option value="C1">{ui.onboardingLevelC1}</option>
-                    <option value="C2">{ui.onboardingLevelC2}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-neutral-400">
-                    {ui.onboardingSource}
-                  </label>
-                  <select
-                    value={tutorialSource}
-                    onChange={(e) => setTutorialSource(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                  >
-                    <option value="">Auto</option>
-                    <option value="Español">Español</option>
-                    <option value="Deutsch">Deutsch</option>
-                    <option value="English">English</option>
-                    <option value="Français">Français</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-neutral-400">
-                    {ui.onboardingTarget}
-                  </label>
-                  <select
-                    value={tutorialTarget}
-                    onChange={(e) => setTutorialTarget(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                  >
-                    <option value="">Auto</option>
-                    <option value="Español">Español</option>
-                    <option value="Deutsch">Deutsch</option>
-                    <option value="English">English</option>
-                    <option value="Français">Français</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-neutral-400">
-                    {ui.onboardingNews}
-                  </label>
-                  <select
-                    value={tutorialNews}
-                    onChange={(e) => setTutorialNews(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                  >
-                    <option value="world">{newsCategoryLabels.world}</option>
-                    <option value="wirtschaft">{newsCategoryLabels.wirtschaft}</option>
-                    <option value="sport">{newsCategoryLabels.sport}</option>
-                  </select>
-                </div>
-              </div>
-              {tutorialError && <div className="text-sm text-red-400">{tutorialError}</div>}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={saveTutorialProfile}
-                  className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
-                  disabled={tutorialSaving}
-                >
-                  {tutorialSaving ? "..." : ui.onboardingStart}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TutorialOverlay
+          step={tutorialStep}
+          ui={ui}
+          initialLevel={profileState.level}
+          initialSource={profileState.sourceLanguage}
+          initialTarget={profileState.targetLanguage}
+          initialNews={profileState.newsCategory}
+          onNext={() => setTutorialStep("done")}
+          onTerminate={dismissTutorial}
+          onSaveProfile={handleSaveProfile}
+          savingProfile={profileSaving}
+          profileError={profileError}
+        />
       )}
     </div>
   )

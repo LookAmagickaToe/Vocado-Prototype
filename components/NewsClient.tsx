@@ -7,6 +7,7 @@ import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import type { VocabWorld } from "@/types/worlds"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
+import { formatTemplate } from "@/lib/ui"
 import { supabase } from "@/lib/supabase/client"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
@@ -118,14 +119,15 @@ const buildReviewItemsFromAi = (items: any[]) =>
 const buildWorldFromItems = (
   items: ReviewItem[],
   sourceLabel: string,
-  targetLabel: string
+  targetLabel: string,
+  ui: any
 ): VocabWorld => {
   const id = `news-${Date.now()}`
   const pool = items.map((item, index) => {
     const explanation =
-      item.explanation?.trim() || `Significado de ${item.source}.`
+      item.explanation?.trim() || formatTemplate(ui.generation.meaningOf, { source: item.source })
     const example =
-      item.example?.trim() || `Ejemplo: ${item.source}.`
+      item.example?.trim() || formatTemplate(ui.generation.exampleOf, { source: item.source })
     const syllables = item.syllables?.trim()
     const explanationWithSyllables =
       item.pos === "verb" && syllables && item.target
@@ -135,7 +137,7 @@ const buildWorldFromItems = (
       id: `${id}-${index}`,
       es: item.source,
       de: item.target,
-      image: { type: "emoji", value: item.emoji?.trim() || "📰" },
+      image: { type: "emoji", value: item.emoji?.trim() || "📰" } as any,
       pos: item.pos,
       explanation: explanationWithSyllables,
       example,
@@ -239,6 +241,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       sourceLabel: uiSettings?.news?.sourceLabel ?? "Fuente",
       categoryLabel: uiSettings?.news?.categoryLabel ?? "Categoría",
       categoryOptions: uiSettings?.news?.categoryOptions ?? {},
+      tutorial: {
+        letsPlay: uiSettings?.tutorial?.letsPlay ?? "Let's Play",
+      },
+      generation: {
+        meaningOf: uiSettings?.generation?.meaningOf ?? "Meaning of {source}.",
+        exampleOf: uiSettings?.generation?.exampleOf ?? "Example: {source}.",
+      },
+      errors: {
+        newsNoLink: uiSettings?.errors?.newsNoLink ?? "No link found.",
+        newsNoWords: uiSettings?.errors?.newsNoWords ?? "No words found.",
+        saveFailed: uiSettings?.errors?.saveFailed ?? "Save failed.",
+      }
     }),
     [uiSettings]
   )
@@ -284,7 +298,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         setSummary(parsed.summary)
         if (parsed.items) {
           setItems(parsed.items)
-          setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel))
+          setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel, ui))
         }
         setStep("summary")
       }
@@ -608,7 +622,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
       const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}${dateSuffix}`
       const newsWorld = {
-        ...buildWorldFromItems(nextItems, sourceLabel, targetLabel),
+        ...buildWorldFromItems(nextItems, sourceLabel, targetLabel, ui),
         title: worldTitle,
         description: "Noticias del día.",
       }

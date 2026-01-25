@@ -264,12 +264,62 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
       wirtschaft: uiSettings?.news?.categoryOptions?.wirtschaft ?? "Economy",
       sport: uiSettings?.news?.categoryOptions?.sport ?? "Sport",
     },
+    errors: {
+      newsNoLink: uiSettings?.errors?.newsNoLink ?? "No link found.",
+      newsNoWords: uiSettings?.errors?.newsNoWords ?? "No words found.",
+      saveFailed: uiSettings?.errors?.saveFailed ?? "Save failed.",
+    },
+  },
+  tutorial: {
+    welcomeTitle: uiSettings?.tutorial?.welcomeTitle ?? "Welcome",
+    welcomeSubtitle: uiSettings?.tutorial?.welcomeSubtitle ?? "",
+    sourceLabel: uiSettings?.tutorial?.sourceLabel ?? "Source",
+    targetLabel: uiSettings?.tutorial?.targetLabel ?? "Target",
+    levelLabel: uiSettings?.tutorial?.levelLabel ?? "Level",
+    newsLabel: uiSettings?.tutorial?.newsLabel ?? "News",
+    startJourney: uiSettings?.tutorial?.startJourney ?? "Start",
+    saving: uiSettings?.tutorial?.saving ?? "Saving...",
+    tourTitle: uiSettings?.tutorial?.tourTitle ?? "Welcome!",
+    tourSubtitle: uiSettings?.tutorial?.tourSubtitle ?? "",
+    tourWorldsTitle: uiSettings?.tutorial?.tourWorldsTitle ?? "Worlds",
+    tourWorldsDesc: uiSettings?.tutorial?.tourWorldsDesc ?? "",
+    tourSmartTitle: uiSettings?.tutorial?.tourSmartTitle ?? "Smart Content",
+    tourSmartDesc: uiSettings?.tutorial?.tourSmartDesc ?? "",
+    letsPlay: uiSettings?.tutorial?.letsPlay ?? "Let's Play",
+    playIntroTitle: uiSettings?.tutorial?.playIntroTitle ?? "Your First Game",
+    playIntroDesc: uiSettings?.tutorial?.playIntroDesc ?? "",
+    playingTitle: uiSettings?.tutorial?.playingTitle ?? "Good Luck!",
+    playingDesc: uiSettings?.tutorial?.playingDesc ?? "",
+    postGameTitle: uiSettings?.tutorial?.postGameTitle ?? "Great Job!",
+    postGameSubtitle: uiSettings?.tutorial?.postGameSubtitle ?? "",
+    postGameDesc: uiSettings?.tutorial?.postGameDesc ?? "",
+    createTitle: uiSettings?.tutorial?.createTitle ?? "Create anything",
+    createExamples: uiSettings?.tutorial?.createExamples ?? "",
+    tryCreating: uiSettings?.tutorial?.tryCreating ?? "Try Creating",
+    createInstructionTitle: uiSettings?.tutorial?.createInstructionTitle ?? "Create",
+    createInstructionDesc: uiSettings?.tutorial?.createInstructionDesc ?? "",
+    finalTitle: uiSettings?.tutorial?.finalTitle ?? "All Systems Go!",
+    finalSubtitle: uiSettings?.tutorial?.finalSubtitle ?? "",
+    pointsAwarded: uiSettings?.tutorial?.pointsAwarded ?? "Points Awarded",
+    dailyChallenge: uiSettings?.tutorial?.dailyChallenge ?? "Daily Challenge",
+    newsReader: uiSettings?.tutorial?.newsReader ?? "News Reader",
+    finalDesc: uiSettings?.tutorial?.finalDesc ?? "",
+    finish: uiSettings?.tutorial?.finish ?? "Finish",
+  },
+  generation: {
+    meaningOf: uiSettings?.generation?.meaningOf ?? "Meaning of {source}.",
+    exampleOf: uiSettings?.generation?.exampleOf ?? "Example: {source}.",
+    uploadedList: uiSettings?.generation?.uploadedList ?? "Uploaded list",
+    customList: uiSettings?.generation?.customList ?? "Custom list",
   },
 })
 
 type UiCopy = ReturnType<typeof buildUi>
 
-function normalizeUploadedWorld(payload: any, name?: string): World | null {
+function normalizeUploadedWorld(payload: any, ui: any, name?: string): World | null {
+  const defaultTitle = ui?.generation?.uploadedList ?? "Uploaded list"
+  const defaultCustomTitle = ui?.generation?.customList ?? "Custom list"
+
   if (!payload) return null
 
   if (Array.isArray(payload)) {
@@ -291,7 +341,7 @@ function normalizeUploadedWorld(payload: any, name?: string): World | null {
 
     return {
       id: `upload-${Date.now()}`,
-      title: name && name.trim().length > 0 ? name.trim() : "Uploaded list",
+      title: name && name.trim().length > 0 ? name.trim() : defaultTitle,
       description: "Custom uploaded word list.",
       mode: "vocab",
       pool,
@@ -307,7 +357,7 @@ function normalizeUploadedWorld(payload: any, name?: string): World | null {
     if (name && name.trim().length > 0) {
       normalized.title = name.trim()
     } else if (!normalized.title) {
-      normalized.title = "Uploaded list"
+      normalized.title = defaultCustomTitle
     }
     if (!normalized.chunking) {
       normalized.chunking = { itemsPerGame: 8 }
@@ -334,11 +384,7 @@ function normalizeUploadedWorld(payload: any, name?: string): World | null {
 }
 
 
-const extractVerbLabelFromPair = (pair: VocabPair) => {
-  // Try to find infinitive in explanation or source
-  // Simple heuristic: take id part before _
-  // BUT pair.id might be "sein_1ps"
-  // Fallback: from id "sein_1ps" -> "sein"
+const extractVerbLabelFromPair = (pair: any) => {
   const prefix = pair.id.split("_")[0]
   return prefix || ""
 }
@@ -377,9 +423,9 @@ const buildWorldFromItems = (
   const id = `news-${Date.now()}`
   const pool = items.map((item, index) => {
     const explanation =
-      item.explanation?.trim() || `Significado de ${item.source}.`
+      item.explanation?.trim() || formatTemplate(ui.generation.meaningOf, { source: item.source })
     const example =
-      item.example?.trim() || `Ejemplo: ${item.source}.`
+      item.example?.trim() || formatTemplate(ui.generation.exampleOf, { source: item.source })
     const syllables = item.syllables?.trim()
     const explanationWithSyllables =
       item.pos === "verb" && syllables && item.target
@@ -1133,7 +1179,7 @@ export default function AppClient({
     try {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) {
-        const sanitized = parsed.map((item) => normalizeUploadedWorld(item)).filter(Boolean) as World[]
+        const sanitized = parsed.map((item) => normalizeUploadedWorld(item, ui)).filter(Boolean) as World[]
         if (sanitized.length) {
           setUploadedWorlds(sanitized)
         }

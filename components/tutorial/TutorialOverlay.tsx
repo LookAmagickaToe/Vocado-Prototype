@@ -118,11 +118,11 @@ export default function TutorialOverlay({
 
     if (step === "welcome") {
         return (
-            <ModalWrapper title="Welcome to Vocado" subtitle="Let's tailor the experience to your needs.">
+            <ModalWrapper title={ui.tutorial.welcomeTitle} subtitle={ui.tutorial.welcomeSubtitle}>
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">Source Language</label>
+                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.sourceLabel}</label>
                             <select
                                 value={source}
                                 onChange={(e) => setSource(e.target.value)}
@@ -132,7 +132,7 @@ export default function TutorialOverlay({
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">Target Language</label>
+                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.targetLabel}</label>
                             <select
                                 value={target}
                                 onChange={(e) => setTarget(e.target.value)}
@@ -144,7 +144,7 @@ export default function TutorialOverlay({
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">Proficiency Level</label>
+                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.levelLabel}</label>
                         <div className="grid grid-cols-6 gap-2">
                             {["A1", "A2", "B1", "B2", "C1", "C2"].map((lvl) => (
                                 <button
@@ -162,15 +162,15 @@ export default function TutorialOverlay({
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">Preferred News Topic</label>
+                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.newsLabel}</label>
                         <select
                             value={news}
                             onChange={(e) => setNews(e.target.value)}
                             className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
                         >
-                            <option value="world">World News</option>
-                            <option value="wirtschaft">Economy</option>
-                            <option value="sport">Sports</option>
+                            <option value="world">{ui.news.categoryOptions.world}</option>
+                            <option value="wirtschaft">{ui.news.categoryOptions.wirtschaft}</option>
+                            <option value="sport">{ui.news.categoryOptions.sport}</option>
                         </select>
                     </div>
 
@@ -184,7 +184,7 @@ export default function TutorialOverlay({
                             disabled={savingProfile}
                             className="bg-neutral-100 text-neutral-900 hover:bg-white font-semibold rounded-xl px-6"
                         >
-                            {savingProfile ? "Saving..." : "Start Journey"}
+                            {savingProfile ? ui.tutorial.saving : ui.tutorial.startJourney}
                         </Button>
                     </div>
                 </div>
@@ -235,10 +235,8 @@ export default function TutorialOverlay({
     if (step === "play_intro") {
         return (
             <TooltipWrapper position="center">
-                <h3 className="text-lg font-bold text-green-400 mb-2">Your First Game</h3>
-                <p className="text-sm text-neutral-300 mb-4">
-                    We've prepared an introduction world for you. Click on the <strong>first world card</strong> to start playing and learning!
-                </p>
+                <h3 className="text-lg font-bold text-green-400 mb-2">{ui.tutorial.playIntroTitle}</h3>
+                <p className="text-sm text-neutral-300 mb-4" dangerouslySetInnerHTML={{ __html: ui.tutorial.playIntroDesc.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                 <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                     <div className="h-full bg-green-500 w-1/4 animate-pulse" />
                 </div>
@@ -249,9 +247,9 @@ export default function TutorialOverlay({
     if (step === "playing_game") {
         return (
             <TooltipWrapper position="bottom-right">
-                <h3 className="text-lg font-bold text-blue-400 mb-2">Good Luck! 🍀</h3>
+                <h3 className="text-lg font-bold text-blue-400 mb-2">{ui.tutorial.playingTitle}</h3>
                 <p className="text-sm text-neutral-300">
-                    Find all the matching pairs to complete the level.
+                    {ui.tutorial.playingDesc}
                 </p>
             </TooltipWrapper>
         )
@@ -259,27 +257,24 @@ export default function TutorialOverlay({
 
     if (step === "post_game") {
         return (
-            <ModalWrapper title="Great Job! 🎉" subtitle="You've completed your first session.">
+            <ModalWrapper title={ui.tutorial.postGameTitle} subtitle={ui.tutorial.postGameSubtitle}>
                 <div className="space-y-6">
                     <p className="text-neutral-300">
-                        That was just a taste. The real magic happens when you create your own worlds.
-                        Vocado uses AI to generate vocabulary lists from any topic you can imagine.
+                        {ui.tutorial.postGameDesc}
                     </p>
 
                     <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-800">
                         <h4 className="font-medium text-neutral-200 mb-2 flex items-center gap-2">
-                            <Plus size={16} className="text-green-400" /> Create anything
+                            <Plus size={16} className="text-green-400" /> {ui.tutorial.createTitle}
                         </h4>
-                        <p className="text-xs text-neutral-400">
-                            "50 words about space travel in simple French" <br />
-                            " Kitchen utensils for a chef" <br />
-                            "Translate this article..."
+                        <p className="text-xs text-neutral-400 whitespace-pre-line">
+                            {ui.tutorial.createExamples}
                         </p>
                     </div>
 
                     <div className="flex justify-end">
                         <Button onClick={onNext} className="bg-neutral-100 text-neutral-900 hover:bg-white rounded-xl">
-                            Try Creating a World
+                            {ui.tutorial.tryCreating}
                         </Button>
                     </div>
                 </div>
@@ -290,10 +285,8 @@ export default function TutorialOverlay({
     if (step === "create_instruction") {
         return (
             <TooltipWrapper position="top-right">
-                <h3 className="font-semibold text-neutral-100 mb-1">Create Your World</h3>
-                <p className="text-sm text-neutral-400">
-                    Click the <span className="text-green-400 font-medium">Upload / Create</span> button here to open the creation studio.
-                </p>
+                <h3 className="font-semibold text-neutral-100 mb-1">{ui.tutorial.createInstructionTitle}</h3>
+                <p className="text-sm text-neutral-400" dangerouslySetInnerHTML={{ __html: ui.tutorial.createInstructionDesc }} />
             </TooltipWrapper>
         )
     }
@@ -305,7 +298,7 @@ export default function TutorialOverlay({
 
     if (step === "final") {
         return (
-            <ModalWrapper title="All Systems Go! 🚀" subtitle="You are ready to master a new language.">
+            <ModalWrapper title={ui.tutorial.finalTitle} subtitle={ui.tutorial.finalSubtitle}>
                 <div className="text-center space-y-6 py-4">
                     <div className="mx-auto w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 mb-4">
                         <PartyPopper size={40} />
@@ -314,24 +307,24 @@ export default function TutorialOverlay({
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-3 bg-neutral-900/50 rounded-xl">
                             <div className="text-xl font-bold text-neutral-100">50</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Points Awarded</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.pointsAwarded}</div>
                         </div>
                         <div className="p-3 bg-neutral-900/50 rounded-xl opacity-50">
                             <div className="text-xl font-bold text-neutral-100">Daily</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Challenge</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.dailyChallenge}</div>
                         </div>
                         <div className="p-3 bg-neutral-900/50 rounded-xl opacity-50">
                             <div className="text-xl font-bold text-neutral-100">News</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">Reader</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.newsReader}</div>
                         </div>
                     </div>
 
                     <p className="text-lg text-neutral-200">
-                        Good luck on your journey! Don't forget to check out the daily challenges and the leaderboard.
+                        {ui.tutorial.finalDesc}
                     </p>
 
                     <Button size="lg" onClick={onNext} className="w-full bg-green-600 hover:bg-green-500 text-white rounded-xl text-lg font-semibold h-12">
-                        Finish Tutorial
+                        {ui.tutorial.finish}
                     </Button>
                 </div>
             </ModalWrapper>
