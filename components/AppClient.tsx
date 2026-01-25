@@ -4006,6 +4006,14 @@ function ListPickerOverlay({
   onCreateList: () => void
   onClose: () => void
 }) {
+  const safeLists = useMemo(
+    () =>
+      Array.isArray(lists)
+        ? lists.filter((list) => list && typeof list.id === "string")
+        : [],
+    [lists]
+  )
+
   return (
     <motion.div
       className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6"
