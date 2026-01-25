@@ -26,7 +26,7 @@ export default async function NewsPage() {
   const userId = data.session.user.id
   const { data: profileRow } = await supabaseAdmin
     .from("profiles")
-    .select("level,source_language,target_language,news_category")
+    .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start")
     .eq("id", userId)
     .maybeSingle()
 
@@ -37,6 +37,11 @@ export default async function NewsPage() {
         sourceLanguage: profileRow?.source_language ?? "",
         targetLanguage: profileRow?.target_language ?? "",
         newsCategory: profileRow?.news_category ?? "",
+        seeds: profileRow?.seeds ?? 0,
+        weeklySeeds: profileRow?.weekly_seeds ?? 0,
+        weeklySeedsWeekStart: profileRow?.weekly_seeds_week_start ?? "",
+        weeklyWords: profileRow?.weekly_words ?? 0,
+        weeklyWordsWeekStart: profileRow?.weekly_words_week_start ?? "",
       }}
     />
   )

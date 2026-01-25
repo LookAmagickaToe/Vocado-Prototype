@@ -29,6 +29,8 @@ const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
+const WEEKLY_SEEDS_STORAGE_KEY = "vocado-seeds-weekly"
+const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
 const NEWS_STORAGE_KEY = "vocado-news-current"
 const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
 
@@ -86,6 +88,7 @@ type ReviewItem = {
   source: string
   target: string
   pos: "verb" | "noun" | "adj" | "other"
+  originalId?: string
   lemma?: string
   emoji?: string
   explanation?: string
@@ -133,6 +136,10 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
     newListButton: uiSettings?.worldsOverlay?.newListButton ?? "Crear",
     unlisted: uiSettings?.worldsOverlay?.unlisted ?? "Sin lista",
     hideWorld: uiSettings?.worldsOverlay?.hideWorld ?? "Ocultar",
+    editLabel: uiSettings?.worldsOverlay?.editLabel ?? "Editar",
+    editTitle: uiSettings?.worldsOverlay?.editTitle ?? "Editar vocabulario",
+    assignLabel: uiSettings?.worldsOverlay?.assignLabel ?? "Asignar a mundo",
+    assignAction: uiSettings?.worldsOverlay?.assignAction ?? "Añadir",
   },
   levelsOverlay: {
     titleSuffix: uiSettings?.levelsOverlay?.titleSuffix ?? "— Levels",
@@ -210,6 +217,9 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
     posAdj: uiSettings?.upload?.posAdj ?? "adjetivo",
     posOther: uiSettings?.upload?.posOther ?? "otro",
     reviewAddRow: uiSettings?.upload?.reviewAddRow ?? "Agregar palabra",
+    reviewMoreLabel: uiSettings?.upload?.reviewMoreLabel ?? "Agregar más palabras",
+    reviewMorePlaceholder: uiSettings?.upload?.reviewMorePlaceholder ?? "Cantidad",
+    reviewMoreButton: uiSettings?.upload?.reviewMoreButton ?? "Generar",
     reviewBack: uiSettings?.upload?.reviewBack ?? "Volver",
     reviewDone: uiSettings?.upload?.reviewDone ?? "Guardar y jugar",
     actionGenerate: uiSettings?.upload?.actionGenerate ?? "Generar vista previa",
@@ -343,6 +353,8 @@ type AppClientProps = {
     targetLanguage?: string
     newsCategory?: string
     seeds?: number
+    weeklySeeds?: number
+    weeklySeedsWeekStart?: string
     weeklyWords?: number
     weeklyWordsWeekStart?: string
     dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
@@ -383,7 +395,7 @@ export default function AppClient({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadListId, setUploadListId] = useState<string>("")
   const [newListName, setNewListName] = useState("")
-  const [uploadTab, setUploadTab] = useState<UploadTab>("table")
+  const [uploadTab, setUploadTab] = useState<UploadTab>("theme")
   const [uploadStep, setUploadStep] = useState<"input" | "review">("input")
   const [uploadModeSelection, setUploadModeSelection] = useState<UploadModeSelection>("auto")
   const [profileSettings, setProfileSettings] = useState({
@@ -445,6 +457,18 @@ export default function AppClient({
   const [onboardingKey, setOnboardingKey] = useState<string | null>(null)
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
+  const [reviewExtraCount, setReviewExtraCount] = useState(8)
+  const [reviewExtraError, setReviewExtraError] = useState<string | null>(null)
+  const [reviewExtraLoading, setReviewExtraLoading] = useState(false)
+  const [isEditWorldOpen, setIsEditWorldOpen] = useState(false)
+  const [editWorldId, setEditWorldId] = useState<string | null>(null)
+  const [editWorldTitle, setEditWorldTitle] = useState("")
+  const [editReviewItems, setEditReviewItems] = useState<ReviewItem[]>([])
+  const [editExtraCount, setEditExtraCount] = useState(8)
+  const [editExtraError, setEditExtraError] = useState<string | null>(null)
+  const [editExtraLoading, setEditExtraLoading] = useState(false)
+  const [editAssignTargetId, setEditAssignTargetId] = useState("")
+  const [editSaveError, setEditSaveError] = useState<string | null>(null)
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
   const [isListPickerOpen, setIsListPickerOpen] = useState(false)
   const [listPickerName, setListPickerName] = useState("")
@@ -467,6 +491,7 @@ export default function AppClient({
 
   const syncStatsToServer = async (
     nextSeeds: number,
+    nextWeeklySeeds: number,
     nextWeeklyWords: number,
     weekStart: string,
     dailyState?: { date: string; games: number; upload: boolean; news: boolean }
@@ -480,6 +505,8 @@ export default function AppClient({
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           seeds: nextSeeds,
+          weeklySeeds: nextWeeklySeeds,
+          weeklySeedsWeekStart: weekStart,
           weeklyWords: nextWeeklyWords,
           weekStart,
           dailyState,
@@ -620,9 +647,23 @@ export default function AppClient({
       window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
     }
 
+    const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+    if (storedSeedsWeekStart !== weekStart) {
+      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+    }
+    const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+    let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const seedsDelta = Math.max(0, finalSeeds - currentSeeds)
+    if (seedsDelta > 0) {
+      weeklySeeds += seedsDelta
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+    }
+
     setSeeds(finalSeeds)
-    syncStatsToServer(finalSeeds, weeklyValue, weekStart, dailyState)
+    syncStatsToServer(finalSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
 
     return {
       payout,
@@ -683,6 +724,15 @@ export default function AppClient({
       }
       window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
     }
+    if (typeof initialProfile?.weeklySeeds === "number") {
+      const serverWeekStart = initialProfile.weeklySeedsWeekStart || ""
+      if (serverWeekStart === weekStart) {
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(initialProfile.weeklySeeds))
+      } else {
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+      }
+      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+    }
     const handleStorage = (event: StorageEvent) => {
       if (event.key === SEEDS_STORAGE_KEY) {
         syncSeeds()
@@ -694,7 +744,13 @@ export default function AppClient({
       window.removeEventListener("storage", handleStorage)
       window.removeEventListener("focus", syncSeeds)
     }
-  }, [initialProfile?.seeds, initialProfile?.weeklyWords, initialProfile?.weeklyWordsWeekStart])
+  }, [
+    initialProfile?.seeds,
+    initialProfile?.weeklyWords,
+    initialProfile?.weeklyWordsWeekStart,
+    initialProfile?.weeklySeeds,
+    initialProfile?.weeklySeedsWeekStart,
+  ])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1131,7 +1187,7 @@ export default function AppClient({
     setUploadText("")
     setUploadError(null)
     setUploadListId("")
-    setUploadTab("table")
+    setUploadTab("theme")
     setUploadStep("input")
     setUploadModeSelection("auto")
     setIsProcessingUpload(false)
@@ -1477,6 +1533,7 @@ export default function AppClient({
         source: normalizeText(item?.source),
         target: normalizeText(item?.target),
         pos,
+        originalId: typeof item?.id === "string" ? item.id : undefined,
         lemma: normalizeText(item?.lemma) || undefined,
         emoji: normalizeEmoji(item?.emoji),
         explanation: explanation || undefined,
@@ -1496,6 +1553,284 @@ export default function AppClient({
       }
       return next
     })
+  }
+
+  const buildReviewItemsFromWorld = (world: World) => {
+    if (!world || world.mode !== "vocab") return []
+    return (world.pool ?? []).map((item: any, index: number) => {
+      const pos = normalizePos(item?.pos)
+      return {
+        id: `edit-${world.id}-${index}`,
+        originalId: typeof item?.id === "string" ? item.id : undefined,
+        source: normalizeText(item?.es ?? item?.left),
+        target: normalizeText(item?.de ?? item?.right),
+        pos,
+        lemma: normalizeText(item?.lemma) || undefined,
+        emoji: item?.image?.type === "emoji" ? item.image.value : "📝",
+        explanation: normalizeText(item?.explanation) || undefined,
+        example: normalizeText(item?.example) || undefined,
+        syllables: normalizeText(item?.syllables) || undefined,
+        include: true,
+        conjugate: pos === "verb",
+      } as ReviewItem
+    })
+  }
+
+  const openWorldEditor = (worldIdValue: string) => {
+    const world = allWorlds.find((w) => w.id === worldIdValue)
+    if (!world || world.mode !== "vocab") return
+    setEditWorldId(world.id)
+    setEditWorldTitle(getWorldTitle(world.id, world.title))
+    setEditReviewItems(buildReviewItemsFromWorld(world))
+    setEditExtraCount(8)
+    setEditExtraError(null)
+    setEditSaveError(null)
+    setEditAssignTargetId("")
+    setIsEditWorldOpen(true)
+  }
+
+  const closeWorldEditor = () => {
+    setIsEditWorldOpen(false)
+    setEditWorldId(null)
+    setEditReviewItems([])
+    setEditExtraError(null)
+    setEditSaveError(null)
+    setEditAssignTargetId("")
+  }
+
+  const generateMoreEditItems = async () => {
+    if (editExtraLoading) return
+    setEditExtraError(null)
+    const count = Math.max(1, Math.floor(editExtraCount || 0))
+    if (!count) {
+      setEditExtraError(ui.upload.errorNoInput)
+      return
+    }
+    const baseTheme =
+      editWorldTitle.trim() ||
+      uploadName.trim() ||
+      editReviewItems
+        .map((item) => item.source || item.target)
+        .filter(Boolean)
+        .slice(0, 8)
+        .join(", ")
+    if (!baseTheme) {
+      setEditExtraError(ui.upload.errorNoInput)
+      return
+    }
+    setEditExtraLoading(true)
+    try {
+      const desiredMode = uploadModeSelection === "auto" ? null : uploadModeSelection
+      const result = await callAi({
+        task: "theme_list",
+        theme: baseTheme,
+        count,
+        level: profileSettings.level || "A2",
+        mode: desiredMode,
+        sourceLabel,
+        targetLabel,
+      })
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (!items.length) {
+        setEditExtraError(ui.upload.errorNoItems)
+        return
+      }
+      const newItems = buildReviewItemsFromAi(items)
+      setEditReviewItems((prev) => {
+        const seen = new Set(
+          prev.map(
+            (item) => `${item.source.trim().toLowerCase()}|${item.target.trim().toLowerCase()}`
+          )
+        )
+        const additions = newItems.filter((item) => {
+          const source = item.source.trim()
+          const target = item.target.trim()
+          if (!source && !target) return false
+          const key = `${source.toLowerCase()}|${target.toLowerCase()}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        return [...prev, ...additions]
+      })
+    } catch (error) {
+      setEditExtraError((error as Error).message)
+    } finally {
+      setEditExtraLoading(false)
+    }
+  }
+
+  const saveEditedWorld = async () => {
+    if (!editWorldId) return
+    setEditSaveError(null)
+    const world = allWorlds.find((w) => w.id === editWorldId)
+    if (!world || world.mode !== "vocab") {
+      setEditSaveError(ui.upload.errorNoItems)
+      return
+    }
+    const included = editReviewItems.filter(
+      (item) => item.include && item.source.trim() && item.target.trim()
+    )
+    if (!included.length) {
+      setEditSaveError(ui.upload.errorNoItems)
+      return
+    }
+    try {
+      let conjugationMap: Record<string, any> | undefined = undefined
+      const verbsForConjugation = included
+        .filter((item) => item.pos === "verb" && item.conjugate)
+        .map((item) => ({
+          lemma: item.lemma?.trim() || item.target,
+          translation: item.source,
+        }))
+        .filter((item) => item.lemma)
+      if (verbsForConjugation.length > 0) {
+        const result = await callAi({
+          task: "conjugate",
+          verbs: verbsForConjugation,
+          sourceLabel,
+          targetLabel,
+        })
+        const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
+        conjugationMap = conjugations.reduce<Record<string, any>>((acc, entry) => {
+          if (entry?.verb) {
+            acc[entry.verb] = {
+              infinitive: entry.verb,
+              translation: entry.translation ?? "",
+              sections: Array.isArray(entry.sections) ? entry.sections : [],
+            }
+          }
+          return acc
+        }, {})
+      }
+
+      const updatedPool = included.map((item, index) => {
+        const verbKey = (item.lemma?.trim() || item.target)?.trim()
+        const conjugation =
+          item.pos === "verb" && verbKey && conjugationMap
+            ? conjugationMap[verbKey]
+            : (world.pool ?? []).find((p: any) => p?.id === item.originalId)?.conjugation
+        const explanation = item.explanation?.trim() || `Significado de ${item.source}.`
+        const example = item.example?.trim() || `Ejemplo: ${item.source}.`
+        const syllables = item.syllables?.trim()
+        const explanationWithSyllables =
+          item.pos === "verb" && syllables && item.target
+            ? `${explanation}\n${item.target}\n${syllables}`
+            : explanation
+        return {
+          id: item.originalId ?? `${world.id}-${index}-${item.source}`,
+          es: item.source,
+          de: item.target,
+          image: { type: "emoji", value: item.emoji?.trim() || "📝" },
+          pos: item.pos,
+          explanation: explanationWithSyllables,
+          example,
+          conjugation,
+        }
+      })
+      const updatedWorld = { ...world, pool: updatedPool } as World
+      await persistWorlds([updatedWorld], updatedWorld.id)
+      setEditReviewItems(buildReviewItemsFromWorld(updatedWorld))
+    } catch (error) {
+      setEditSaveError((error as Error).message)
+    }
+  }
+
+  const assignEditItemsToWorld = async () => {
+    if (!editAssignTargetId) return
+    const targetWorld = allWorlds.find((w) => w.id === editAssignTargetId)
+    if (!targetWorld || targetWorld.mode !== "vocab") {
+      setEditSaveError(ui.upload.errorNoItems)
+      return
+    }
+    const selected = editReviewItems.filter(
+      (item) => item.include && item.source.trim() && item.target.trim()
+    )
+    if (!selected.length) {
+      setEditSaveError(ui.upload.errorNoItems)
+      return
+    }
+    try {
+      const additions = selected.map((item, index) => ({
+        id: `${targetWorld.id}-${Date.now()}-${index}`,
+        es: item.source,
+        de: item.target,
+        image: { type: "emoji", value: item.emoji?.trim() || "📝" },
+        pos: item.pos,
+        explanation: item.explanation,
+        example: item.example,
+        conjugation: undefined,
+      }))
+      const updatedTarget = {
+        ...targetWorld,
+        pool: [...(targetWorld.pool ?? []), ...additions],
+      } as World
+      await persistWorlds([updatedTarget], updatedTarget.id)
+    } catch (error) {
+      setEditSaveError((error as Error).message)
+    }
+  }
+
+  const generateMoreReviewItems = async () => {
+    if (reviewExtraLoading) return
+    setReviewExtraError(null)
+    const count = Math.max(1, Math.floor(reviewExtraCount || 0))
+    if (!count) {
+      setReviewExtraError(ui.upload.errorNoInput)
+      return
+    }
+    const baseTheme =
+      themeText.trim() ||
+      uploadName.trim() ||
+      reviewItems
+        .map((item) => item.source || item.target)
+        .filter(Boolean)
+        .slice(0, 8)
+        .join(", ")
+    if (!baseTheme) {
+      setReviewExtraError(ui.upload.errorNoInput)
+      return
+    }
+    setReviewExtraLoading(true)
+    try {
+      const desiredMode = uploadModeSelection === "auto" ? null : uploadModeSelection
+      const result = await callAi({
+        task: "theme_list",
+        theme: baseTheme,
+        count,
+        level: profileSettings.level || "A2",
+        mode: desiredMode,
+        sourceLabel,
+        targetLabel,
+      })
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (!items.length) {
+        setReviewExtraError(ui.upload.errorNoItems)
+        return
+      }
+      const newItems = buildReviewItemsFromAi(items)
+      setReviewItems((prev) => {
+        const seen = new Set(
+          prev.map(
+            (item) => `${item.source.trim().toLowerCase()}|${item.target.trim().toLowerCase()}`
+          )
+        )
+        const additions = newItems.filter((item) => {
+          const source = item.source.trim()
+          const target = item.target.trim()
+          if (!source && !target) return false
+          const key = `${source.toLowerCase()}|${target.toLowerCase()}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        return [...prev, ...additions]
+      })
+    } catch (error) {
+      setReviewExtraError((error as Error).message)
+    } finally {
+      setReviewExtraLoading(false)
+    }
   }
 
   const buildReviewItemsFromTable = (rows: Array<{ source: string; target: string }>) =>
@@ -2102,7 +2437,16 @@ export default function AppClient({
           const weekStart = getWeekStartIso()
           const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
           const weeklyValue = Number(rawWeekly || "0") || 0
-          syncStatsToServer(nextSeeds, weeklyValue, weekStart, dailyState)
+          const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+          if (storedSeedsWeekStart !== weekStart) {
+            window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+            window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+          }
+          const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+          let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+          weeklySeeds += 10
+          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+          syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
         }
       }
       setIsUploadOpen(false)
@@ -2575,6 +2919,7 @@ export default function AppClient({
             getWorldTitle={getWorldTitle}
             onMoveList={moveList}
             onHideWorld={hideWorld}
+            onEditWorld={openWorldEditor}
             activeWorldId={worldId}
             onClose={() => setIsWorldsOpen(false)}
             onSelectWorld={(id) => {
@@ -2662,11 +3007,63 @@ export default function AppClient({
             onRemoveReviewItem={(id) =>
               setReviewItems((prev) => prev.filter((item) => item.id !== id))
             }
+            reviewExtraCount={reviewExtraCount}
+            reviewExtraLoading={reviewExtraLoading}
+            reviewExtraError={reviewExtraError}
+            onChangeReviewExtraCount={setReviewExtraCount}
+            onGenerateMoreReview={generateMoreReviewItems}
             onOpenListPicker={() => setIsListPickerOpen(true)}
             onRestoreWorld={restoreWorld}
             onClose={() => setIsUploadOpen(false)}
             onSubmit={submitUpload}
             onSubmitReview={submitReview}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* EDIT WORLD OVERLAY */}
+      <AnimatePresence>
+        {isEditWorldOpen && editWorldId && (
+          <WorldEditOverlay
+            ui={ui}
+            title={editWorldTitle}
+            items={editReviewItems}
+            appendableWorlds={appendableWorlds}
+            assignTargetId={editAssignTargetId}
+            editExtraCount={editExtraCount}
+            editExtraLoading={editExtraLoading}
+            editExtraError={editExtraError}
+            editSaveError={editSaveError}
+            sourceLabel={sourceLabel}
+            targetLabel={targetLabel}
+            onChangeAssignTargetId={setEditAssignTargetId}
+            onUpdateItem={(id, value) =>
+              setEditReviewItems((prev) =>
+                prev.map((item) => (item.id === id ? { ...item, ...value } : item))
+              )
+            }
+            onAddItem={() =>
+              setEditReviewItems((prev) => [
+                ...prev,
+                {
+                  id: `edit-${Date.now()}`,
+                  source: "",
+                  target: "",
+                  pos: "other",
+                  include: true,
+                  conjugate: false,
+                  emoji: "📝",
+                },
+              ])
+            }
+            onRemoveItem={(id) =>
+              setEditReviewItems((prev) => prev.filter((item) => item.id !== id))
+            }
+            onChangeExtraCount={setEditExtraCount}
+            onGenerateMore={generateMoreEditItems}
+            onAssignToWorld={assignEditItemsToWorld}
+            onSave={saveEditedWorld}
+            onClose={closeWorldEditor}
           />
         )}
       </AnimatePresence>
@@ -2727,6 +3124,252 @@ export default function AppClient({
   )
 }
 
+function WorldEditOverlay({
+  ui,
+  title,
+  items,
+  appendableWorlds,
+  assignTargetId,
+  editExtraCount,
+  editExtraLoading,
+  editExtraError,
+  editSaveError,
+  sourceLabel,
+  targetLabel,
+  onChangeAssignTargetId,
+  onUpdateItem,
+  onAddItem,
+  onRemoveItem,
+  onChangeExtraCount,
+  onGenerateMore,
+  onAssignToWorld,
+  onSave,
+  onClose,
+}: {
+  ui: UiCopy
+  title: string
+  items: ReviewItem[]
+  appendableWorlds: Array<{ id: string; title: string; isUploaded: boolean }>
+  assignTargetId: string
+  editExtraCount: number
+  editExtraLoading: boolean
+  editExtraError: string | null
+  editSaveError: string | null
+  sourceLabel: string
+  targetLabel: string
+  onChangeAssignTargetId: (value: string) => void
+  onUpdateItem: (id: string, value: Partial<ReviewItem>) => void
+  onAddItem: () => void
+  onRemoveItem: (id: string) => void
+  onChangeExtraCount: (value: number) => void
+  onGenerateMore: () => void
+  onAssignToWorld: () => void
+  onSave: () => void
+  onClose: () => void
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <motion.div
+        className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-neutral-950 border border-neutral-800 p-4 sm:p-6 shadow-xl"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-neutral-50">
+              {ui.worldsOverlay.editTitle}
+            </h2>
+            <p className="text-sm text-neutral-300 mt-2">{title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-neutral-300">
+            <span>{ui.upload.reviewMoreLabel}</span>
+            <input
+              type="number"
+              min={1}
+              value={editExtraCount}
+              onChange={(e) => onChangeExtraCount(Number(e.target.value))}
+              className="w-16 rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+            />
+            <button
+              type="button"
+              onClick={onGenerateMore}
+              disabled={editExtraLoading}
+              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-50"
+            >
+              {editExtraLoading ? ui.upload.processing : ui.upload.reviewMoreButton}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-neutral-300">
+            <span>{ui.worldsOverlay.assignLabel}</span>
+            <select
+              value={assignTargetId}
+              onChange={(e) => onChangeAssignTargetId(e.target.value)}
+              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
+            >
+              <option value="">{ui.worldsOverlay.unlisted}</option>
+              {appendableWorlds.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onAssignToWorld}
+              disabled={!assignTargetId}
+              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-50"
+            >
+              {ui.worldsOverlay.assignAction}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-auto max-h-[55vh] rounded-xl border border-neutral-800">
+          <div className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,1.2fr,1fr,1fr,auto] gap-2 p-3 text-xs uppercase tracking-wide text-neutral-400">
+            <div>{ui.upload.reviewInclude}</div>
+            <div>{sourceLabel}</div>
+            <div>{targetLabel}</div>
+            <div>{ui.upload.reviewEmoji}</div>
+            <div>{ui.upload.reviewPos}</div>
+            <div>{ui.upload.reviewConjugate}</div>
+            <div>{ui.upload.reviewExplanation ?? "Explicación"}</div>
+            <div>{ui.upload.reviewExample ?? "Ejemplo"}</div>
+            <div>{ui.upload.reviewSyllables ?? "Sílabas"}</div>
+            <div></div>
+          </div>
+          <div className="divide-y divide-neutral-800">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="grid grid-cols-[auto,1fr,1fr,auto,auto,auto,1.2fr,1fr,1fr,auto] gap-2 p-3 items-center"
+              >
+                <input
+                  type="checkbox"
+                  checked={item.include}
+                  onChange={(e) => onUpdateItem(item.id, { include: e.target.checked })}
+                />
+                <input
+                  type="text"
+                  value={item.source}
+                  onChange={(e) => onUpdateItem(item.id, { source: e.target.value })}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <input
+                  type="text"
+                  value={item.target}
+                  onChange={(e) => onUpdateItem(item.id, { target: e.target.value })}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <input
+                  type="text"
+                  value={item.emoji ?? ""}
+                  onChange={(e) => onUpdateItem(item.id, { emoji: e.target.value })}
+                  className="w-12 rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-center text-sm text-neutral-100"
+                />
+                <select
+                  value={item.pos}
+                  onChange={(e) =>
+                    onUpdateItem(item.id, {
+                      pos: e.target.value as ReviewItem["pos"],
+                      conjugate: e.target.value === "verb" ? item.conjugate : false,
+                    })
+                  }
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                >
+                  <option value="verb">{ui.upload.posVerb}</option>
+                  <option value="noun">{ui.upload.posNoun}</option>
+                  <option value="adj">{ui.upload.posAdj}</option>
+                  <option value="other">{ui.upload.posOther}</option>
+                </select>
+                <input
+                  type="checkbox"
+                  checked={item.conjugate}
+                  disabled={item.pos !== "verb"}
+                  onChange={(e) => onUpdateItem(item.id, { conjugate: e.target.checked })}
+                />
+                <input
+                  type="text"
+                  value={item.explanation ?? ""}
+                  onChange={(e) => onUpdateItem(item.id, { explanation: e.target.value })}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <input
+                  type="text"
+                  value={item.example ?? ""}
+                  onChange={(e) => onUpdateItem(item.id, { example: e.target.value })}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <input
+                  type="text"
+                  value={item.syllables ?? ""}
+                  onChange={(e) => onUpdateItem(item.id, { syllables: e.target.value })}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveItem(item.id)}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onAddItem}
+          className="mt-3 text-sm text-neutral-300 hover:text-white"
+        >
+          {ui.upload.reviewAddRow}
+        </button>
+
+        {(editExtraError || editSaveError) && (
+          <div className="mt-3 text-sm text-red-400">{editExtraError || editSaveError}</div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2 text-sm text-neutral-200 hover:text-white"
+          >
+            {ui.upload.reviewBack}
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30"
+          >
+            {ui.upload.reviewDone}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 function UploadOverlay({
   ui,
   name,
@@ -2770,6 +3413,11 @@ function UploadOverlay({
   onUpdateReviewItem,
   onAddReviewItem,
   onRemoveReviewItem,
+  reviewExtraCount,
+  reviewExtraLoading,
+  reviewExtraError,
+  onChangeReviewExtraCount,
+  onGenerateMoreReview,
   onRestoreWorld,
   onClose,
   onSubmit,
@@ -2817,6 +3465,11 @@ function UploadOverlay({
   onUpdateReviewItem: (id: string, value: Partial<ReviewItem>) => void
   onAddReviewItem: () => void
   onRemoveReviewItem: (id: string) => void
+  reviewExtraCount: number
+  reviewExtraLoading: boolean
+  reviewExtraError: string | null
+  onChangeReviewExtraCount: (value: number) => void
+  onGenerateMoreReview: () => void
   onRestoreWorld: (id: string) => void
   onClose: () => void
   onSubmit: () => void
@@ -2825,9 +3478,9 @@ function UploadOverlay({
   const selectedTarget = appendableWorlds.find((world) => world.id === targetWorldId)
   const isAppendingExisting = Boolean(selectedTarget?.isUploaded)
   const tabs: Array<{ id: UploadTab; label: string }> = [
+    { id: "theme", label: ui.upload.tabTheme },
     { id: "table", label: ui.upload.tabTable },
     { id: "upload", label: ui.upload.tabUpload },
-    { id: "theme", label: ui.upload.tabTheme },
     { id: "news", label: ui.upload.tabNews },
     { id: "json", label: ui.upload.tabJson },
   ]
@@ -2982,15 +3635,37 @@ function UploadOverlay({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={onAddReviewItem}
-              className="mt-3 text-sm text-neutral-300 hover:text-white"
-            >
-              {ui.upload.reviewAddRow}
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={onAddReviewItem}
+                className="text-sm text-neutral-300 hover:text-white"
+              >
+                {ui.upload.reviewAddRow}
+              </button>
+              <div className="flex items-center gap-2 text-xs text-neutral-300">
+                <span>{ui.upload.reviewMoreLabel}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={reviewExtraCount}
+                  onChange={(e) => onChangeReviewExtraCount(Number(e.target.value))}
+                  className="w-16 rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-100"
+                />
+                <button
+                  type="button"
+                  onClick={onGenerateMoreReview}
+                  disabled={reviewExtraLoading}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-50"
+                >
+                  {reviewExtraLoading ? ui.upload.processing : ui.upload.reviewMoreButton}
+                </button>
+              </div>
+            </div>
 
-            {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
+            {(error || reviewExtraError) && (
+              <div className="mt-3 text-sm text-red-400">{reviewExtraError || error}</div>
+            )}
 
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -3431,6 +4106,7 @@ function WorldsOverlay({
   getWorldTitle,
   onMoveList,
   onHideWorld,
+  onEditWorld,
   collapsedListIds,
   onSetCollapsedListIds,
   activeWorldId,
@@ -3463,6 +4139,7 @@ function WorldsOverlay({
   getWorldTitle: (worldId: string, fallback: string) => string
   onMoveList: (listId: string, direction: "up" | "down") => void
   onHideWorld: (worldId: string) => void
+  onEditWorld: (worldId: string) => void
   activeWorldId: string
   onClose: () => void
   onSelectWorld: (id: string) => void
@@ -3478,6 +4155,7 @@ function WorldsOverlay({
   const [editingWorldTitle, setEditingWorldTitle] = useState("")
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingListTitle, setEditingListTitle] = useState("")
+  const [openMenuWorldId, setOpenMenuWorldId] = useState<string | null>(null)
 
   const safeWorlds = useMemo(
     () => (Array.isArray(worlds) ? worlds.filter((w) => w && typeof w.id === "string") : []),
@@ -3755,6 +4433,33 @@ function WorldsOverlay({
                                 </button>
                               </div>
                             )}
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenMenuWorldId((prev) => (prev === w.id ? null : w.id))
+                                }}
+                                className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                              >
+                                ⋯
+                              </button>
+                              {openMenuWorldId === w.id && (
+                                <div className="absolute right-0 top-8 z-10 w-32 rounded-lg border border-neutral-800 bg-neutral-950 p-2 text-xs text-neutral-200">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenMenuWorldId(null)
+                                      onEditWorld(w.id)
+                                    }}
+                                    className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                  >
+                                    {ui.worldsOverlay.editLabel}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             {active && (
                               <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
                                 {ui.worldsOverlay.active}
@@ -3899,6 +4604,33 @@ function WorldsOverlay({
                             </button>
                           </div>
                         )}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuWorldId((prev) => (prev === w.id ? null : w.id))
+                            }}
+                            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                          >
+                            ⋯
+                          </button>
+                          {openMenuWorldId === w.id && (
+                            <div className="absolute right-0 top-8 z-10 w-32 rounded-lg border border-neutral-800 bg-neutral-950 p-2 text-xs text-neutral-200">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenMenuWorldId(null)
+                                  onEditWorld(w.id)
+                                }}
+                                className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                              >
+                                {ui.worldsOverlay.editLabel}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {active && (
                           <span className="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-200">
                             {ui.worldsOverlay.active}

@@ -15,6 +15,8 @@ const NEWS_STORAGE_KEY = "vocado-news-current"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
+const WEEKLY_SEEDS_STORAGE_KEY = "vocado-seeds-weekly"
+const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -55,6 +57,11 @@ type ProfileSettings = {
   sourceLanguage: string
   targetLanguage: string
   newsCategory?: string
+  seeds?: number
+  weeklyWords?: number
+  weeklyWordsWeekStart?: string
+  weeklySeeds?: number
+  weeklySeedsWeekStart?: string
 }
 
 type ReviewItem = {
@@ -220,6 +227,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const syncStatsToServer = async (
     nextSeeds: number,
+    nextWeeklySeeds: number,
     nextWeeklyWords: number,
     weekStart: string,
     dailyState?: { date: string; games: number; upload: boolean; news: boolean }
@@ -233,6 +241,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           seeds: nextSeeds,
+          weeklySeeds: nextWeeklySeeds,
+          weeklySeedsWeekStart: weekStart,
           weeklyWords: nextWeeklyWords,
           weekStart,
           dailyState,
@@ -278,6 +288,39 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     window.addEventListener("storage", handleStorage)
     return () => window.removeEventListener("storage", handleStorage)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const weekStart = getWeekStartIso()
+    if (typeof profileState.seeds === "number") {
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(profileState.seeds))
+      setSeeds(profileState.seeds)
+    }
+    if (typeof profileState.weeklyWords === "number") {
+      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+      if (serverWeekStart === weekStart) {
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(profileState.weeklyWords))
+      } else {
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+      }
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
+    }
+    if (typeof profileState.weeklySeeds === "number") {
+      const serverWeekStart = profileState.weeklySeedsWeekStart || ""
+      if (serverWeekStart === weekStart) {
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(profileState.weeklySeeds))
+      } else {
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+      }
+      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+    }
+  }, [
+    profileState.seeds,
+    profileState.weeklyWords,
+    profileState.weeklyWordsWeekStart,
+    profileState.weeklySeeds,
+    profileState.weeklySeedsWeekStart,
+  ])
 
   useEffect(() => {
     const loadHeadlines = async () => {
@@ -493,8 +536,21 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
     }
 
+    const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+    if (storedSeedsWeekStart !== weekStart) {
+      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+    }
+    const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+    let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-    syncStatsToServer(finalSeeds, weeklyValue, weekStart, dailyState)
+    const seedsDelta = Math.max(0, finalSeeds - currentSeeds)
+    if (seedsDelta > 0) {
+      weeklySeeds += seedsDelta
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+    }
+    setSeeds(finalSeeds)
+    syncStatsToServer(finalSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
     return {
       payout,
       totalBefore: currentSeeds,
@@ -698,7 +754,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       const weekStart = getWeekStartIso()
                       const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
                       const weeklyValue = Number(rawWeekly || "0") || 0
-                      syncStatsToServer(nextSeeds, weeklyValue, weekStart, dailyState)
+                      const storedSeedsWeekStart =
+                        window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+                      if (storedSeedsWeekStart !== weekStart) {
+                        window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+                        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+                      }
+                      const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+                      let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+                      weeklySeeds += 30
+                      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+                      syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
                     }
                     dailyState.news = true
                     window.localStorage.setItem(

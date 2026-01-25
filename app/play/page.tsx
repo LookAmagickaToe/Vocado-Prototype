@@ -39,7 +39,7 @@ export default async function PlayPage() {
 
   const { data: profileRow } = await supabaseAdmin
     .from("profiles")
-    .select("level,source_language,target_language,news_category,seeds,weekly_words,weekly_words_week_start,daily_state,daily_state_date")
+    .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start,daily_state,daily_state_date")
     .eq("id", userId)
     .maybeSingle()
 
@@ -83,6 +83,8 @@ export default async function PlayPage() {
         targetLanguage: profileRow?.target_language ?? "",
         newsCategory: profileRow?.news_category ?? "",
         seeds: profileRow?.seeds ?? 0,
+        weeklySeeds: profileRow?.weekly_seeds ?? 0,
+        weeklySeedsWeekStart: profileRow?.weekly_seeds_week_start ?? "",
         weeklyWords: profileRow?.weekly_words ?? 0,
         weeklyWordsWeekStart: profileRow?.weekly_words_week_start ?? "",
         dailyState: profileRow?.daily_state ?? null,

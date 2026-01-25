@@ -12,6 +12,8 @@ const SEEDS_STORAGE_KEY = "vocado-seeds"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
+const WEEKLY_SEEDS_STORAGE_KEY = "vocado-seeds-weekly"
+const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
 const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
 
 type ProfileSettings = {
@@ -22,6 +24,8 @@ type ProfileSettings = {
   seeds?: number
   weeklyWords?: number
   weeklyWordsWeekStart?: string
+  weeklySeeds?: number
+  weeklySeedsWeekStart?: string
   dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
   dailyStateDate?: string
   onboardingDone?: boolean
@@ -92,6 +96,11 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const [newWorldName, setNewWorldName] = useState("")
   const [selectedListId, setSelectedListId] = useState("")
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [leaderboardMode, setLeaderboardMode] = useState<"overall" | "weekly">("overall")
+  const [leaderboardEntries, setLeaderboardEntries] = useState<
+    Array<{ name: string; score: number }>
+  >([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
   const [tutorialSource, setTutorialSource] = useState(profile.sourceLanguage || "")
   const [tutorialTarget, setTutorialTarget] = useState(profile.targetLanguage || "")
@@ -105,6 +114,14 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     () => getUiSettings(profileState.sourceLanguage),
     [profileState.sourceLanguage]
   )
+  const translationWorldName = useMemo(() => {
+    const value = (profileState.sourceLanguage || "").toLowerCase()
+    if (value.includes("deutsch") || value.includes("german")) return "Übersetzung"
+    if (value.includes("english")) return "Translation"
+    if (value.includes("français") || value.includes("french")) return "Traduction"
+    return "Traducción"
+  }, [profileState.sourceLanguage])
+  const privateListName = useMemo(() => "mi lista privada", [])
   const ui = useMemo(
     () => ({
       title: uiSettings?.home?.title ?? "Inicio",
@@ -122,6 +139,10 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       worldsAction: uiSettings?.home?.worldsAction ?? "Mundos",
       newsAction: uiSettings?.home?.newsAction ?? "Noticias",
       newsTitle: uiSettings?.home?.newsTitle ?? "Título del artículo destacado",
+      leaderboardTitle: uiSettings?.home?.leaderboardTitle ?? "Clasificación",
+      leaderboardOverall: uiSettings?.home?.leaderboardOverall ?? "Puntuación total",
+      leaderboardWeekly: uiSettings?.home?.leaderboardWeekly ?? "Campeón semanal",
+      leaderboardEmpty: uiSettings?.home?.leaderboardEmpty ?? "Aún no hay puntuaciones.",
       seedsLabel: uiSettings?.home?.seedsLabel ?? "🌱Semillas",
       translateTitle: uiSettings?.home?.translateTitle ?? "Traducir",
       translatePlaceholder: uiSettings?.home?.translatePlaceholder ?? "Escribe una palabra...",
@@ -162,6 +183,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
 
   const syncStatsToServer = async (
     nextSeeds: number,
+    nextWeeklySeeds: number,
     nextWeeklyWords: number,
     weekStart: string,
     dailyState?: { date: string; games: number; upload: boolean; news: boolean }
@@ -175,6 +197,8 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           seeds: nextSeeds,
+          weeklySeeds: nextWeeklySeeds,
+          weeklySeedsWeekStart: weekStart,
           weeklyWords: nextWeeklyWords,
           weekStart,
           dailyState,
@@ -287,7 +311,9 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         window.localStorage.setItem(SEEDS_STORAGE_KEY, String(seedValue))
         setSeeds(seedValue)
         if (seedValue > profileState.seeds) {
-          syncStatsToServer(seedValue, wordsLearned, getWeekStartIso())
+          const weeklySeedsValue =
+            Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(seedValue, weeklySeedsValue, wordsLearned, getWeekStartIso())
         }
       } else {
         setSeeds(localSeeds)
@@ -305,18 +331,49 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
         setWordsLearned(weeklyValue)
         if (weeklyValue > profileState.weeklyWords) {
-          syncStatsToServer(seeds, weeklyValue, weekStartNormalized)
+          const weeklySeedsValue =
+            Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(currentSeeds, weeklySeedsValue, weeklyValue, weekStartNormalized)
         }
       } else {
         const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
-      if (rawWeekStart !== weekStartNormalized) {
-        window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
-        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
-        setWordsLearned(0)
-        syncStatsToServer(seeds, 0, weekStartNormalized)
-      } else {
-        setWordsLearned(localWeekly)
+        if (rawWeekStart !== weekStartNormalized) {
+          window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
+          window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+          setWordsLearned(0)
+          const weeklySeedsValue =
+            Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(currentSeeds, weeklySeedsValue, 0, weekStartNormalized)
+        } else {
+          setWordsLearned(localWeekly)
+        }
       }
+
+      const serverSeedsWeekStart = profileState.weeklySeedsWeekStart || ""
+      const rawLocalSeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+      const localWeeklySeeds = rawLocalSeeds ? Number(rawLocalSeeds) || 0 : 0
+      if (serverSeedsWeekStart === weekStartNormalized && typeof profileState.weeklySeeds === "number") {
+        const weeklySeedsValue = Math.max(profileState.weeklySeeds, localWeeklySeeds)
+        window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeedsValue))
+        if (weeklySeedsValue > profileState.weeklySeeds) {
+          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+          const currentWeeklyWords =
+            Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(currentSeeds, weeklySeedsValue, currentWeeklyWords, weekStartNormalized)
+        }
+      } else {
+        const rawSeedsStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+        if (rawSeedsStart !== weekStartNormalized) {
+          window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
+          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+          const currentWeeklyWords =
+            Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(currentSeeds, 0, currentWeeklyWords, weekStartNormalized)
+        }
       }
     }
 
@@ -367,7 +424,9 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           server.upload !== merged.upload ||
           server.news !== merged.news
         ) {
-          syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), merged)
+          const weeklySeedsValue =
+            Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(seeds, weeklySeedsValue, wordsLearned, getWeekStartIso(), merged)
         }
         return
       }
@@ -377,7 +436,9 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       setDailyGames(0)
       setDailyUploadDone(false)
       setDailyNewsDone(false)
-      syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), reset)
+      const weeklySeedsValue =
+        Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+      syncStatsToServer(seeds, weeklySeedsValue, wordsLearned, getWeekStartIso(), reset)
     }
 
     syncSeedsFromStorage()
@@ -445,11 +506,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     const today = new Date().toISOString().slice(0, 10)
     const nextDaily = { date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone }
     window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(nextDaily))
-    syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), nextDaily)
+    const weeklySeeds =
+      Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+    syncStatsToServer(seeds, weeklySeeds, wordsLearned, getWeekStartIso(), nextDaily)
   }, [dailyGames, dailyUploadDone, dailyNewsDone, seeds, wordsLearned])
 
   useEffect(() => {
-      const loadListsAndWorlds = async () => {
+    const loadListsAndWorlds = async () => {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
@@ -472,12 +535,25 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       setAvailableLists(
         lists.map((list: any) => ({ id: list.id, name: list.name })) as StoredList[]
       )
-      if (filteredWorlds.length > 0) {
+      const defaultWorld = filteredWorlds.find(
+        (world) => world.title.trim().toLowerCase() === translationWorldName.trim().toLowerCase()
+      )
+      if (defaultWorld) {
+        setSelectedWorldId(defaultWorld.worldId)
+      } else if (filteredWorlds.length > 0) {
         setSelectedWorldId(filteredWorlds[0].worldId)
+      }
+      const defaultList = lists.find(
+        (list: any) =>
+          typeof list?.name === "string" &&
+          list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
+      )
+      if (defaultList) {
+        setSelectedListId(defaultList.id)
       }
     }
     loadListsAndWorlds()
-  }, [profileState.sourceLanguage, profileState.targetLanguage])
+  }, [profileState.sourceLanguage, profileState.targetLanguage, translationWorldName, privateListName])
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -506,6 +582,47 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     window.addEventListener("storage", handleStorage)
     return () => window.removeEventListener("storage", handleStorage)
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+    const loadLeaderboard = async () => {
+      setLeaderboardLoading(true)
+      try {
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token
+        if (!token) {
+          setLeaderboardEntries([])
+          return
+        }
+        const response = await fetch(`/api/leaderboard?scope=${leaderboardMode}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!response.ok) {
+          setLeaderboardEntries([])
+          return
+        }
+        const data = await response.json()
+        const entries = Array.isArray(data?.entries) ? data.entries : []
+        if (!mounted) return
+        setLeaderboardEntries(
+          entries.map((entry: any) => ({
+            name: entry?.username || entry?.name || "User",
+            score: Number(entry?.score) || 0,
+          }))
+        )
+      } catch {
+        if (!mounted) return
+        setLeaderboardEntries([])
+      } finally {
+        if (mounted) setLeaderboardLoading(false)
+      }
+    }
+    loadLeaderboard()
+    return () => {
+      mounted = false
+    }
+  }, [leaderboardMode])
 
   useEffect(() => {
     const syncProfileFromStorage = () => {
@@ -644,6 +761,45 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
+  const ensurePrivateList = async () => {
+    const existing = availableLists.find(
+      (list) => list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
+    )
+    if (existing) {
+      setSelectedListId(existing.id)
+      return existing.id
+    }
+
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return ""
+
+    const newId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+    const nextLists = [
+      ...availableLists.map((list, index) => ({
+        id: list.id,
+        name: list.name,
+        position: index,
+      })),
+      {
+        id: newId,
+        name: privateListName,
+        position: availableLists.length,
+      },
+    ]
+    await fetch("/api/storage/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lists: nextLists, worlds: [] }),
+    })
+    setAvailableLists((prev) => [...prev, { id: newId, name: privateListName }])
+    setSelectedListId(newId)
+    return newId
+  }
+
   const handleAdd = async () => {
     if (!translateResult) return
     setSaveError(null)
@@ -671,14 +827,26 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       if (addMode === "world") {
         const target = availableWorlds.find((w) => w.worldId === selectedWorldId)
         if (!target?.json) {
-          setSaveError("Selecciona un mundo válido.")
-          return
+          const listId = await ensurePrivateList()
+          const newWorld = {
+            id: `upload-${Date.now()}`,
+            title: translationWorldName,
+            description: `Lista personalizada: ${translationWorldName}`,
+            mode: "vocab",
+            source_language: sourceLabel,
+            target_language: targetLabel,
+            pool: [newItem],
+            chunking: { mode: "sequential", itemsPerGame: 8 },
+          }
+          await saveWorlds([newWorld], listId || null)
+          setSelectedWorldId(newWorld.id)
+        } else {
+          const updatedWorld = {
+            ...target.json,
+            pool: [...(target.json.pool ?? []), newItem],
+          }
+          await saveWorlds([updatedWorld], undefined)
         }
-        const updatedWorld = {
-          ...target.json,
-          pool: [...(target.json.pool ?? []), newItem],
-        }
-        await saveWorlds([updatedWorld], undefined)
       } else {
         if (!newWorldName.trim()) {
           setSaveError("Ingresa un nombre de mundo.")
@@ -705,7 +873,16 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         const weekStart = getWeekStartIso()
         const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
         const weeklyValue = Number(rawWeekly || "0") || 0
-        syncStatsToServer(nextSeeds, weeklyValue, weekStart)
+        const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+        if (storedSeedsWeekStart !== weekStart) {
+          window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+        }
+        const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+        let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+        weeklySeeds += 10
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+        syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart)
       }
       setTranslateInput("")
       setTranslateResult(null)
@@ -847,6 +1024,56 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
               </span>
             </li>
           </ul>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-neutral-100">
+              {ui.leaderboardTitle}
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setLeaderboardMode("overall")}
+                className={[
+                  "rounded-full border px-3 py-1",
+                  leaderboardMode === "overall"
+                    ? "border-neutral-200 text-white"
+                    : "border-neutral-800 text-neutral-400",
+                ].join(" ")}
+              >
+                {ui.leaderboardOverall}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaderboardMode("weekly")}
+                className={[
+                  "rounded-full border px-3 py-1",
+                  leaderboardMode === "weekly"
+                    ? "border-neutral-200 text-white"
+                    : "border-neutral-800 text-neutral-400",
+                ].join(" ")}
+              >
+                {ui.leaderboardWeekly}
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2 text-sm text-neutral-200">
+            {leaderboardLoading ? (
+              <div className="text-xs text-neutral-400">...</div>
+            ) : leaderboardEntries.length === 0 ? (
+              <div className="text-xs text-neutral-400">{ui.leaderboardEmpty}</div>
+            ) : (
+              leaderboardEntries.slice(0, 5).map((entry, index) => (
+                <div key={`${entry.name}-${index}`} className="flex items-center justify-between">
+                  <span>
+                    {index + 1}. {entry.name}
+                  </span>
+                  <span className="text-neutral-400">{entry.score}🌱</span>
+                </div>
+              ))
+            )}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
