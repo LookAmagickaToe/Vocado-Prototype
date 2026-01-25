@@ -40,17 +40,49 @@ export async function POST(req: Request) {
     }
 
     if (worlds.length > 0) {
-      const payload = worlds.map((world: any, index: number) => ({
-        user_id: userId,
-        world_id: world.worldId,
-        title: world.title,
-        list_id: world.listId ?? null,
-        position: typeof world.position === "number" ? world.position : index,
-        hidden: !!world.hidden,
-      }))
-      const { error } = await supabaseAdmin.from("world_files").upsert(payload)
-      if (error) {
-        return NextResponse.json({ error: "World upsert failed", details: error.message }, { status: 500 })
+      const worldIds = worlds.map((world: any) => world.worldId).filter(Boolean)
+      const { data: existing, error: existingError } = await supabaseAdmin
+        .from("world_files")
+        .select("world_id,storage_path")
+        .eq("user_id", userId)
+        .in("world_id", worldIds)
+      if (existingError) {
+        return NextResponse.json(
+          { error: "World lookup failed", details: existingError.message },
+          { status: 500 }
+        )
+      }
+
+      const storageMap = new Map<string, string>()
+      existing?.forEach((row) => {
+        if (row?.world_id && row?.storage_path) {
+          storageMap.set(row.world_id, row.storage_path)
+        }
+      })
+
+      const payload = worlds
+        .map((world: any, index: number) => {
+          const storagePath = storageMap.get(world.worldId)
+          if (!storagePath) return null
+          return {
+            user_id: userId,
+            world_id: world.worldId,
+            title: world.title,
+            storage_path: storagePath,
+            list_id: world.listId ?? null,
+            position: typeof world.position === "number" ? world.position : index,
+            hidden: !!world.hidden,
+          }
+        })
+        .filter(Boolean)
+
+      if (payload.length > 0) {
+        const { error } = await supabaseAdmin
+          .from("world_files")
+          .upsert(payload, { onConflict: "user_id,world_id" })
+        if (error) {
+          return NextResponse.json({ error: "World upsert failed", details: error.message }, { status: 500 })
+        }
       }
     }
 
