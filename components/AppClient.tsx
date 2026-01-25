@@ -397,6 +397,26 @@ export default function AppClient({
     [profileSettings.sourceLanguage]
   )
   const ui = useMemo(() => buildUi(uiSettings), [uiSettings])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = window.localStorage.getItem("vocado-profile-settings")
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (
+        parsed &&
+        (parsed.level ||
+          parsed.sourceLanguage ||
+          parsed.targetLanguage ||
+          parsed.newsCategory)
+      ) {
+        setProfileSettings((prev) => ({ ...prev, ...parsed }))
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
   const [isProcessingUpload, setIsProcessingUpload] = useState(false)
   const [tableRows, setTableRows] = useState<Array<{ source: string; target: string }>>([
     { source: "", target: "" },

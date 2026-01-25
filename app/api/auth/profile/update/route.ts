@@ -17,22 +17,31 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const level = typeof body?.level === "string" ? body.level.trim() : ""
+    const level =
+      typeof body?.level === "string" ? body.level.trim() : undefined
     const sourceLanguage =
-      typeof body?.sourceLanguage === "string" ? body.sourceLanguage.trim() : ""
+      typeof body?.sourceLanguage === "string" ? body.sourceLanguage.trim() : undefined
     const targetLanguage =
-      typeof body?.targetLanguage === "string" ? body.targetLanguage.trim() : ""
+      typeof body?.targetLanguage === "string" ? body.targetLanguage.trim() : undefined
     const newsCategory =
-      typeof body?.newsCategory === "string" ? body.newsCategory.trim() : ""
+      typeof body?.newsCategory === "string" ? body.newsCategory.trim() : undefined
+    const onboardingDone =
+      typeof body?.onboardingDone === "boolean" ? body.onboardingDone : undefined
+
+    const updates: Record<string, string | boolean | null> = {}
+    if (level !== undefined) updates.level = level || null
+    if (sourceLanguage !== undefined) updates.source_language = sourceLanguage || null
+    if (targetLanguage !== undefined) updates.target_language = targetLanguage || null
+    if (newsCategory !== undefined) updates.news_category = newsCategory || null
+    if (onboardingDone !== undefined) updates.onboarding_done = onboardingDone
+
+    if (!Object.keys(updates).length) {
+      return NextResponse.json({ ok: true })
+    }
 
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({
-        level: level || null,
-        source_language: sourceLanguage || null,
-        target_language: targetLanguage || null,
-        news_category: newsCategory || null,
-      })
+      .update(updates)
       .eq("id", userId)
 
     if (error) {

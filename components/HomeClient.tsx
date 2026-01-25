@@ -24,6 +24,7 @@ type ProfileSettings = {
   weeklyWordsWeekStart?: string
   dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
   dailyStateDate?: string
+  onboardingDone?: boolean
 }
 
 const getWeekStartIso = () => {
@@ -95,6 +96,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const [tutorialSource, setTutorialSource] = useState(profile.sourceLanguage || "")
   const [tutorialTarget, setTutorialTarget] = useState(profile.targetLanguage || "")
   const [tutorialNews, setTutorialNews] = useState(profile.newsCategory || "world")
+  const [tutorialLevel, setTutorialLevel] = useState(profile.level || "A2")
   const [tutorialSaving, setTutorialSaving] = useState(false)
   const [tutorialError, setTutorialError] = useState<string | null>(null)
   const [onboardingKey, setOnboardingKey] = useState<string | null>(null)
@@ -138,6 +140,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       onboardingTarget: uiSettings?.onboarding?.targetLabel ?? "Idioma objetivo",
       onboardingNews: uiSettings?.onboarding?.newsLabel ?? "Noticias",
       onboardingStart: uiSettings?.onboarding?.start ?? "Crear primer mundo",
+      onboardingLevel: uiSettings?.onboarding?.levelLabel ?? "Nivel",
+      onboardingLevelA1: uiSettings?.onboarding?.levelA1 ?? "A1",
+      onboardingLevelA2: uiSettings?.onboarding?.levelA2 ?? "A2",
+      onboardingLevelB1: uiSettings?.onboarding?.levelB1 ?? "B1",
+      onboardingLevelB2: uiSettings?.onboarding?.levelB2 ?? "B2",
+      onboardingLevelC1: uiSettings?.onboarding?.levelC1 ?? "C1",
+      onboardingLevelC2: uiSettings?.onboarding?.levelC2 ?? "C2",
     }),
     [uiSettings]
   )
@@ -185,6 +194,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     setTutorialSource(profileState.sourceLanguage || "")
     setTutorialTarget(profileState.targetLanguage || "")
     setTutorialNews(profileState.newsCategory || "world")
+    setTutorialLevel(profileState.level || "A2")
   }, [profileState.sourceLanguage, profileState.targetLanguage, profileState.newsCategory])
 
   useEffect(() => {
@@ -202,11 +212,58 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (!onboardingKey) return
+    const baseFlag = window.localStorage.getItem(ONBOARDING_STORAGE_KEY)
+    if (baseFlag === "1") {
+      window.localStorage.setItem(onboardingKey, "1")
+    }
+  }, [onboardingKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (profileState.onboardingDone) {
+      const key = onboardingKey || ONBOARDING_STORAGE_KEY
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
+      window.localStorage.setItem(key, "1")
+      return
+    }
     const key = onboardingKey || ONBOARDING_STORAGE_KEY
     const alreadyOnboarded = window.localStorage.getItem(key)
     if (alreadyOnboarded) return
     setShowTutorial(true)
-  }, [onboardingKey])
+  }, [onboardingKey, profileState.onboardingDone])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (profileState.onboardingDone) return
+    const key = onboardingKey || ONBOARDING_STORAGE_KEY
+    const localDone =
+      window.localStorage.getItem(key) === "1" ||
+      window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1"
+    if (!localDone) return
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (!token) return
+      fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          level: profileState.level || "A2",
+          sourceLanguage: profileState.sourceLanguage,
+          targetLanguage: profileState.targetLanguage,
+          newsCategory: profileState.newsCategory,
+          onboardingDone: true,
+        }),
+      }).catch(() => {})
+    })
+  }, [
+    onboardingKey,
+    profileState.onboardingDone,
+    profileState.level,
+    profileState.sourceLanguage,
+    profileState.targetLanguage,
+    profileState.newsCategory,
+  ])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -459,7 +516,11 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         const parsed = JSON.parse(raw)
         if (
           parsed &&
-          (parsed.level || parsed.sourceLanguage || parsed.targetLanguage || parsed.newsCategory)
+          (parsed.level ||
+            parsed.sourceLanguage ||
+            parsed.targetLanguage ||
+            parsed.newsCategory ||
+            typeof parsed.onboardingDone === "boolean")
         ) {
           setProfileState((prev) => ({ ...prev, ...parsed }))
         }
@@ -662,17 +723,20 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       const token = session.data.session?.access_token
       if (!token) throw new Error("No session")
       const nextProfile = {
-        level: profileState.level || "A2",
+        level: tutorialLevel || profileState.level || "A2",
         sourceLanguage: tutorialSource,
         targetLanguage: tutorialTarget,
         newsCategory: tutorialNews,
+        onboardingDone: true,
       }
       if (typeof window !== "undefined") {
         window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
         const key = onboardingKey || ONBOARDING_STORAGE_KEY
+        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
         window.localStorage.setItem(key, "1")
       }
       setShowTutorial(false)
+      setProfileState((prev) => ({ ...prev, ...nextProfile }))
       router.push("/play?open=upload")
       const res = await fetch("/api/auth/profile/update", {
         method: "POST",
@@ -683,7 +747,6 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? "Save failed")
       }
-      setProfileState((prev) => ({ ...prev, ...nextProfile }))
     } catch (err) {
       console.warn("[onboarding] profile update failed", (err as Error).message)
       setTutorialError((err as Error).message)
@@ -695,9 +758,26 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
   const dismissTutorial = () => {
     if (typeof window !== "undefined") {
       const key = onboardingKey || ONBOARDING_STORAGE_KEY
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
       window.localStorage.setItem(key, "1")
     }
     setShowTutorial(false)
+    setProfileState((prev) => ({ ...prev, onboardingDone: true }))
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (!token) return
+      fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          level: profileState.level || "A2",
+          sourceLanguage: profileState.sourceLanguage,
+          targetLanguage: profileState.targetLanguage,
+          newsCategory: profileState.newsCategory,
+          onboardingDone: true,
+        }),
+      }).catch(() => {})
+    })
   }
 
   return (
@@ -951,6 +1031,23 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
                 <div className="mt-1 text-sm text-neutral-300">{ui.onboardingSubtitle}</div>
               </div>
               <div className="grid gap-4">
+                <div>
+                  <label className="text-xs uppercase tracking-wide text-neutral-400">
+                    {ui.onboardingLevel}
+                  </label>
+                  <select
+                    value={tutorialLevel}
+                    onChange={(e) => setTutorialLevel(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                  >
+                    <option value="A1">{ui.onboardingLevelA1}</option>
+                    <option value="A2">{ui.onboardingLevelA2}</option>
+                    <option value="B1">{ui.onboardingLevelB1}</option>
+                    <option value="B2">{ui.onboardingLevelB2}</option>
+                    <option value="C1">{ui.onboardingLevelC1}</option>
+                    <option value="C2">{ui.onboardingLevelC2}</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-xs uppercase tracking-wide text-neutral-400">
                     {ui.onboardingSource}
