@@ -2228,9 +2228,9 @@ export default function AppClient({
       <div className="mx-auto w-full max-w-7xl">
         <div className="grid grid-cols-12 gap-4 items-start md:grid-rows-[auto,1fr]">
           {/* MOBILE TOP BAR */}
-          <div className="col-span-12 md:hidden">
+          <div className="col-span-12 md:hidden relative z-40">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-center flex-1">
+              <div className="text-center flex-1 min-w-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -2242,11 +2242,11 @@ export default function AppClient({
                 >
                   voc<span className="text-green-500">ado</span>
                 </button>
-                <div className="text-xs text-neutral-300 mt-1">
+                <div className="text-xs text-neutral-300 mt-1 truncate">
                   {worldTitle} — {levelLabel}
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
                 <UserMenu
                   level={profileSettings.level || "B1"}
                   sourceLanguage={profileSettings.sourceLanguage}
@@ -2482,14 +2482,16 @@ export default function AppClient({
       )}
 
       {/* MOBILE HAMBURGER ALWAYS VISIBLE */}
-      <button
-        type="button"
-        onClick={() => setIsMenuOpen(true)}
-        className="fixed left-4 top-4 z-50 md:hidden h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
-        aria-label="Menú"
-      >
-        ☰
-      </button>
+      {!isMenuOpen && (
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen(true)}
+          className="fixed left-4 top-4 z-50 md:hidden h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
+          aria-label="Menú"
+        >
+          ☰
+        </button>
+      )}
 
       {/* WORLDS OVERLAY */}
       <AnimatePresence>
