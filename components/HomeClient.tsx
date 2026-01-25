@@ -297,9 +297,40 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     profileState.onboardingDone,
     profileState.level,
     profileState.sourceLanguage,
-    profileState.targetLanguage,
     profileState.newsCategory,
   ])
+
+  const loadLeaderboard = async () => {
+    setLeaderboardLoading(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) {
+        setLeaderboardEntries([])
+        return
+      }
+      const response = await fetch(`/api/leaderboard?scope=${leaderboardMode}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        setLeaderboardEntries([])
+        return
+      }
+      const data = await response.json()
+      const entries = Array.isArray(data?.entries) ? data.entries : []
+      setLeaderboardEntries(
+        entries.map((entry: any) => ({
+          name: entry?.username || entry?.name || "User",
+          score: Number(entry?.score) || 0,
+        }))
+      )
+    } catch {
+      setLeaderboardEntries([])
+    } finally {
+      setLeaderboardLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -472,37 +503,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       setLastPlayed(null)
     }
 
-    const loadLeaderboard = async () => {
-      setLeaderboardLoading(true)
-      try {
-        const session = await supabase.auth.getSession()
-        const token = session.data.session?.access_token
-        if (!token) {
-          setLeaderboardEntries([])
-          return
-        }
-        const response = await fetch(`/api/leaderboard?scope=${leaderboardMode}`, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!response.ok) {
-          setLeaderboardEntries([])
-          return
-        }
-        const data = await response.json()
-        const entries = Array.isArray(data?.entries) ? data.entries : []
-        setLeaderboardEntries(
-          entries.map((entry: any) => ({
-            name: entry?.username || entry?.name || "User",
-            score: Number(entry?.score) || 0,
-          }))
-        )
-      } catch {
-        setLeaderboardEntries([])
-      } finally {
-        setLeaderboardLoading(false)
-      }
-    }
+
 
     const loadTopNews = async () => {
       try {
