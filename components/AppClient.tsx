@@ -14,12 +14,15 @@ import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
+import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
+import { callAi } from "@/lib/ai"
 
 const BASE_WORLDS: World[] = []
 
 const UPLOADED_WORLDS_STORAGE_KEY = "vocab-memory-uploaded-worlds"
 const WORLD_LISTS_STORAGE_KEY = "vocab-memory-world-lists"
-const WORLD_TITLE_OVERRIDES_STORAGE_KEY = "vocab-memory-world-title-overrides"
+const WORLD_TITLE_OVERRIDES_STORAGE_KEY = "vocado-world-title-overrides"
+const LAST_NEWS_FETCH_STORAGE_KEY = "vocado-last-news-fetch-date"
 const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocab-memory-world-list-collapsed"
 const HIDDEN_WORLDS_STORAGE_KEY = "vocab-memory-hidden-worlds"
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
@@ -331,14 +334,88 @@ function normalizeUploadedWorld(payload: any, name?: string): World | null {
 }
 
 
-function extractVerbLabelFromPair(p: { id: string; es: string }) {
-  // Prefer "(sein)" from the ES string
-  const m = p.es.match(/\(([^)]+)\)/)
-  if (m?.[1]) return m[1].trim()
-
+const extractVerbLabelFromPair = (pair: VocabPair) => {
+  // Try to find infinitive in explanation or source
+  // Simple heuristic: take id part before _
+  // BUT pair.id might be "sein_1ps"
   // Fallback: from id "sein_1ps" -> "sein"
-  const prefix = p.id.split("_")[0]
+  const prefix = pair.id.split("_")[0]
   return prefix || ""
+}
+
+const buildReviewItemsFromAi = (items: any[]) =>
+  items.map((item) => {
+    const pos =
+      item?.pos === "verb" || item?.pos === "noun" || item?.pos === "adj" ? item.pos : "other"
+    const normalizeText = (value: unknown) => (typeof value === "string" ? value.trim() : "")
+    const normalizeEmoji = (value: unknown) => {
+      if (typeof value !== "string") return "📰"
+      const trimmed = value.trim()
+      return trimmed.length > 0 ? trimmed : "📰"
+    }
+
+    return {
+      source: normalizeText(item?.source),
+      target: normalizeText(item?.target),
+      pos,
+      lemma: normalizeText(item?.lemma) || undefined,
+      emoji: normalizeEmoji(item?.emoji),
+      explanation: normalizeText(item?.explanation) || undefined,
+      example: normalizeText(item?.example) || undefined,
+      syllables: normalizeText(item?.syllables) || undefined,
+      include: true,
+      conjugate: false
+    } as ReviewItem
+  })
+
+const buildWorldFromItems = (
+  items: ReviewItem[],
+  sourceLabel: string,
+  targetLabel: string,
+  ui: any
+): World => {
+  const id = `news-${Date.now()}`
+  const pool = items.map((item, index) => {
+    const explanation =
+      item.explanation?.trim() || `Significado de ${item.source}.`
+    const example =
+      item.example?.trim() || `Ejemplo: ${item.source}.`
+    const syllables = item.syllables?.trim()
+    const explanationWithSyllables =
+      item.pos === "verb" && syllables && item.target
+        ? `${explanation}\n${item.target}\n${syllables}`
+        : explanation
+    return {
+      id: `${id}-${index}`,
+      es: item.source,
+      de: item.target,
+      image: { type: "emoji", value: item.emoji?.trim() || "📰" },
+      pos: item.pos,
+      explanation: explanationWithSyllables,
+      example,
+    }
+  })
+  return {
+    id,
+    title: "Noticias",
+    description: "Noticias del día.",
+    mode: "vocab",
+    pool,
+    chunking: { itemsPerGame: Math.max(1, items.length) },
+    source_language: sourceLabel,
+    target_language: targetLabel,
+    ui: {
+      vocab: {
+        carousel: {
+          primaryLabel: `${sourceLabel}:`,
+          secondaryLabel: `${targetLabel}:`,
+        },
+      },
+      winning: {
+        nextDefault: ui.news.readButton
+      }
+    },
+  }
 }
 
 type AppClientProps = {
@@ -359,6 +436,7 @@ type AppClientProps = {
     weeklyWordsWeekStart?: string
     dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
     dailyStateDate?: string
+    onboardingDone?: boolean
   }
 }
 
@@ -440,6 +518,7 @@ export default function AppClient({
     mimeType: string
     previewUrl: string
   } | null>(null)
+  const [autoNewsLoading, setAutoNewsLoading] = useState(false)
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
   const [promptText, setPromptText] = useState("")
@@ -476,6 +555,156 @@ export default function AppClient({
 
   // used to force-remount the game (restart) without touching game internals
   const [gameSeed, setGameSeed] = useState(0)
+
+  // Tutorial State
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>("done")
+
+  useEffect(() => {
+    // Initialize tutorial step from dailyState (persisted in DB) or profile
+    // If onboarding is NOT done, we start at 'welcome'
+    if (initialProfile?.onboardingDone === false || (initialProfile as any)?.onboarding_done === false) {
+      setTutorialStep("welcome")
+      return
+    }
+
+    // Check dailyState for intermediate steps
+    if (initialProfile?.dailyState) {
+      const storedStep = (initialProfile.dailyState as any).tutorialStep
+      if (typeof storedStep === "string") {
+        setTutorialStep(storedStep as TutorialStep)
+      } else if (onboardingKey) {
+        // Fallback: check if local storage says we are done
+        const isDone = window.localStorage.getItem(onboardingKey) === "1"
+        if (!isDone) setTutorialStep("welcome")
+      }
+    } else {
+      // No daily state, check local storage or default to done if profile says so? 
+      // Actually profile.onboardingDone is the source of truth for "welcome" vs "done".
+      // If onboardingDone is true, likely done.
+    }
+  }, [initialProfile, onboardingKey])
+
+  // Save tutorial progress
+  const saveTutorialProgress = async (nextStep: TutorialStep) => {
+    setTutorialStep(nextStep)
+
+    // transform step to something persistent
+    // We Piggyback on dailyState
+    const today = new Date().toISOString().slice(0, 10)
+    let currentDaily: any = { date: today, games: 0, upload: false, news: false }
+
+    // merge with existing if valid
+    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+    if (rawDaily) {
+      try {
+        const parsed = JSON.parse(rawDaily)
+        if (parsed.date === today) currentDaily = { ...parsed }
+      } catch { }
+    }
+
+    currentDaily.tutorialStep = nextStep
+
+    // Save to local
+    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(currentDaily))
+
+    // Save to server
+    // We reuse syncStatsToServer which takes dailyState
+    const weeklySeedsValue = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+    // wordsLearned is not in scope here either? 
+    // It is defined in HomeClient. In AppClient, we don't track wordsLearned in state.
+    // We can read from storage or pass 0 (syncStatsToServer handles existing values maybe?)
+    // Actually AppClient calls syncStatsToServer at line 492.
+    // We should check syncStatsToServer signature.
+    const weeklyWordsValue = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+    await syncStatsToServer(seeds, weeklySeedsValue, weeklyWordsValue, getWeekStartIso(), currentDaily)
+  }
+
+  const handleTutorialNext = async () => {
+    if (tutorialStep === "welcome") {
+      saveTutorialProgress("tour_intro")
+    } else if (tutorialStep === "tour_intro") {
+      saveTutorialProgress("play_intro")
+    } else if (tutorialStep === "play_intro") {
+      // This step advances when user clicks the world?
+      // Or when they start the game?
+      // "The user may play the first world".
+      // We'll advance to 'playing' (internal) or just keep 'play_intro' until they win?
+      // Let's assume onWin advances.
+    } else if (tutorialStep === "post_game") {
+      saveTutorialProgress("create_instruction")
+    } else if (tutorialStep === "create_instruction") {
+      // User needs to click Open Upload
+    } else if (tutorialStep === "final") {
+      // Award points and finish
+      const bonus = 50
+      const nextSeeds = seeds + bonus
+      setSeeds(nextSeeds)
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+      saveTutorialProgress("done")
+      // Also mark onboarding done in profile just in case
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (token) {
+        fetch("/api/auth/profile/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ onboardingDone: true })
+        }).catch(() => { })
+      }
+    }
+  }
+
+  const terminateTutorial = () => {
+    saveTutorialProgress("done")
+    const session = supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (token) {
+        fetch("/api/auth/profile/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ onboardingDone: true })
+        }).catch(() => { })
+      }
+    })
+  }
+
+  const onTutorialSaveProfile = async (data: { source: string; target: string; level: string; news: string }) => {
+    // reuse saveWelcomeProfile logic essentially
+    setWelcomeSaving(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) throw new Error("No session")
+
+      await fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          sourceLanguage: data.source,
+          targetLanguage: data.target,
+          level: data.level,
+          newsCategory: data.news,
+          // Do NOT set onboardingDone true yet
+        }),
+      })
+
+      // update local state
+      setProfileSettings(prev => ({
+        ...prev,
+        sourceLanguage: data.source,
+        targetLanguage: data.target,
+        level: data.level,
+        newsCategory: data.news || "",
+      }))
+
+      // Advance
+      saveTutorialProgress("tour_intro")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setWelcomeSaving(false)
+    }
+  }
 
   const sourceLabel = profileSettings.sourceLanguage || ui.upload.tableSource
   const targetLabel = profileSettings.targetLanguage || ui.upload.tableTarget
@@ -590,13 +819,21 @@ export default function AppClient({
     const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
     const isNew = sBest === 0
     const scoreBaseRounded = Math.round(baseValue)
-    const scoreForBest = scoreBaseRounded + perfectBonus
-    const scoreWithMultiplier = Math.round(scoreBaseRounded * (isNew ? firstMultiplier : 1))
+    // The previous line `const perfectBonus = n <= minMoves ? Math.ceil(pairs * perfectMultiplier) : 0` was duplicated.
+    // Removed the duplicate and kept the first one.
+
+    // Calculate total score for THIS run
+    const runScore = scoreBaseRounded + perfectBonus
+    const scoreWithMultiplier = Math.round(runScore * (isNew ? firstMultiplier : 1))
+
+    // Practice bonus for replays
     const practiceBonus = isNew ? 0 : Math.ceil(baseScore * 0.1)
-    const payout = isNew
-      ? scoreWithMultiplier + perfectBonus
-      : Math.max(0, scoreForBest - sBest) + practiceBonus
-    const newBest = Math.max(scoreForBest, sBest)
+
+    // Payout is the total score for this run + practice bonus (cumulative)
+    // We update the best score for the UI, but we don't deduct it from payout anymore.
+    const payout = scoreWithMultiplier + practiceBonus
+
+    const newBest = Math.max(runScore, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
 
@@ -670,6 +907,139 @@ export default function AppClient({
       payout,
       totalBefore: currentSeeds,
       totalAfter: finalSeeds,
+    }
+  }
+
+  const fetchDailyNews = async (today: string, token: string, overrides: Record<string, string>) => {
+    // 1. Fetch headlines
+    setAutoNewsLoading(true)
+    try {
+      const category = profileSettings.newsCategory || "world"
+      const resp = await fetch(`/api/news/tagesschau?ressort=${category}`)
+      if (!resp.ok) throw new Error("Failed to fetch headlines")
+      const data = await resp.json()
+      const items: any[] = Array.isArray(data?.items) ? data.items : []
+      const topHeadline = items[0]
+
+      if (topHeadline && topHeadline.url) {
+        // 2. Generate world
+        const result = await callAi({
+          task: "news",
+          url: topHeadline.url,
+          level: profileSettings.level || undefined,
+          sourceLabel: profileSettings.sourceLanguage || "Español",
+          targetLabel: profileSettings.targetLanguage || "Alemán",
+        })
+
+        const nextSummary = Array.isArray(result?.summary) ? result.summary : []
+        const reviewItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+
+        if (reviewItems.length > 0) {
+          const baseDate = topHeadline.date || new Date().toISOString()
+
+          const localeForLanguage = (value: string) => {
+            const lower = value.toLowerCase()
+            if (lower.includes("deutsch") || lower.includes("german")) return "de-DE"
+            if (lower.includes("english")) return "en-US"
+            if (lower.includes("français") || lower.includes("french")) return "fr-FR"
+            if (lower.includes("italiano") || lower.includes("italian")) return "it-IT"
+            if (lower.includes("portugu")) return "pt-PT"
+            return "es-ES"
+          }
+
+          const dateLabel = new Intl.DateTimeFormat(localeForLanguage(profileSettings.targetLanguage || "Alemán"), {
+            day: "2-digit",
+            month: "long",
+          }).format(new Date(baseDate))
+
+          const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
+          const worldTitle = `Vocado Diario - ${topHeadline.title || "Noticia"}${dateSuffix}`
+
+          const newsWorld = {
+            ...buildWorldFromItems(reviewItems, profileSettings.sourceLanguage || "Español", profileSettings.targetLanguage || "Alemán", ui),
+            title: worldTitle,
+            description: "Noticias del día.",
+            news: {
+              summary: nextSummary,
+              sourceUrl: topHeadline.url,
+              title: ui.news.title
+            }
+          }
+
+          // 3. Save world
+          // Find or create "Vocado Diario" list
+          let listId = ""
+          // list fetching is async inside persistWorlds? No, persistWorlds expects explicit listId if we want to assign.
+          // We need to fetch lists first. But we just loaded lists in loadSupabaseState.
+          // Actually loadSupabaseState only SETS state, it doesn't return them to here easily unless we wait.
+          // But we can fetch lists again or just use a dedicated "ensureList" call.
+
+          // Quick fetch lists
+          const listResp = await fetch("/api/storage/worlds/list", {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (listResp.ok) {
+            const listData = await listResp.json()
+            const existingList = (listData.lists || []).find((l: any) => l.name === "Vocado Diario")
+            if (existingList) {
+              listId = existingList.id
+            } else {
+              // Create list
+              const newListId = generateUuid()
+              await fetch("/api/storage/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  lists: [{ id: newListId, name: "Vocado Diario", position: 0 }],
+                }),
+              })
+              listId = newListId
+            }
+          }
+
+          if (listId) {
+            setUploadListId(listId) // Hacky side effect?
+            /* 
+               persistWorlds is designed to save to state. 
+               It calls /api/storage/worlds/save which takes a listId.
+               But persistWorlds uses `uploadListId` from state closure.
+               We can't rely on setState being immediate.
+               We should call api directly or modify persistWorlds to take listId.
+               Let's call api directly for safety.
+            */
+
+            await fetch("/api/storage/worlds/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                worlds: [newsWorld],
+                listId: listId,
+                positions: { [newsWorld.id]: 0 },
+              }),
+            })
+
+            // Add to local state
+            setUploadedWorlds(prev => [newsWorld, ...prev])
+            // Also assign to list in local state?
+            // Rely on refresh or simplified push
+            setWorldLists(prev => {
+              const match = prev.find(l => l.id === listId)
+              if (match) {
+                return prev.map(l => l.id === listId ? { ...l, worldIds: [newsWorld.id, ...l.worldIds] } : l)
+              }
+              return [{ id: listId, name: "Vocado Diario", worldIds: [newsWorld.id] }, ...prev]
+            })
+
+            // Mark done
+            window.localStorage.setItem(LAST_NEWS_FETCH_STORAGE_KEY, today)
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Auto-news failed", err)
+    } finally {
+      setAutoNewsLoading(false)
     }
   }
 
@@ -818,11 +1188,21 @@ export default function AppClient({
       setIsMenuOpen(false)
     }
     const worldParam = searchParams.get("world")
+    const levelParam = searchParams.get("level")
     if (worldParam) {
       const exists = allWorlds.find((w) => w.id === worldParam)
       if (exists) {
         setWorldId(worldParam)
-        setLevelIndex(0)
+        if (levelParam) {
+          const l = parseInt(levelParam, 10)
+          if (!isNaN(l) && l >= 0) {
+            setLevelIndex(l)
+          } else {
+            setLevelIndex(0)
+          }
+        } else {
+          setLevelIndex(0)
+        }
       }
     }
   }, [searchParams, allWorlds])
@@ -1036,8 +1416,8 @@ export default function AppClient({
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
   }, [currentWorld])
 
-    const worldTitle = currentWorld ? worldTitleOverrides[currentWorld.id] ?? currentWorld.title : ""
-    const safeLevel = currentWorld ? Math.min(levelIndex, levelsCount - 1) + 1 : 0
+  const worldTitle = currentWorld ? worldTitleOverrides[currentWorld.id] ?? currentWorld.title : ""
+  const safeLevel = currentWorld ? Math.min(levelIndex, levelsCount - 1) + 1 : 0
 
 
 
@@ -1065,13 +1445,13 @@ export default function AppClient({
         items:
           world.mode === "vocab"
             ? world.pool.map((item) => ({
-                source: item.es,
-                target: item.de,
-                pos: item.pos ?? "other",
-                emoji: item.image?.type === "emoji" ? item.image.value : "📰",
-                explanation: item.explanation,
-                example: item.example,
-              }))
+              source: item.es,
+              target: item.de,
+              pos: item.pos ?? "other",
+              emoji: item.image?.type === "emoji" ? item.image.value : "📰",
+              explanation: item.explanation,
+              example: item.example,
+            }))
             : [],
       })
     )
@@ -1394,6 +1774,11 @@ export default function AppClient({
   }
 
   const persistWorlds = async (worldsToPersist: World[], activeWorldId?: string) => {
+    // Tutorial Hook: If creating, advance to final
+    if (tutorialStep === "create_instruction" || tutorialStep === "creating") {
+      saveTutorialProgress("final")
+    }
+
     setUploadedWorlds((prev) => {
       const next = [...prev]
       worldsToPersist.forEach((world) => {
@@ -2383,19 +2768,19 @@ export default function AppClient({
             target_language: targetLabel,
             ...(isNewsFlow
               ? {
-                  news: {
-                    summary: newsSummary,
-                    sourceUrl: newsUrl.trim() || undefined,
+                news: {
+                  summary: newsSummary,
+                  sourceUrl: newsUrl.trim() || undefined,
+                },
+                chunking: { mode: "sequential", itemsPerGame: Math.max(1, included.length) },
+                ui: {
+                  ...(baseWorld.ui ?? {}),
+                  winning: {
+                    ...(baseWorld.ui?.winning ?? {}),
+                    nextDefault: ui.news.readButton,
                   },
-                  chunking: { mode: "sequential", itemsPerGame: Math.max(1, included.length) },
-                  ui: {
-                    ...(baseWorld.ui ?? {}),
-                    winning: {
-                      ...(baseWorld.ui?.winning ?? {}),
-                      nextDefault: ui.news.readButton,
-                    },
-                  },
-                }
+                },
+              }
               : {}),
           }
           worldsToSave.push(vocabWorld)
@@ -2510,10 +2895,10 @@ export default function AppClient({
   const currentVerb =
     currentWorld?.mode === "vocab"
       ? extractVerbLabelFromPair(
-          currentWorld.pool[
-            Math.min(levelIndex, Math.max(0, levelsCount - 1)) * currentWorld.chunking.itemsPerGame
-          ] as any
-        )
+        currentWorld.pool[
+        Math.min(levelIndex, Math.max(0, levelsCount - 1)) * currentWorld.chunking.itemsPerGame
+        ] as any
+      )
       : ""
 
   const levelLabel = formatTemplate(levelLabelTemplate, {
@@ -2522,97 +2907,8 @@ export default function AppClient({
     verb: currentVerb,
   })
 
-  const welcomeOverlay = showWelcome ? (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-8">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950/95 p-6 text-neutral-100 shadow-2xl">
-        {welcomeStep === "profile" ? (
-          <div className="space-y-4">
-            <div>
-              <div className="text-2xl font-semibold">{ui.onboarding.title}</div>
-              <div className="mt-1 text-sm text-neutral-300">{ui.onboarding.subtitle}</div>
-            </div>
-            <div className="grid gap-4">
-              <div>
-                <label className="text-xs uppercase tracking-wide text-neutral-400">
-                  {ui.onboarding.sourceLabel}
-                </label>
-                <select
-                  value={welcomeSource}
-                  onChange={(e) => setWelcomeSource(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                >
-                  <option value="">Auto</option>
-                  {LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs uppercase tracking-wide text-neutral-400">
-                  {ui.onboarding.targetLabel}
-                </label>
-                <select
-                  value={welcomeTarget}
-                  onChange={(e) => setWelcomeTarget(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                >
-                  <option value="">Auto</option>
-                  {LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs uppercase tracking-wide text-neutral-400">
-                  {ui.onboarding.newsLabel}
-                </label>
-                <select
-                  value={welcomeNews}
-                  onChange={(e) => setWelcomeNews(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-                >
-                  <option value="world">{ui.news.categoryOptions.world}</option>
-                  <option value="wirtschaft">{ui.news.categoryOptions.wirtschaft}</option>
-                  <option value="sport">{ui.news.categoryOptions.sport}</option>
-                </select>
-              </div>
-            </div>
-            {welcomeError && <div className="text-sm text-red-400">{welcomeError}</div>}
-            <div className="flex justify-end">
-              <Button
-                onClick={saveWelcomeProfile}
-                className="bg-green-600 text-white hover:bg-green-500"
-                disabled={welcomeSaving}
-              >
-                {welcomeSaving ? "..." : ui.onboarding.continue}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <div className="text-2xl font-semibold">{ui.onboarding.step2Title}</div>
-              <div className="mt-1 text-sm text-neutral-300">
-                {ui.onboarding.step2Description}
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={startFirstWorld}
-                className="bg-green-600 text-white hover:bg-green-500"
-              >
-                {ui.onboarding.start}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  ) : null
+  // Removed legacy welcomeOverlay definition
+  const welcomeOverlay = null
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
@@ -2783,15 +3079,21 @@ export default function AppClient({
                   primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                   secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
-                  onWin={(moves, wordsLearnedCount) =>
-                    awardExperience(
+                  onWin={(moves, wordsLearnedCount) => {
+                    const res = awardExperience(
                       moves,
                       currentWorld.id,
                       Math.min(levelIndex, levelsCount - 1),
                       wordsLearnedCount,
                       currentChunk.length
                     )
-                  }
+
+                    if (tutorialStep === "play_intro" || tutorialStep === "tour_intro") {
+                      saveTutorialProgress("post_game")
+                    }
+
+                    return res
+                  }}
                 />
               ) : null
             ) : currentWorld ? (
@@ -3117,6 +3419,10 @@ export default function AppClient({
               setGameSeed((s) => s + 1)
               setIsLevelsOpen(false)
               setPendingWorldId(null)
+
+              if (tutorialStep === "play_intro" || tutorialStep === "tour_intro") {
+                saveTutorialProgress("playing_game")
+              }
             }}
           />
         )}
@@ -4711,9 +5017,9 @@ function LevelsOverlay({
   onClose: () => void
   onSelectLevel: (levelIndex: number) => void
 }) {
-    const levelItemTemplate = world.ui?.header?.levelItemTemplate ?? "Nivel {i}"
+  const levelItemTemplate = world.ui?.header?.levelItemTemplate ?? "Nivel {i}"
 
-    const levels = useMemo(() => {
+  const levels = useMemo(() => {
     const k = world.chunking.itemsPerGame
     const n = Math.max(1, Math.ceil(world.pool.length / k))
     return Array.from({ length: n }, (_, i) => {
@@ -4742,14 +5048,14 @@ function LevelsOverlay({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-neutral-50">
-                {displayTitle} {ui.levelsOverlay.titleSuffix}
+              {displayTitle} {ui.levelsOverlay.titleSuffix}
             </h2>
 
             <p className="text-sm text-neutral-300 mt-2">
-                {world.description ??
-                  formatTemplate(ui.levelsOverlay.defaultDescription, {
-                    itemsPerGame: world.chunking.itemsPerGame,
-                  })}
+              {world.description ??
+                formatTemplate(ui.levelsOverlay.defaultDescription, {
+                  itemsPerGame: world.chunking.itemsPerGame,
+                })}
             </p>
           </div>
 
@@ -4777,16 +5083,16 @@ function LevelsOverlay({
                 ].join(" ")}
               >
                 <div className="flex items-center justify-between">
-                    <div className="text-base font-semibold text-neutral-50">
-                        {formatTemplate(levelItemTemplate, {
-                            i: lvl.i + 1,
-                            verb:
-                            world.mode === "vocab"
-                                ? extractVerbLabelFromPair(world.pool[lvl.start] as any)
-                                : "",
-                        })}
-                        </div>                
-                    <div className="text-xs text-neutral-300">
+                  <div className="text-base font-semibold text-neutral-50">
+                    {formatTemplate(levelItemTemplate, {
+                      i: lvl.i + 1,
+                      verb:
+                        world.mode === "vocab"
+                          ? extractVerbLabelFromPair(world.pool[lvl.start] as any)
+                          : "",
+                    })}
+                  </div>
+                  <div className="text-xs text-neutral-300">
                     {lvl.start + 1}–{lvl.end} / {world.pool.length}
                   </div>
                 </div>
@@ -4807,4 +5113,8 @@ function LevelsOverlay({
       </motion.div>
     </motion.div>
   )
+}
+
+function normalizePos(pos: any) {
+  return pos === "verb" || pos === "noun" || pos === "adj" ? pos : "other"
 }

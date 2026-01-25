@@ -278,7 +278,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           newsCategory: profileState.newsCategory,
           onboardingDone: true,
         }),
-      }).catch(() => {})
+      }).catch(() => { })
     })
   }, [
     onboardingKey,
@@ -400,11 +400,11 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       const server =
         profileState.dailyState && profileState.dailyState.date === today
           ? {
-              date: today,
-              games: profileState.dailyState.games ?? 0,
-              upload: !!profileState.dailyState.upload,
-              news: !!profileState.dailyState.news,
-            }
+            date: today,
+            games: profileState.dailyState.games ?? 0,
+            upload: !!profileState.dailyState.upload,
+            news: !!profileState.dailyState.news,
+          }
           : null
 
       if (local || server) {
@@ -953,7 +953,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           newsCategory: profileState.newsCategory,
           onboardingDone: true,
         }),
-      }).catch(() => {})
+      }).catch(() => { })
     })
   }
 
@@ -1086,7 +1086,10 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
             disabled={!lastPlayed}
             onClick={() =>
               lastPlayed
-                ? router.push(`/play?world=${encodeURIComponent(lastPlayed.id)}`)
+                ? router.push(
+                  `/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0
+                  }`
+                )
                 : undefined
             }
             className="mt-3 rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
