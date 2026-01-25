@@ -17,6 +17,7 @@ const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
 const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
 const WEEKLY_SEEDS_STORAGE_KEY = "vocado-seeds-weekly"
 const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
+const READ_NEWS_STORAGE_KEY = "vocado-read-news"
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -178,6 +179,23 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [newsDate, setNewsDate] = useState<string>("")
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [world, setWorld] = useState<VocabWorld | null>(null)
+  const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = window.localStorage.getItem(READ_NEWS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          setReadNewsUrls(new Set(parsed))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
 
   const sourceLabel = profileState.sourceLanguage || "Español"
   const targetLabel = profileState.targetLanguage || "Alemán"
@@ -688,6 +706,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     {headline.date && (
                       <div className="mt-2 text-[11px] text-neutral-500">{headline.date}</div>
                     )}
+                    {headline.url && readNewsUrls.has(headline.url) && (
+                      <div className="absolute top-4 right-4 text-green-500">
+                        ✓
+                      </div>
+                    )}
                   </button>
                 ))}
                 {headlines.length === 0 && (
@@ -770,6 +793,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     window.localStorage.setItem(
                       DAILY_STATE_STORAGE_KEY,
                       JSON.stringify(dailyState)
+                    )
+                  }
+
+                  // 3. Mark specific news URL as read
+                  if (newsUrl) {
+                    const nextRead = new Set(readNewsUrls)
+                    nextRead.add(newsUrl)
+                    setReadNewsUrls(nextRead)
+                    window.localStorage.setItem(
+                      READ_NEWS_STORAGE_KEY,
+                      JSON.stringify(Array.from(nextRead))
                     )
                   }
                 }
