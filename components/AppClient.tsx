@@ -417,6 +417,7 @@ export default function AppClient({
   const [welcomeNews, setWelcomeNews] = useState(profileSettings.newsCategory || "world")
   const [welcomeSaving, setWelcomeSaving] = useState(false)
   const [welcomeError, setWelcomeError] = useState<string | null>(null)
+  const [onboardingKey, setOnboardingKey] = useState<string | null>(null)
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
@@ -490,7 +491,8 @@ export default function AppClient({
       handleProfileUpdate(nextProfile)
       if (typeof window !== "undefined") {
         window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
-        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
+        const key = onboardingKey || ONBOARDING_STORAGE_KEY
+        window.localStorage.setItem(key, "1")
       }
       setWelcomeStep("world")
     } catch (err) {
@@ -607,13 +609,27 @@ export default function AppClient({
   }, [profileSettings.sourceLanguage, profileSettings.targetLanguage, profileSettings.newsCategory])
 
   useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return
+      const userId = data.user?.id ?? ""
+      const key = userId ? `${ONBOARDING_STORAGE_KEY}:${userId}` : ONBOARDING_STORAGE_KEY
+      setOnboardingKey(key)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (typeof window === "undefined") return
     if (uploadedWorlds.length > 0) return
-    const alreadyOnboarded = window.localStorage.getItem(ONBOARDING_STORAGE_KEY)
+    const key = onboardingKey || ONBOARDING_STORAGE_KEY
+    const alreadyOnboarded = window.localStorage.getItem(key)
     if (alreadyOnboarded) return
     setShowWelcome(true)
     setWelcomeStep("profile")
-  }, [uploadedWorlds.length])
+  }, [uploadedWorlds.length, onboardingKey])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -3325,7 +3341,7 @@ function ListPickerOverlay({
           >
             {ui.worldsOverlay.unlisted}
           </button>
-          {lists.map((list) => (
+          {safeLists.map((list) => (
             <button
               key={list.id}
               type="button"
@@ -3425,7 +3441,18 @@ function WorldsOverlay({
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingListTitle, setEditingListTitle] = useState("")
 
-  const worldById = useMemo(() => new Map(worlds.map((w) => [w.id, w])), [worlds])
+  const safeWorlds = useMemo(
+    () => (Array.isArray(worlds) ? worlds.filter((w) => w && typeof w.id === "string") : []),
+    [worlds]
+  )
+  const safeLists = useMemo(
+    () =>
+      Array.isArray(lists)
+        ? lists.filter((list) => list && typeof list.id === "string")
+        : [],
+    [lists]
+  )
+  const worldById = useMemo(() => new Map(safeWorlds.map((w) => [w.id, w])), [safeWorlds])
   const listIdByWorld = useMemo(() => {
     const map = new Map<string, string>()
     lists.forEach((list) => {
@@ -3434,11 +3461,11 @@ function WorldsOverlay({
       })
     })
     return map
-  }, [lists])
+  }, [safeLists])
 
   const unlistedWorlds = useMemo(
-    () => worlds.filter((w) => !listIdByWorld.has(w.id)),
-    [worlds, listIdByWorld]
+    () => safeWorlds.filter((w) => !listIdByWorld.has(w.id)),
+    [safeWorlds, listIdByWorld]
   )
 
   const startEditWorld = (id: string, title: string) => {
@@ -3555,7 +3582,7 @@ function WorldsOverlay({
         )}
 
         <div className="mt-5 space-y-5 max-h-[55vh] overflow-auto pr-1">
-          {lists.map((list) => {
+          {safeLists.map((list) => {
             const listWorlds = list.worldIds
               .map((id) => worldById.get(id))
               .filter(Boolean) as Array<{ id: string; title: string; description?: string }>
@@ -3711,7 +3738,7 @@ function WorldsOverlay({
                               className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
                             >
                               <option value="">{ui.worldsOverlay.unlisted}</option>
-                              {lists.map((opt) => (
+                              {safeLists.map((opt) => (
                                 <option key={opt.id} value={opt.id}>
                                   {opt.name}
                                 </option>
@@ -3853,7 +3880,7 @@ function WorldsOverlay({
                             className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-100"
                           >
                             <option value="">{ui.worldsOverlay.unlisted}</option>
-                            {lists.map((opt) => (
+                            {safeLists.map((opt) => (
                               <option key={opt.id} value={opt.id}>
                                 {opt.name}
                               </option>
