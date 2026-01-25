@@ -40,8 +40,8 @@ export default function LoginClient() {
           throw new Error("Username is required.")
         }
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: emailOrUsername,
-          password,
+          email: emailOrUsername.trim().toLowerCase(),
+          password: password.trim(),
           options: {
             data: { username: username.trim() },
           },
@@ -62,10 +62,10 @@ export default function LoginClient() {
         return
       }
 
-      const email = await resolveEmail(emailOrUsername.trim())
+      const email = (await resolveEmail(emailOrUsername.trim())).trim().toLowerCase()
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password: password.trim(),
       })
       if (signInError) throw signInError
       router.push("/")

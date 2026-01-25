@@ -340,6 +340,8 @@ type AppClientProps = {
     seeds?: number
     weeklyWords?: number
     weeklyWordsWeekStart?: string
+    dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
+    dailyStateDate?: string
   }
 }
 
@@ -437,7 +439,12 @@ export default function AppClient({
     setProfileSettings(next)
   }
 
-  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+  const syncStatsToServer = async (
+    nextSeeds: number,
+    nextWeeklyWords: number,
+    weekStart: string,
+    dailyState?: { date: string; games: number; upload: boolean; news: boolean }
+  ) => {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
@@ -449,6 +456,8 @@ export default function AppClient({
           seeds: nextSeeds,
           weeklyWords: nextWeeklyWords,
           weekStart,
+          dailyState,
+          dailyStateDate: dailyState?.date ?? undefined,
         }),
       })
     } catch {
@@ -582,7 +591,7 @@ export default function AppClient({
 
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     setSeeds(finalSeeds)
-    syncStatsToServer(finalSeeds, weeklyValue, weekStart)
+    syncStatsToServer(finalSeeds, weeklyValue, weekStart, dailyState)
 
     return {
       payout,

@@ -21,6 +21,8 @@ type ProfileSettings = {
   seeds?: number
   weeklyWords?: number
   weeklyWordsWeekStart?: string
+  dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
+  dailyStateDate?: string
 }
 
 const getWeekStartIso = () => {
@@ -124,7 +126,12 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     [uiSettings]
   )
 
-  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+  const syncStatsToServer = async (
+    nextSeeds: number,
+    nextWeeklyWords: number,
+    weekStart: string,
+    dailyState?: { date: string; games: number; upload: boolean; news: boolean }
+  ) => {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
@@ -136,6 +143,8 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           seeds: nextSeeds,
           weeklyWords: nextWeeklyWords,
           weekStart,
+          dailyState,
+          dailyStateDate: dailyState?.date ?? undefined,
         }),
       })
     } catch {
@@ -157,59 +166,82 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
     window.localStorage.setItem(LAST_LOGIN_STORAGE_KEY, String(Date.now()))
 
-    if (typeof profileState.seeds === "number") {
-      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(profileState.seeds))
-      setSeeds(profileState.seeds)
-    } else {
+    const syncSeedsFromStorage = () => {
       const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
-      setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
+      const localSeeds = rawSeeds ? Number(rawSeeds) || 0 : 0
+      if (typeof profileState.seeds === "number") {
+        const seedValue = Math.max(profileState.seeds, localSeeds)
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(seedValue))
+        setSeeds(seedValue)
+        if (seedValue > profileState.seeds) {
+          syncStatsToServer(seedValue, wordsLearned, getWeekStartIso())
+        }
+      } else {
+        setSeeds(localSeeds)
+      }
     }
 
-    const now = new Date()
-    const weekStartNormalized = getWeekStartIso()
-    const serverWeekStart = profileState.weeklyWordsWeekStart || ""
-    if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
-      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
-      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(profileState.weeklyWords))
-    } else {
-      const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+    const syncWeeklyFromStorage = () => {
+      const weekStartNormalized = getWeekStartIso()
+      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+      const rawLocal = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+      const localWeekly = rawLocal ? Number(rawLocal) || 0 : 0
+      if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
+        const weeklyValue = Math.max(profileState.weeklyWords, localWeekly)
+        window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
+        setWordsLearned(weeklyValue)
+        if (weeklyValue > profileState.weeklyWords) {
+          syncStatsToServer(seeds, weeklyValue, weekStartNormalized)
+        }
+      } else {
+        const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
       if (rawWeekStart !== weekStartNormalized) {
         window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
         window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
-        syncStatsToServer(
-          Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0,
-          0,
-          weekStartNormalized
-        )
+        setWordsLearned(0)
+        syncStatsToServer(seeds, 0, weekStartNormalized)
+      } else {
+        setWordsLearned(localWeekly)
+      }
       }
     }
-    const rawWords = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-    setWordsLearned(rawWords ? Number(rawWords) || 0 : 0)
 
-    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
-    if (rawDaily) {
-      try {
-        const parsed = JSON.parse(rawDaily)
-        const storedDate = parsed?.date
-        const today = now.toISOString().slice(0, 10)
-        if (storedDate === today) {
-          setDailyGames(parsed?.games ?? 0)
-          setDailyUploadDone(!!parsed?.upload)
-          setDailyNewsDone(!!parsed?.news)
-        } else {
-          const reset = { date: today, games: 0, upload: false, news: false }
-          window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
-        }
-      } catch {
-        // ignore
+    const syncDailyFromStorage = () => {
+      const today = new Date().toISOString().slice(0, 10)
+      if (profileState.dailyState && profileState.dailyState.date === today) {
+        const current = profileState.dailyState
+        window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(current))
+        setDailyGames(current.games ?? 0)
+        setDailyUploadDone(!!current.upload)
+        setDailyNewsDone(!!current.news)
+        return
       }
-    } else {
-      const today = now.toISOString().slice(0, 10)
-      window.localStorage.setItem(
-        DAILY_STATE_STORAGE_KEY,
-        JSON.stringify({ date: today, games: 0, upload: false, news: false })
-      )
+      const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+      if (rawDaily) {
+        try {
+          const parsed = JSON.parse(rawDaily)
+          if (parsed?.date === today) {
+            setDailyGames(parsed?.games ?? 0)
+            setDailyUploadDone(!!parsed?.upload)
+            setDailyNewsDone(!!parsed?.news)
+            return
+          }
+        } catch {
+          // ignore
+        }
+      }
+      const reset = { date: today, games: 0, upload: false, news: false }
+      window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
+      setDailyGames(0)
+      setDailyUploadDone(false)
+      setDailyNewsDone(false)
+      syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), reset)
     }
+
+    syncSeedsFromStorage()
+    syncWeeklyFromStorage()
+    syncDailyFromStorage()
 
     const lastKey = getLastPlayedKey(
       profileState.sourceLanguage,
@@ -258,15 +290,22 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       }
     }
     loadTopNews()
-  }, [profileState.newsCategory])
+
+    const handleFocus = () => {
+      syncSeedsFromStorage()
+      syncWeeklyFromStorage()
+      syncDailyFromStorage()
+    }
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
+  }, [profileState])
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10)
-    window.localStorage.setItem(
-      DAILY_STATE_STORAGE_KEY,
-      JSON.stringify({ date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone })
-    )
-  }, [dailyGames, dailyUploadDone, dailyNewsDone])
+    const nextDaily = { date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone }
+    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(nextDaily))
+    syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), nextDaily)
+  }, [dailyGames, dailyUploadDone, dailyNewsDone, seeds, wordsLearned])
 
   useEffect(() => {
       const loadListsAndWorlds = async () => {

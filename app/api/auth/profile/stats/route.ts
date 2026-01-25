@@ -19,13 +19,17 @@ export async function POST(req: Request) {
     const body = await req.json()
     const seeds = Number.isFinite(body?.seeds) ? Number(body.seeds) : null
     const weeklyWords = Number.isFinite(body?.weeklyWords) ? Number(body.weeklyWords) : null
-    const weekStart =
-      typeof body?.weekStart === "string" ? body.weekStart.trim() : null
+    const weekStart = typeof body?.weekStart === "string" ? body.weekStart.trim() : null
+    const dailyState = body?.dailyState && typeof body.dailyState === "object" ? body.dailyState : null
+    const dailyStateDate =
+      typeof body?.dailyStateDate === "string" ? body.dailyStateDate.trim() : null
 
     const payload: Record<string, number | string | null> = {}
     if (seeds !== null && seeds >= 0) payload.seeds = Math.floor(seeds)
     if (weeklyWords !== null && weeklyWords >= 0) payload.weekly_words = Math.floor(weeklyWords)
     if (weekStart) payload.weekly_words_week_start = weekStart
+    if (dailyState) payload.daily_state = dailyState
+    if (dailyStateDate) payload.daily_state_date = dailyStateDate
 
     if (!Object.keys(payload).length) {
       return NextResponse.json({ ok: true })

@@ -218,7 +218,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     [uiSettings]
   )
 
-  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+  const syncStatsToServer = async (
+    nextSeeds: number,
+    nextWeeklyWords: number,
+    weekStart: string,
+    dailyState?: { date: string; games: number; upload: boolean; news: boolean }
+  ) => {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
@@ -230,6 +235,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           seeds: nextSeeds,
           weeklyWords: nextWeeklyWords,
           weekStart,
+          dailyState,
+          dailyStateDate: dailyState?.date ?? undefined,
         }),
       })
     } catch {
@@ -487,7 +494,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
 
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-    syncStatsToServer(finalSeeds, weeklyValue, weekStart)
+    syncStatsToServer(finalSeeds, weeklyValue, weekStart, dailyState)
     return {
       payout,
       totalBefore: currentSeeds,
@@ -691,7 +698,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       const weekStart = getWeekStartIso()
                       const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
                       const weeklyValue = Number(rawWeekly || "0") || 0
-                      syncStatsToServer(nextSeeds, weeklyValue, weekStart)
+                      syncStatsToServer(nextSeeds, weeklyValue, weekStart, dailyState)
                     }
                     dailyState.news = true
                     window.localStorage.setItem(
