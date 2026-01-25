@@ -246,6 +246,11 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
   },
   news: {
     readButton: uiSettings?.news?.readButton ?? "Leer periódico",
+    categoryOptions: {
+      world: uiSettings?.news?.categoryOptions?.world ?? "World",
+      wirtschaft: uiSettings?.news?.categoryOptions?.wirtschaft ?? "Economy",
+      sport: uiSettings?.news?.categoryOptions?.sport ?? "Sport",
+    },
   },
 })
 
@@ -450,7 +455,7 @@ export default function AppClient({
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
-      await fetch("/api/auth/profile/stats", {
+      const res = await fetch("/api/auth/profile/stats", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -461,6 +466,10 @@ export default function AppClient({
           dailyStateDate: dailyState?.date ?? undefined,
         }),
       })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.warn("[stats] sync failed", data?.details || data?.error || res.status)
+      }
     } catch {
       // ignore sync errors
     }
@@ -623,13 +632,14 @@ export default function AppClient({
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (!isSupabaseLoaded) return
     if (uploadedWorlds.length > 0) return
     const key = onboardingKey || ONBOARDING_STORAGE_KEY
     const alreadyOnboarded = window.localStorage.getItem(key)
     if (alreadyOnboarded) return
     setShowWelcome(true)
     setWelcomeStep("profile")
-  }, [uploadedWorlds.length, onboardingKey])
+  }, [uploadedWorlds.length, onboardingKey, isSupabaseLoaded])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1215,6 +1225,8 @@ export default function AppClient({
       })
 
       setWorldLists(Array.from(listMap.values()))
+    } else {
+      setWorldLists([])
     }
 
     if (worlds.length > 0) {
@@ -1229,12 +1241,20 @@ export default function AppClient({
       })
       if (Object.keys(overrides).length > 0) {
         setWorldTitleOverrides((prev) => ({ ...prev, ...overrides }))
+      } else {
+        setWorldTitleOverrides({})
       }
 
       const hidden = worlds.filter((world) => world.hidden).map((world) => world.worldId)
       if (hidden.length > 0) {
         setHiddenWorldIds((prev) => Array.from(new Set([...prev, ...hidden])))
+      } else {
+        setHiddenWorldIds([])
       }
+    } else {
+      setUploadedWorlds([])
+      setWorldTitleOverrides({})
+      setHiddenWorldIds([])
     }
 
     setIsSupabaseLoaded(true)
@@ -2033,6 +2053,38 @@ export default function AppClient({
       }
 
       await persistWorlds(worldsToSave, activeId)
+      if (typeof window !== "undefined") {
+        const today = new Date().toISOString().slice(0, 10)
+        let dailyState = { date: today, games: 0, upload: false, news: false }
+        const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+        if (rawDaily) {
+          try {
+            const parsed = JSON.parse(rawDaily)
+            if (parsed?.date === today) {
+              dailyState = {
+                date: today,
+                games: parsed?.games ?? 0,
+                upload: !!parsed?.upload,
+                news: !!parsed?.news,
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (!dailyState.upload) {
+          dailyState.upload = true
+          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+          const nextSeeds = currentSeeds + 10
+          window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+          setSeeds(nextSeeds)
+          window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
+          const weekStart = getWeekStartIso()
+          const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+          const weeklyValue = Number(rawWeekly || "0") || 0
+          syncStatsToServer(nextSeeds, weeklyValue, weekStart, dailyState)
+        }
+      }
       setIsUploadOpen(false)
     } catch (error) {
       setUploadError((error as Error).message)

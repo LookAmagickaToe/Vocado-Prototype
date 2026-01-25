@@ -136,7 +136,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
-      await fetch("/api/auth/profile/stats", {
+      const res = await fetch("/api/auth/profile/stats", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -147,6 +147,10 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           dailyStateDate: dailyState?.date ?? undefined,
         }),
       })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.warn("[stats] sync failed", data?.details || data?.error || res.status)
+      }
     } catch {
       // ignore sync errors
     }
@@ -209,28 +213,56 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
 
     const syncDailyFromStorage = () => {
       const today = new Date().toISOString().slice(0, 10)
-      if (profileState.dailyState && profileState.dailyState.date === today) {
-        const current = profileState.dailyState
-        window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(current))
-        setDailyGames(current.games ?? 0)
-        setDailyUploadDone(!!current.upload)
-        setDailyNewsDone(!!current.news)
-        return
-      }
+      let local: { date: string; games: number; upload: boolean; news: boolean } | null = null
       const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
       if (rawDaily) {
         try {
           const parsed = JSON.parse(rawDaily)
           if (parsed?.date === today) {
-            setDailyGames(parsed?.games ?? 0)
-            setDailyUploadDone(!!parsed?.upload)
-            setDailyNewsDone(!!parsed?.news)
-            return
+            local = {
+              date: today,
+              games: parsed?.games ?? 0,
+              upload: !!parsed?.upload,
+              news: !!parsed?.news,
+            }
           }
         } catch {
           // ignore
         }
       }
+
+      const server =
+        profileState.dailyState && profileState.dailyState.date === today
+          ? {
+              date: today,
+              games: profileState.dailyState.games ?? 0,
+              upload: !!profileState.dailyState.upload,
+              news: !!profileState.dailyState.news,
+            }
+          : null
+
+      if (local || server) {
+        const merged = {
+          date: today,
+          games: Math.max(local?.games ?? 0, server?.games ?? 0),
+          upload: !!(local?.upload || server?.upload),
+          news: !!(local?.news || server?.news),
+        }
+        window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(merged))
+        setDailyGames(merged.games)
+        setDailyUploadDone(merged.upload)
+        setDailyNewsDone(merged.news)
+        if (
+          !server ||
+          server.games !== merged.games ||
+          server.upload !== merged.upload ||
+          server.news !== merged.news
+        ) {
+          syncStatsToServer(seeds, wordsLearned, getWeekStartIso(), merged)
+        }
+        return
+      }
+
       const reset = { date: today, games: 0, upload: false, news: false }
       window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
       setDailyGames(0)

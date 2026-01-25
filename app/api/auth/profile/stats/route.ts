@@ -11,6 +11,12 @@ async function getUserId(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server missing Supabase credentials" },
+        { status: 500 }
+      )
+    }
     const userId = await getUserId(req)
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -41,7 +47,10 @@ export async function POST(req: Request) {
       .eq("id", userId)
 
     if (error) {
-      return NextResponse.json({ error: "Update failed", details: error.message }, { status: 500 })
+      return NextResponse.json(
+        { error: "Update failed", details: error.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true })
