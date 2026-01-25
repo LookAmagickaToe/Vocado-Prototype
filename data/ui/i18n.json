@@ -148,6 +148,17 @@
     },
     "profile": {
       "save": "Guardar"
+    },
+    "onboarding": {
+      "title": "Bienvenido a Vocado",
+      "subtitle": "Configura tu idioma y noticias favoritas para empezar.",
+      "sourceLabel": "Idioma de origen",
+      "targetLabel": "Idioma objetivo",
+      "newsLabel": "Noticias",
+      "step2Title": "Vamos a crear tu primer mundo",
+      "step2Description": "Escribe un tema y genera tu primera lista personalizada.",
+      "continue": "Continuar",
+      "start": "Crear primer mundo"
     }
   },
   "en": {
@@ -299,6 +310,17 @@
     },
     "profile": {
       "save": "Save"
+    },
+    "onboarding": {
+      "title": "Welcome to Vocado",
+      "subtitle": "Set your language and preferred news to get started.",
+      "sourceLabel": "Source language",
+      "targetLabel": "Target language",
+      "newsLabel": "News",
+      "step2Title": "Let’s create your first world",
+      "step2Description": "Type a theme and generate your first custom list.",
+      "continue": "Continue",
+      "start": "Create first world"
     }
   },
   "de": {
@@ -450,6 +472,172 @@
     },
     "profile": {
       "save": "Speichern"
+    },
+    "onboarding": {
+      "title": "Willkommen bei Vocado",
+      "subtitle": "Lege Sprache und Lieblings-News fest, um zu starten.",
+      "sourceLabel": "Ausgangssprache",
+      "targetLabel": "Zielsprache",
+      "newsLabel": "News",
+      "step2Title": "Lass uns deine erste Welt erstellen",
+      "step2Description": "Gib ein Thema ein und erstelle deine erste Liste.",
+      "continue": "Weiter",
+      "start": "Erste Welt erstellen"
+    }
+  },
+  "fr": {
+    "menu": {
+      "title": "Menu",
+      "worlds": "Mondes",
+      "upload": "Importer une liste",
+      "manage": "Gérer",
+      "locked": "🔒 Verrouillé",
+      "restart": "Reprendre"
+    },
+    "worldsOverlay": {
+      "title": "🌎 Mondes",
+      "description": "Sélectionne un monde pour charger un nouveau vocabulaire.",
+      "active": "Actif",
+      "close": "Fermer",
+      "newListPlaceholder": "Nouvelle liste",
+      "newListButton": "Créer",
+      "unlisted": "Sans liste",
+      "hideWorld": "Masquer"
+    },
+    "levelsOverlay": {
+      "titleSuffix": "— Niveaux",
+      "close": "Fermer",
+      "defaultDescription": "Choisis un sous-monde (bloc de {itemsPerGame} éléments)."
+    },
+    "upload": {
+      "title": "Importer une liste",
+      "description": "Crée du vocabulaire depuis un JSON, un tableau, un fichier ou une image.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Ma liste personnalisée",
+      "listLabel": "Liste",
+      "modeLabel": "Mode",
+      "modeAuto": "Auto",
+      "modeVocab": "Vocabulaire",
+      "modeConjugation": "Conjugaison",
+      "destinationLabel": "Destination",
+      "destinationNew": "Nouveau monde",
+      "tabJson": "JSON",
+      "tabTable": "Tableau",
+      "tabFile": "Fichier",
+      "tabImage": "Image",
+      "tabNews": "Actualités",
+      "jsonLabel": "Contenu (JSON)",
+      "jsonPlaceholder": "[{\"es\":\"hola\",\"de\":\"hallo\"}]",
+      "tableSource": "Espagnol",
+      "tableTarget": "Allemand",
+      "tableAddRow": "Ajouter une ligne",
+      "tableHint": "Remplis les deux colonnes et génère la liste.",
+      "fileLabel": "Importer une liste de mots",
+      "fileHint": "Accepte .txt ou .csv. Gemini générera le JSON.",
+      "imageLabel": "Importer une image",
+      "imageCameraLabel": "Caméra",
+      "imageGalleryLabel": "Galerie",
+      "imageHint": "Gemini extraira le vocabulaire de l’image.",
+      "newsLabel": "Lien de l’article",
+      "newsPlaceholder": "Colle le lien de l’article",
+      "newsHint": "Nous créerons un résumé dans la langue cible et du vocabulaire selon ton niveau.",
+      "themeLabel": "Thème",
+      "themePlaceholder": "Ex : 50 mots sur les ustensiles de cuisine niveau B2",
+      "themeCountLabel": "Quantité",
+      "reviewTitle": "Revoir le vocabulaire",
+      "reviewHint": "Modifie, ajoute ou supprime des mots avant d’enregistrer.",
+      "reviewInclude": "Inclure",
+      "reviewSource": "Espagnol",
+      "reviewTarget": "Allemand",
+      "reviewEmoji": "Emoji",
+      "reviewPos": "Type",
+      "reviewConjugate": "Conjugaison",
+      "reviewSyllables": "Syllabes",
+      "posVerb": "verbe",
+      "posNoun": "nom",
+      "posAdj": "adjectif",
+      "posOther": "autre",
+      "reviewAddRow": "Ajouter un mot",
+      "reviewBack": "Retour",
+      "reviewDone": "Enregistrer et jouer",
+      "actionGenerate": "Générer l’aperçu",
+      "actionSave": "Enregistrer et jouer",
+      "actionCancel": "Annuler",
+      "actionReview": "Revoir",
+      "hiddenWorldsTitle": "Mondes masqués",
+      "restoreWorld": "Restaurer",
+      "processing": "Traitement...",
+      "errorNoInput": "Ajoute du contenu avant de continuer.",
+      "errorInvalidJson": "JSON invalide. Vérifie le format.",
+      "errorInvalidList": "Liste invalide. Utilise une liste de paires ou un objet World.",
+      "errorNoItems": "Aucun vocabulaire à enregistrer.",
+      "errorNoVerbs": "Aucun verbe sélectionné pour la conjugaison."
+    },
+    "conjugationWorld": {
+      "titleSuffix": "— Conjugaison",
+      "instructions": "Associe les pronoms à la bonne conjugaison.",
+      "primaryLabel": "Pronom :",
+      "secondaryLabel": "Conjugaison :",
+      "rightTitle": "Correspondances",
+      "emptyHint": "Trouve une paire pour commencer."
+    },
+    "news": {
+      "readButton": "Lire le journal",
+      "summaryTitle": "Résumé",
+      "sourceLabel": "Source",
+      "title": "Vocado Diario",
+      "linkLabel": "Lien de l’article",
+      "linkPlaceholder": "Colle le lien de l’article",
+      "generateButton": "Générer",
+      "playButton": "Jouer",
+      "loading": "Traitement...",
+      "vocabTitle": "Mots appris",
+      "categoryLabel": "Catégorie",
+      "categoryOptions": {
+        "world": "Monde",
+        "wirtschaft": "Économie",
+        "sport": "Sport"
+      }
+    },
+    "home": {
+      "title": "Accueil",
+      "wordsLearnedLabel": "Mots appris cette semaine",
+      "goalsTitle": "Objectifs quotidiens",
+      "goalPlay": "Jouer 3 parties",
+      "goalUpload": "Importer de nouveaux mots",
+      "goalNews": "Jouer le journal du jour",
+      "goalPlayProgress": "Parties",
+      "goalUploadProgress": "Nouvelles listes",
+      "lastPlayedTitle": "Dernier monde joué",
+      "lastPlayedAction": "Reprendre",
+      "uploadAction": "Importer une liste",
+      "worldsAction": "Mondes",
+      "newsAction": "Vocado Diario",
+      "newsTitle": "Article à la une",
+      "seedsLabel": "Graines",
+      "translateTitle": "Traduire",
+      "translatePlaceholder": "Écris un mot...",
+      "translateAction": "Traduire",
+      "addToWorldLabel": "Ajouter au monde",
+      "addToListLabel": "Créer un nouveau monde",
+      "worldSelectLabel": "Monde",
+      "listSelectLabel": "Liste",
+      "worldNameLabel": "Nom du monde",
+      "confirmAdd": "Enregistrer"
+    },
+    "profile": {
+      "save": "Enregistrer"
+    },
+    "onboarding": {
+      "title": "Bienvenue sur Vocado",
+      "subtitle": "Choisis ta langue et tes actualités préférées pour commencer.",
+      "sourceLabel": "Langue source",
+      "targetLabel": "Langue cible",
+      "newsLabel": "Actualités",
+      "step2Title": "Créons ton premier monde",
+      "step2Description": "Saisis un thème et crée ta première liste.",
+      "continue": "Continuer",
+      "start": "Créer le premier monde"
     }
   }
 }

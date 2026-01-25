@@ -1,5 +1,7 @@
 {
-  "sMax": 100,
-  "nMin": 15,
-  "mFirst": 1.5
+  "baseScore": 100,
+  "minMovesFactor": 1.5,
+  "firstMultiplier": 1.2,
+  "perfectMultiplier": 1.0,
+  "exponent": 2
 }

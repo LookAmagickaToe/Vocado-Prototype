@@ -28,7 +28,11 @@ const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
 const NEWS_STORAGE_KEY = "vocado-news-current"
+const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
+
+const LANGUAGE_OPTIONS = ["Español", "Deutsch", "English", "Français"]
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -54,6 +58,15 @@ const generateUuid = () => {
     }
   }
   return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+}
+
+const getWeekStartIso = () => {
+  const date = new Date()
+  const day = date.getDay()
+  const diff = (day + 6) % 7
+  date.setDate(date.getDate() - diff)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
 }
 
 const getLastPlayedKey = (source?: string, target?: string) => {
@@ -86,6 +99,21 @@ type UploadTab = "table" | "upload" | "theme" | "news" | "json"
 type UploadModeSelection = "auto" | "vocab" | "conjugation"
 
 const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
+  onboarding: {
+    title: uiSettings?.onboarding?.title ?? "Bienvenido a Vocado",
+    subtitle:
+      uiSettings?.onboarding?.subtitle ??
+      "Configura tu idioma y noticias favoritas para empezar.",
+    sourceLabel: uiSettings?.onboarding?.sourceLabel ?? "Idioma de origen",
+    targetLabel: uiSettings?.onboarding?.targetLabel ?? "Idioma objetivo",
+    newsLabel: uiSettings?.onboarding?.newsLabel ?? "Noticias",
+    step2Title: uiSettings?.onboarding?.step2Title ?? "Vamos a crear tu primer mundo",
+    step2Description:
+      uiSettings?.onboarding?.step2Description ??
+      "Escribe un tema y genera tu primera lista personalizada.",
+    continue: uiSettings?.onboarding?.continue ?? "Continuar",
+    start: uiSettings?.onboarding?.start ?? "Crear primer mundo",
+  },
   menu: {
     title: uiSettings?.menu?.title ?? "Menú",
     worlds: uiSettings?.menu?.worlds ?? "Mundos",
@@ -221,6 +249,8 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
   },
 })
 
+type UiCopy = ReturnType<typeof buildUi>
+
 function normalizeUploadedWorld(payload: any, name?: string): World | null {
   if (!payload) return null
 
@@ -307,6 +337,9 @@ type AppClientProps = {
     sourceLanguage?: string
     targetLanguage?: string
     newsCategory?: string
+    seeds?: number
+    weeklyWords?: number
+    weeklyWordsWeekStart?: string
   }
 }
 
@@ -370,12 +403,18 @@ export default function AppClient({
   } | null>(null)
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
-  const [themeLevel, setThemeLevel] = useState(initialProfile?.level ?? "B1")
   const [promptText, setPromptText] = useState("")
   const [promptError, setPromptError] = useState<string | null>(null)
   const [promptLoading, setPromptLoading] = useState(false)
   const [newsUrl, setNewsUrl] = useState("")
   const [newsSummary, setNewsSummary] = useState<string[]>([])
+  const [showWelcome, setShowWelcome] = useState(false)
+  const [welcomeStep, setWelcomeStep] = useState<"profile" | "world">("profile")
+  const [welcomeSource, setWelcomeSource] = useState(profileSettings.sourceLanguage || "")
+  const [welcomeTarget, setWelcomeTarget] = useState(profileSettings.targetLanguage || "")
+  const [welcomeNews, setWelcomeNews] = useState(profileSettings.newsCategory || "world")
+  const [welcomeSaving, setWelcomeSaving] = useState(false)
+  const [welcomeError, setWelcomeError] = useState<string | null>(null)
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMode, setReviewMode] = useState<"vocab" | "conjugation">("vocab")
   const [uploadTargetWorldId, setUploadTargetWorldId] = useState<string>("new")
@@ -398,18 +437,78 @@ export default function AppClient({
     setProfileSettings(next)
   }
 
+  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/auth/profile/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          seeds: nextSeeds,
+          weeklyWords: nextWeeklyWords,
+          weekStart,
+        }),
+      })
+    } catch {
+      // ignore sync errors
+    }
+  }
+
+  const saveWelcomeProfile = async () => {
+    setWelcomeSaving(true)
+    setWelcomeError(null)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) throw new Error("No session")
+      const nextProfile = {
+        level: profileSettings.level || "A2",
+        sourceLanguage: welcomeSource,
+        targetLanguage: welcomeTarget,
+        newsCategory: welcomeNews,
+      }
+      const res = await fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(nextProfile),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? "Save failed")
+      }
+      handleProfileUpdate(nextProfile)
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
+        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
+      }
+      setWelcomeStep("world")
+    } catch (err) {
+      setWelcomeError((err as Error).message)
+    } finally {
+      setWelcomeSaving(false)
+    }
+  }
+
   const awardExperience = (
     moves: number,
     worldIdValue: string,
     levelIdx: number,
-    wordsLearnedCount: number
+    wordsLearnedCount: number,
+    pairsCount: number
   ) => {
     if (typeof window === "undefined") return
-    const nMin = Number(pointsConfig?.nMin ?? 15)
-    const sMax = Number(pointsConfig?.sMax ?? 100)
-    const mFirst = Number(pointsConfig?.mFirst ?? 1.5)
+    const baseScore = Number(pointsConfig?.baseScore ?? 100)
+    const minMovesFactor = Number(pointsConfig?.minMovesFactor ?? 1.5)
+    const firstMultiplier = Number(pointsConfig?.firstMultiplier ?? 1.2)
+    const perfectMultiplier = Number(pointsConfig?.perfectMultiplier ?? 1)
+    const exponent = Number(pointsConfig?.exponent ?? 2)
+    const pairs = Math.max(1, pairsCount || 1)
     const n = Math.max(1, moves)
-    const sRaw = Math.round(sMax * (nMin / n))
+    const minMoves = Math.max(1, Math.floor(pairs * minMovesFactor))
+    const baseValue = baseScore * Math.pow(pairs / n, exponent)
+    const perfectBonus = n <= minMoves ? Math.ceil(pairs * perfectMultiplier) : 0
 
     const rawBestStore = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
     let bestMap: Record<string, number> = {}
@@ -423,8 +522,13 @@ export default function AppClient({
     const key = `${worldIdValue}:${levelIdx}`
     const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
     const isNew = sBest === 0
-    const payout = isNew ? Math.round(sRaw * mFirst) : Math.max(0, sRaw - sBest)
-    const newBest = Math.max(sRaw, sBest)
+    const scoreBaseRounded = Math.round(baseValue)
+    const scoreForBest = scoreBaseRounded + perfectBonus
+    const scoreWithMultiplier = Math.round(scoreBaseRounded * (isNew ? firstMultiplier : 1))
+    const payout = isNew
+      ? scoreWithMultiplier + perfectBonus
+      : Math.max(0, scoreForBest - sBest)
+    const newBest = Math.max(scoreForBest, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
 
@@ -463,15 +567,22 @@ export default function AppClient({
     }
     window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
 
+    const weekStart = getWeekStartIso()
+    const storedWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+    if (storedWeekStart !== weekStart) {
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+    }
+    const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+    let weeklyValue = Number(rawWeekly || "0") || 0
     if (isNew) {
-      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-      const currentWeekly = Number(rawWeekly || "0") || 0
-      const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
-      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+      weeklyValue = weeklyValue + Math.max(0, wordsLearnedCount || 0)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
     }
 
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     setSeeds(finalSeeds)
+    syncStatsToServer(finalSeeds, weeklyValue, weekStart)
 
     return {
       payout,
@@ -481,10 +592,19 @@ export default function AppClient({
   }
 
   useEffect(() => {
-    if (profileSettings.level) {
-      setThemeLevel(profileSettings.level)
-    }
-  }, [profileSettings.level])
+    setWelcomeSource(profileSettings.sourceLanguage || "")
+    setWelcomeTarget(profileSettings.targetLanguage || "")
+    setWelcomeNews(profileSettings.newsCategory || "world")
+  }, [profileSettings.sourceLanguage, profileSettings.targetLanguage, profileSettings.newsCategory])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (uploadedWorlds.length > 0) return
+    const alreadyOnboarded = window.localStorage.getItem(ONBOARDING_STORAGE_KEY)
+    if (alreadyOnboarded) return
+    setShowWelcome(true)
+    setWelcomeStep("profile")
+  }, [uploadedWorlds.length])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -492,7 +612,22 @@ export default function AppClient({
       const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
       setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
     }
-    syncSeeds()
+    const weekStart = getWeekStartIso()
+    if (typeof initialProfile?.seeds === "number") {
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(initialProfile.seeds))
+      setSeeds(initialProfile.seeds)
+    } else {
+      syncSeeds()
+    }
+    if (typeof initialProfile?.weeklyWords === "number") {
+      const serverWeekStart = initialProfile.weeklyWordsWeekStart || ""
+      if (serverWeekStart === weekStart) {
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(initialProfile.weeklyWords))
+      } else {
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+      }
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
+    }
     const handleStorage = (event: StorageEvent) => {
       if (event.key === SEEDS_STORAGE_KEY) {
         syncSeeds()
@@ -504,7 +639,7 @@ export default function AppClient({
       window.removeEventListener("storage", handleStorage)
       window.removeEventListener("focus", syncSeeds)
     }
-  }, [])
+  }, [initialProfile?.seeds, initialProfile?.weeklyWords, initialProfile?.weeklyWordsWeekStart])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -796,6 +931,12 @@ export default function AppClient({
 
 
   const openWorlds = () => {
+    setIsWorldsOpen(true)
+    setIsMenuOpen(false)
+  }
+
+  const startFirstWorld = () => {
+    setShowWelcome(false)
     setIsWorldsOpen(true)
     setIsMenuOpen(false)
   }
@@ -1470,7 +1611,7 @@ export default function AppClient({
           task: "theme_list",
           theme: themeText,
           count: themeCount,
-          level: themeLevel,
+          level: profileSettings.level || "A2",
           mode: desiredMode,
           sourceLabel,
           targetLabel,
@@ -1939,6 +2080,98 @@ export default function AppClient({
     verb: currentVerb,
   })
 
+  const welcomeOverlay = showWelcome ? (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-8">
+      <div className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950/95 p-6 text-neutral-100 shadow-2xl">
+        {welcomeStep === "profile" ? (
+          <div className="space-y-4">
+            <div>
+              <div className="text-2xl font-semibold">{ui.onboarding.title}</div>
+              <div className="mt-1 text-sm text-neutral-300">{ui.onboarding.subtitle}</div>
+            </div>
+            <div className="grid gap-4">
+              <div>
+                <label className="text-xs uppercase tracking-wide text-neutral-400">
+                  {ui.onboarding.sourceLabel}
+                </label>
+                <select
+                  value={welcomeSource}
+                  onChange={(e) => setWelcomeSource(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                >
+                  <option value="">Auto</option>
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <option key={lang} value={lang}>
+                      {lang}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-neutral-400">
+                  {ui.onboarding.targetLabel}
+                </label>
+                <select
+                  value={welcomeTarget}
+                  onChange={(e) => setWelcomeTarget(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                >
+                  <option value="">Auto</option>
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <option key={lang} value={lang}>
+                      {lang}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-neutral-400">
+                  {ui.onboarding.newsLabel}
+                </label>
+                <select
+                  value={welcomeNews}
+                  onChange={(e) => setWelcomeNews(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
+                >
+                  <option value="world">{ui.news.categoryOptions.world}</option>
+                  <option value="wirtschaft">{ui.news.categoryOptions.wirtschaft}</option>
+                  <option value="sport">{ui.news.categoryOptions.sport}</option>
+                </select>
+              </div>
+            </div>
+            {welcomeError && <div className="text-sm text-red-400">{welcomeError}</div>}
+            <div className="flex justify-end">
+              <Button
+                onClick={saveWelcomeProfile}
+                className="bg-green-600 text-white hover:bg-green-500"
+                disabled={welcomeSaving}
+              >
+                {welcomeSaving ? "..." : ui.onboarding.continue}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <div className="text-2xl font-semibold">{ui.onboarding.step2Title}</div>
+              <div className="mt-1 text-sm text-neutral-300">
+                {ui.onboarding.step2Description}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={startFirstWorld}
+                className="bg-green-600 text-white hover:bg-green-500"
+              >
+                {ui.onboarding.start}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null
+
   if (!currentWorld) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
@@ -1985,6 +2218,7 @@ export default function AppClient({
             </Button>
           </div>
         </div>
+        {welcomeOverlay}
       </div>
     )
   }
@@ -2144,7 +2378,8 @@ export default function AppClient({
                       moves,
                       currentWorld.id,
                       Math.min(levelIndex, levelsCount - 1),
-                      wordsLearnedCount
+                      wordsLearnedCount,
+                      currentChunk.length
                     )
                   }
                 />
@@ -2160,7 +2395,8 @@ export default function AppClient({
                     moves,
                     currentWorld.id,
                     Math.min(levelIndex, levelsCount - 1),
-                    wordsLearnedCount
+                    wordsLearnedCount,
+                    currentChunk.length
                   )
                 }
               />
@@ -2168,6 +2404,8 @@ export default function AppClient({
           </div>
         </div>
       </div>
+
+      {welcomeOverlay}
 
       {/* MOBILE MENU OVERLAY */}
       {isMenuOpen && (
@@ -2257,6 +2495,7 @@ export default function AppClient({
       <AnimatePresence>
         {isWorldsOpen && (
           <WorldsOverlay
+            ui={ui}
             worlds={visibleWorlds}
             lists={worldLists}
             collapsedListIds={collapsedListIds}
@@ -2293,6 +2532,7 @@ export default function AppClient({
       <AnimatePresence>
         {isUploadOpen && (
           <UploadOverlay
+            ui={ui}
             name={uploadName}
             text={uploadText}
             error={uploadError}
@@ -2313,7 +2553,6 @@ export default function AppClient({
             isProcessing={isProcessingUpload}
             themeText={themeText}
             themeCount={themeCount}
-            themeLevel={themeLevel}
             newsUrl={newsUrl}
             sourceLabel={sourceLabel}
             targetLabel={targetLabel}
@@ -2324,7 +2563,6 @@ export default function AppClient({
             onChangeTargetWorldId={setUploadTargetWorldId}
             onChangeThemeText={setThemeText}
             onChangeThemeCount={setThemeCount}
-            onChangeThemeLevel={setThemeLevel}
             onChangeNewsUrl={setNewsUrl}
             onUpdateTableRow={updateTableRow}
             onAddTableRow={() =>
@@ -2372,6 +2610,7 @@ export default function AppClient({
       <AnimatePresence>
         {isListPickerOpen && (
           <ListPickerOverlay
+            ui={ui}
             lists={worldLists}
             selectedListId={uploadListId}
             newListName={listPickerName}
@@ -2397,6 +2636,7 @@ export default function AppClient({
       <AnimatePresence>
         {isLevelsOpen && pendingWorldId && (
           <LevelsOverlay
+            ui={ui}
             world={visibleWorlds.find((w) => w.id === pendingWorldId)!}
             displayTitle={getWorldTitle(
               pendingWorldId,
@@ -2423,6 +2663,7 @@ export default function AppClient({
 }
 
 function UploadOverlay({
+  ui,
   name,
   text,
   error,
@@ -2442,7 +2683,6 @@ function UploadOverlay({
   isProcessing,
   themeText,
   themeCount,
-  themeLevel,
   newsUrl,
   sourceLabel,
   targetLabel,
@@ -2453,7 +2693,6 @@ function UploadOverlay({
   onChangeTargetWorldId,
   onChangeThemeText,
   onChangeThemeCount,
-  onChangeThemeLevel,
   onChangeNewsUrl,
   onUpdateTableRow,
   onAddTableRow,
@@ -2471,6 +2710,7 @@ function UploadOverlay({
   onSubmit,
   onSubmitReview,
 }: {
+  ui: UiCopy
   name: string
   text: string
   error: string | null
@@ -2490,7 +2730,6 @@ function UploadOverlay({
   isProcessing: boolean
   themeText: string
   themeCount: number
-  themeLevel: string
   newsUrl: string
   sourceLabel: string
   targetLabel: string
@@ -2501,7 +2740,6 @@ function UploadOverlay({
   onChangeTargetWorldId: (value: string) => void
   onChangeThemeText: (value: string) => void
   onChangeThemeCount: (value: number) => void
-  onChangeThemeLevel: (value: string) => void
   onChangeNewsUrl: (value: string) => void
   onUpdateTableRow: (index: number, value: { source?: string; target?: string }) => void
   onAddTableRow: () => void
@@ -2870,7 +3108,7 @@ function UploadOverlay({
               {tab === "theme" && (
                 <div>
                   <label className="text-sm text-neutral-300">{ui.upload.themeLabel}</label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr,120px,120px]">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr,120px]">
                     <input
                       type="text"
                       value={themeText}
@@ -2888,21 +3126,6 @@ function UploadOverlay({
                         onChange={(e) => onChangeThemeCount(Number(e.target.value))}
                         className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-2 text-sm text-neutral-100"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-neutral-400">{ui.upload.themeLevelLabel}</label>
-                      <select
-                        value={themeLevel}
-                        onChange={(e) => onChangeThemeLevel(e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-2 text-sm text-neutral-100"
-                      >
-                        <option value="A1">{ui.upload.themeLevelA1}</option>
-                        <option value="A2">{ui.upload.themeLevelA2}</option>
-                        <option value="B1">{ui.upload.themeLevelB1}</option>
-                        <option value="B2">{ui.upload.themeLevelB2}</option>
-                        <option value="C1">{ui.upload.themeLevelC1}</option>
-                        <option value="C2">{ui.upload.themeLevelC2}</option>
-                      </select>
                     </div>
                   </div>
                 </div>
@@ -3025,6 +3248,7 @@ function UploadOverlay({
 }
 
 function ListPickerOverlay({
+  ui,
   lists,
   selectedListId,
   newListName,
@@ -3033,6 +3257,7 @@ function ListPickerOverlay({
   onCreateList,
   onClose,
 }: {
+  ui: UiCopy
   lists: WorldList[]
   selectedListId: string
   newListName: string
@@ -3128,6 +3353,7 @@ function ListPickerOverlay({
 }
 
 function WorldsOverlay({
+  ui,
   worlds,
   lists,
   newListName,
@@ -3153,6 +3379,7 @@ function WorldsOverlay({
   onPromptChange,
   onPromptSubmit,
 }: {
+  ui: UiCopy
   worlds: Array<{ id: string; title: string; description?: string }>
   lists: WorldList[]
   collapsedListIds: Record<string, boolean>
@@ -3395,12 +3622,19 @@ function WorldsOverlay({
                       const active = w.id === activeWorldId
                       const title = getWorldTitle(w.id, w.title)
                       return (
-                        <button
+                        <div
                           key={w.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => onSelectWorld(w.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              onSelectWorld(w.id)
+                            }
+                          }}
                           className={[
-                            "w-full text-left rounded-2xl border p-4 transition",
+                            "w-full text-left rounded-2xl border p-4 transition cursor-pointer",
                             "bg-neutral-900/40 hover:bg-neutral-900/60",
                             active ? "border-neutral-300" : "border-neutral-800",
                           ].join(" ")}
@@ -3472,36 +3706,35 @@ function WorldsOverlay({
                                 </option>
                               ))}
                             </select>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
-                              onClick={() => onMoveWorldInList(list.id, w.id, "up")}
-                              disabled={idx === 0}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
-                              onClick={() => onMoveWorldInList(list.id, w.id, "down")}
-                              disabled={idx === listWorlds.length - 1}
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
-                              onClick={() => onHideWorld(w.id)}
-                            >
-                              {ui.worldsOverlay.hideWorld}
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                                onClick={() => onMoveWorldInList(list.id, w.id, "up")}
+                                disabled={idx === 0}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                                onClick={() => onMoveWorldInList(list.id, w.id, "down")}
+                                disabled={idx === listWorlds.length - 1}
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                                onClick={() => onHideWorld(w.id)}
+                              >
+                                {ui.worldsOverlay.hideWorld}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </button>
-                    )
-                  })}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -3533,12 +3766,19 @@ function WorldsOverlay({
                   const active = w.id === activeWorldId
                   const title = getWorldTitle(w.id, w.title)
                   return (
-                    <button
+                    <div
                       key={w.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onSelectWorld(w.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          onSelectWorld(w.id)
+                        }
+                      }}
                       className={[
-                        "w-full text-left rounded-2xl border p-4 transition",
+                        "w-full text-left rounded-2xl border p-4 transition cursor-pointer",
                         "bg-neutral-900/40 hover:bg-neutral-900/60",
                         active ? "border-neutral-300" : "border-neutral-800",
                       ].join(" ")}
@@ -3617,7 +3857,7 @@ function WorldsOverlay({
                           </button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -3640,12 +3880,14 @@ function WorldsOverlay({
 }
 
 function LevelsOverlay({
+  ui,
   world,
   displayTitle,
   activeLevelIndex,
   onClose,
   onSelectLevel,
 }: {
+  ui: UiCopy
   world: World
   displayTitle: string
   activeLevelIndex: number

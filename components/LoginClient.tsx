@@ -1,17 +1,24 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
 export default function LoginClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isSignUp, setIsSignUp] = useState(false)
   const [emailOrUsername, setEmailOrUsername] = useState("")
   const [password, setPassword] = useState("")
   const [username, setUsername] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get("denied") === "1") {
+      setError("Access denied. Your email is not on the alpha allowlist.")
+    }
+  }, [searchParams])
 
   const resolveEmail = async (value: string) => {
     if (value.includes("@")) return value
@@ -27,6 +34,21 @@ export default function LoginClient() {
     return data.email as string
   }
 
+  const ensureAllowed = async (email: string) => {
+    const response = await fetch("/api/auth/allowlist/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    if (!response.ok) {
+      throw new Error("Unable to validate access.")
+    }
+    const data = await response.json()
+    if (!data?.allowed) {
+      throw new Error("Access denied. Your email is not on the alpha allowlist.")
+    }
+  }
+
   const handleAuth = async () => {
     setError(null)
     setIsLoading(true)
@@ -38,6 +60,7 @@ export default function LoginClient() {
         if (!username.trim()) {
           throw new Error("Username is required.")
         }
+        await ensureAllowed(emailOrUsername.trim().toLowerCase())
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: emailOrUsername,
           password,
@@ -62,6 +85,7 @@ export default function LoginClient() {
       }
 
       const email = await resolveEmail(emailOrUsername.trim())
+      await ensureAllowed(email.trim().toLowerCase())
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,

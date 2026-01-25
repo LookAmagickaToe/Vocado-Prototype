@@ -18,6 +18,18 @@ type ProfileSettings = {
   sourceLanguage: string
   targetLanguage: string
   newsCategory?: string
+  seeds?: number
+  weeklyWords?: number
+  weeklyWordsWeekStart?: string
+}
+
+const getWeekStartIso = () => {
+  const date = new Date()
+  const day = date.getDay()
+  const diff = (day + 6) % 7
+  date.setDate(date.getDate() - diff)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
 }
 
 const getLastPlayedKey = (source?: string, target?: string) => {
@@ -112,6 +124,25 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     [uiSettings]
   )
 
+  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/auth/profile/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          seeds: nextSeeds,
+          weeklyWords: nextWeeklyWords,
+          weekStart,
+        }),
+      })
+    } catch {
+      // ignore sync errors
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return
     const rawLogin = window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY)
@@ -126,23 +157,31 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     }
     window.localStorage.setItem(LAST_LOGIN_STORAGE_KEY, String(Date.now()))
 
-    const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
-    setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
+    if (typeof profileState.seeds === "number") {
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(profileState.seeds))
+      setSeeds(profileState.seeds)
+    } else {
+      const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
+      setSeeds(rawSeeds ? Number(rawSeeds) || 0 : 0)
+    }
 
     const now = new Date()
-    const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
-    const weekStart = rawWeekStart ? new Date(rawWeekStart) : null
-    const weekStartNormalized = (() => {
-      const date = new Date()
-      const day = date.getDay()
-      const diff = (day + 6) % 7
-      date.setDate(date.getDate() - diff)
-      date.setHours(0, 0, 0, 0)
-      return date
-    })()
-    if (!weekStart || weekStart.getTime() !== weekStartNormalized.getTime()) {
-      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized.toISOString())
-      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+    const weekStartNormalized = getWeekStartIso()
+    const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+    if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(profileState.weeklyWords))
+    } else {
+      const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+      if (rawWeekStart !== weekStartNormalized) {
+        window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+        syncStatsToServer(
+          Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0,
+          0,
+          weekStartNormalized
+        )
+      }
     }
     const rawWords = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
     setWordsLearned(rawWords ? Number(rawWords) || 0 : 0)
@@ -476,8 +515,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       if (!dailyUploadDone) {
         setDailyUploadDone(true)
         const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(currentSeeds + 10))
-        setSeeds(currentSeeds + 10)
+        const nextSeeds = currentSeeds + 10
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+        setSeeds(nextSeeds)
+        const weekStart = getWeekStartIso()
+        const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+        const weeklyValue = Number(rawWeekly || "0") || 0
+        syncStatsToServer(nextSeeds, weeklyValue, weekStart)
       }
       setTranslateInput("")
       setTranslateResult(null)

@@ -14,6 +14,7 @@ const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
 const NEWS_STORAGE_KEY = "vocado-news-current"
 const DAILY_STATE_STORAGE_KEY = "vocado-daily-state"
 const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+const WEEKLY_START_STORAGE_KEY = "vocado-week-start"
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -38,6 +39,15 @@ const generateUuid = () => {
     }
   }
   return `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+}
+
+const getWeekStartIso = () => {
+  const date = new Date()
+  const day = date.getDay()
+  const diff = (day + 6) % 7
+  date.setDate(date.getDate() - diff)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
 }
 
 type ProfileSettings = {
@@ -208,6 +218,25 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     [uiSettings]
   )
 
+  const syncStatsToServer = async (nextSeeds: number, nextWeeklyWords: number, weekStart: string) => {
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/auth/profile/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          seeds: nextSeeds,
+          weeklyWords: nextWeeklyWords,
+          weekStart,
+        }),
+      })
+    } catch {
+      // ignore sync errors
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return
     const shouldShowSummary = searchParams.get("summary") === "1"
@@ -368,13 +397,23 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
-  const awardExperience = (moves: number, wordsLearnedCount: number, worldId: string) => {
+  const awardExperience = (
+    moves: number,
+    wordsLearnedCount: number,
+    worldId: string,
+    pairsCount: number
+  ) => {
     if (typeof window === "undefined") return
-    const nMin = Number(pointsConfig?.nMin ?? 15)
-    const sMax = Number(pointsConfig?.sMax ?? 100)
-    const mFirst = Number(pointsConfig?.mFirst ?? 1.5)
+    const baseScore = Number(pointsConfig?.baseScore ?? 100)
+    const minMovesFactor = Number(pointsConfig?.minMovesFactor ?? 1.5)
+    const firstMultiplier = Number(pointsConfig?.firstMultiplier ?? 1.2)
+    const perfectMultiplier = Number(pointsConfig?.perfectMultiplier ?? 1)
+    const exponent = Number(pointsConfig?.exponent ?? 2)
+    const pairs = Math.max(1, pairsCount || 1)
     const n = Math.max(1, moves)
-    const sRaw = Math.round(sMax * (nMin / n))
+    const minMoves = Math.max(1, Math.floor(pairs * minMovesFactor))
+    const baseValue = baseScore * Math.pow(pairs / n, exponent)
+    const perfectBonus = n <= minMoves ? Math.ceil(pairs * perfectMultiplier) : 0
 
     const rawBestStore = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
     let bestMap: Record<string, number> = {}
@@ -388,8 +427,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const key = `${worldId}:0`
     const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
     const isNew = sBest === 0
-    const payout = isNew ? Math.round(sRaw * mFirst) : Math.max(0, sRaw - sBest)
-    const newBest = Math.max(sRaw, sBest)
+    const scoreBaseRounded = Math.round(baseValue)
+    const scoreForBest = scoreBaseRounded + perfectBonus
+    const scoreWithMultiplier = Math.round(scoreBaseRounded * (isNew ? firstMultiplier : 1))
+    const payout = isNew
+      ? scoreWithMultiplier + perfectBonus
+      : Math.max(0, scoreForBest - sBest)
+    const newBest = Math.max(scoreForBest, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
 
@@ -429,14 +473,21 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
     window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
 
+    const weekStart = getWeekStartIso()
+    const storedWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+    if (storedWeekStart !== weekStart) {
+      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+    }
+    const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+    let weeklyValue = Number(rawWeekly || "0") || 0
     if (isNew) {
-      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-      const currentWeekly = Number(rawWeekly || "0") || 0
-      const updatedWeekly = currentWeekly + Math.max(0, wordsLearnedCount || 0)
-      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(updatedWeekly))
+      weeklyValue = weeklyValue + Math.max(0, wordsLearnedCount || 0)
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
     }
 
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    syncStatsToServer(finalSeeds, weeklyValue, weekStart)
     return {
       payout,
       totalBefore: currentSeeds,
@@ -450,6 +501,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (!finalUrl) {
       setError("Agrega un enlace válido.")
       return
+    }
+    if (!newsDate) {
+      setNewsDate(new Date().toISOString())
     }
     setIsLoading(true)
     try {
@@ -468,7 +522,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }
       setSummary(nextSummary)
       setItems(nextItems)
-      const dateLabel = formatNewsDate(newsDate)
+      const baseDate = newsDate || new Date().toISOString()
+      const dateLabel = formatNewsDate(baseDate)
       const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
       const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}${dateSuffix}`
       const newsWorld = {
@@ -553,7 +608,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       }
                       setNewsUrl(headline.url)
                       setNewsTitle(headline.title)
-                      setNewsDate(headline.date || "")
+                      setNewsDate(headline.date || new Date().toISOString())
                       handleGenerate(headline.url)
                     }}
                     className={[
@@ -629,12 +684,14 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     if (!rewarded) {
                       const currentSeeds =
                         Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-                      window.localStorage.setItem(
-                        SEEDS_STORAGE_KEY,
-                        String(currentSeeds + 30)
-                      )
+                      const nextSeeds = currentSeeds + 30
+                      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
                       window.localStorage.setItem(rewardKey, "1")
-                      setSeeds(currentSeeds + 30)
+                      setSeeds(nextSeeds)
+                      const weekStart = getWeekStartIso()
+                      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+                      const weeklyValue = Number(rawWeekly || "0") || 0
+                      syncStatsToServer(nextSeeds, weeklyValue, weekStart)
                     }
                     dailyState.news = true
                     window.localStorage.setItem(
@@ -654,7 +711,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               secondaryLabelOverride={`${targetLabel}:`}
               nextLabelOverride={ui.readButton}
               onWin={(moves, wordsLearnedCount) =>
-                awardExperience(moves, wordsLearnedCount, world.id)
+                awardExperience(moves, wordsLearnedCount, world.id, world.pool.length)
               }
             />
           </div>
