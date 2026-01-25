@@ -58,7 +58,13 @@ export default function LoginClient() {
             }),
           })
         }
-        router.push("/")
+        if (data.session) {
+          router.push("/")
+        } else {
+          setIsSignUp(false)
+          setError("Account created. Please check your email to confirm, then sign in.")
+          router.push("/login")
+        }
         return
       }
 
