@@ -592,9 +592,10 @@ export default function AppClient({
     const scoreBaseRounded = Math.round(baseValue)
     const scoreForBest = scoreBaseRounded + perfectBonus
     const scoreWithMultiplier = Math.round(scoreBaseRounded * (isNew ? firstMultiplier : 1))
+    const practiceBonus = isNew ? 0 : Math.ceil(baseScore * 0.1)
     const payout = isNew
       ? scoreWithMultiplier + perfectBonus
-      : Math.max(0, scoreForBest - sBest)
+      : Math.max(0, scoreForBest - sBest) + practiceBonus
     const newBest = Math.max(scoreForBest, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
