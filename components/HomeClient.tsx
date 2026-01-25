@@ -667,6 +667,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         targetLanguage: tutorialTarget,
         newsCategory: tutorialNews,
       }
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
+        const key = onboardingKey || ONBOARDING_STORAGE_KEY
+        window.localStorage.setItem(key, "1")
+      }
+      setShowTutorial(false)
+      router.push("/play?open=upload")
       const res = await fetch("/api/auth/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -677,14 +684,8 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         throw new Error(data?.error ?? "Save failed")
       }
       setProfileState((prev) => ({ ...prev, ...nextProfile }))
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
-        const key = onboardingKey || ONBOARDING_STORAGE_KEY
-        window.localStorage.setItem(key, "1")
-      }
-      setShowTutorial(false)
-      router.push("/play?open=upload")
     } catch (err) {
+      console.warn("[onboarding] profile update failed", (err as Error).message)
       setTutorialError((err as Error).message)
     } finally {
       setTutorialSaving(false)
