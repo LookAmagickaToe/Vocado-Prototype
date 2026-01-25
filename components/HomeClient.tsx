@@ -137,6 +137,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       worldsAction: uiSettings?.home?.worldsAction ?? "Mundos",
       newsAction: uiSettings?.home?.newsAction ?? "Noticias",
       newsTitle: uiSettings?.home?.newsTitle ?? "Título del artículo destacado",
+      news: {
+        categoryOptions: {
+          world: uiSettings?.news?.categoryOptions?.world ?? "World",
+          wirtschaft: uiSettings?.news?.categoryOptions?.wirtschaft ?? "Economy",
+          sport: uiSettings?.news?.categoryOptions?.sport ?? "Sport",
+        }
+      },
       leaderboardTitle: uiSettings?.home?.leaderboardTitle ?? "Clasificación",
       leaderboardOverall: uiSettings?.home?.leaderboardOverall ?? "Puntuación total",
       leaderboardWeekly: uiSettings?.home?.leaderboardWeekly ?? "Campeón semanal",
