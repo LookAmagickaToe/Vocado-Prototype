@@ -401,7 +401,7 @@ const buildWorldFromItems = (
     description: "Noticias del día.",
     mode: "vocab",
     pool,
-    chunking: { itemsPerGame: Math.max(1, items.length) },
+    chunking: { itemsPerGame: 8 },
     source_language: sourceLabel,
     target_language: targetLabel,
     ui: {
@@ -1081,8 +1081,11 @@ export default function AppClient({
     }
     const weekStart = getWeekStartIso()
     if (typeof initialProfile?.seeds === "number") {
-      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(initialProfile.seeds))
-      setSeeds(initialProfile.seeds)
+      const local = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+      const server = initialProfile.seeds
+      const final = Math.max(local, server)
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(final))
+      setSeeds(final)
     } else {
       syncSeeds()
     }
@@ -2772,7 +2775,7 @@ export default function AppClient({
                   summary: newsSummary,
                   sourceUrl: newsUrl.trim() || undefined,
                 },
-                chunking: { mode: "sequential", itemsPerGame: Math.max(1, included.length) },
+                chunking: { mode: "sequential", itemsPerGame: 8 },
                 ui: {
                   ...(baseWorld.ui ?? {}),
                   winning: {

@@ -146,7 +146,7 @@ const buildWorldFromItems = (
     description: "Noticias del día.",
     mode: "vocab",
     pool,
-    chunking: { itemsPerGame: Math.max(1, items.length) },
+    chunking: { itemsPerGame: 8 },
     source_language: sourceLabel,
     target_language: targetLabel,
     ui: {

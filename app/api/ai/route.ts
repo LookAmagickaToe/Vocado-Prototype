@@ -44,7 +44,7 @@ function buildParsePrompt({
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
     "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
-    "example is required: exactly one short usage sentence in the source language.",
+    // example removed per user request
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
@@ -82,7 +82,7 @@ function buildImagePrompt({
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
     "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
-    "example is required: exactly one short usage sentence in the source language.",
+    // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
@@ -104,6 +104,7 @@ function buildConjugationPrompt({
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     "Return ONLY valid JSON with this shape:",
     `{"conjugations":[{"verb":"gehen","translation":"ir","sections":[{"title":"Präsens","rows":[["ich","gehe"],["du","gehst"],["er/sie/es","geht"],["wir","gehen"],["ihr","geht"],["sie/Sie","gehen"]]}]}]}`,
+    "Include ONLY these tenses: Simple Present, Simple Past (Präteritum), Present Perfect (Perfekt).",
     "Use pronouns and conjugated forms in the target language.",
     `Verbs: ${JSON.stringify(verbs)}`,
   ].join("\n")
@@ -141,7 +142,7 @@ function buildThemePrompt({
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing.",
     "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
-    "example is required: exactly one short usage sentence in the source language.",
+    // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return exactly the requested number of items if possible.",
   ].join("\n")
@@ -186,9 +187,9 @@ function buildNewsPrompt({
     "Always set pos for every item (verb, noun, adj, or other).",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
     "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
-    "example is required: exactly one short usage sentence in the source language.",
+    // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
-    "Select vocabulary based on the user's level.",
+    "Select vocabulary based on the user's level. Be generous: extract MORE words rather than fewer, to ensure the text is easy to understand. Include even moderately common words if they are relevant to the context.",
     "Input article text:",
     rawText,
   ].join("\n")
