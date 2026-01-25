@@ -357,12 +357,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   useEffect(() => {
     const loadHeadlines = async () => {
       setIsLoadingHeadlines(true)
+      const today = new Date().toISOString().slice(0, 10)
       const cacheKey = `vocado-news-cache-${category}`
       const cached = typeof window !== "undefined" ? window.localStorage.getItem(cacheKey) : null
       if (cached) {
         try {
           const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed?.items)) {
+          if (parsed?.date === today && Array.isArray(parsed?.items)) {
             setHeadlines(parsed.items.slice(0, 3))
             setIsLoadingHeadlines(false)
             return
@@ -377,7 +378,10 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         const items = Array.isArray(data?.items) ? data.items : []
         setHeadlines(items.slice(0, 3))
         if (typeof window !== "undefined") {
-          window.localStorage.setItem(cacheKey, JSON.stringify({ items: items.slice(0, 3) }))
+          window.localStorage.setItem(
+            cacheKey,
+            JSON.stringify({ date: today, items: items.slice(0, 3) })
+          )
         }
       } catch {
         setHeadlines([])
