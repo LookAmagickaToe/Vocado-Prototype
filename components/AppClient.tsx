@@ -598,6 +598,7 @@ export default function AppClient({
   const [isListPickerOpen, setIsListPickerOpen] = useState(false)
   const [listPickerName, setListPickerName] = useState("")
   const [seeds, setSeeds] = useState(0)
+  const [bestScores, setBestScores] = useState<Record<string, number>>({})
 
   // used to force-remount the game (restart) without touching game internals
   const [gameSeed, setGameSeed] = useState(0)
@@ -627,6 +628,12 @@ export default function AppClient({
       // No daily state, check local storage or default to done if profile says so? 
       // Actually profile.onboardingDone is the source of truth for "welcome" vs "done".
       // If onboardingDone is true, likely done.
+    }
+    const rawBest = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
+    if (rawBest) {
+      try {
+        setBestScores(JSON.parse(rawBest))
+      } catch { } // ignore
     }
   }, [initialProfile, onboardingKey])
 
@@ -882,6 +889,7 @@ export default function AppClient({
     const newBest = Math.max(runScore, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
+    setBestScores(bestMap)
 
     const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     const serverSeeds = initialProfile?.seeds || 0
@@ -3335,6 +3343,7 @@ export default function AppClient({
             promptPlaceholder="family"
             onPromptChange={setPromptText}
             onPromptSubmit={createWorldFromPrompt}
+            bestScores={bestScores}
           />
         )}
       </AnimatePresence>
@@ -4410,6 +4419,7 @@ function ListPickerOverlay({
   onSelectList: (id: string) => void
   onCreateList: () => void
   onClose: () => void
+  bestScores: Record<string, number>
 }) {
   const safeLists = useMemo(
     () =>
@@ -4534,7 +4544,7 @@ function WorldsOverlay({
   onPromptSubmit,
 }: {
   ui: UiCopy
-  worlds: Array<{ id: string; title: string; description?: string }>
+  worlds: Array<World>
   lists: WorldList[]
   collapsedListIds: Record<string, boolean>
   onSetCollapsedListIds: (
@@ -4788,6 +4798,16 @@ function WorldsOverlay({
                     {listWorlds.map((w, idx) => {
                       const active = w.id === activeWorldId
                       const title = getWorldTitle(w.id, w.title)
+                      const chunkSize = w.chunking?.itemsPerGame ?? 8
+                      const totalLevels = Math.ceil((w.pool?.length ?? 0) / chunkSize)
+                      let isComplete = totalLevels > 0
+                      for (let i = 0; i < totalLevels; i++) {
+                        if ((bestScores[`${w.id}:${i}`] || 0) <= 0) {
+                          isComplete = false
+                          break
+                        }
+                      }
+
                       return (
                         <div
                           key={w.id}
@@ -4833,7 +4853,10 @@ function WorldsOverlay({
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
-                                <div className="text-base font-semibold text-neutral-50">{title}</div>
+                                <div className="text-base font-semibold text-neutral-50">
+                                  {title}
+                                  {isComplete && <span className="ml-2 text-green-400">✅</span>}
+                                </div>
                                 <button
                                   type="button"
                                   onClick={(e) => {

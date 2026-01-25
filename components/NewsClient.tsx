@@ -557,6 +557,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }
     }
     dailyState.games = Math.min(3, dailyState.games + 1)
+    dailyState.news = true
     if (dailyState.games === 3) {
       const dailyRewardKey = `${today}-games`
       const rewarded = window.localStorage.getItem(dailyRewardKey) === "1"
