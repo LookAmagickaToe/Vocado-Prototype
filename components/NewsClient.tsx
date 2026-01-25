@@ -523,7 +523,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
 
-    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const serverSeeds = profile.seeds || 0
+    const currentSeeds = Math.max(storedSeeds, serverSeeds)
     const nextSeeds = currentSeeds + payout
     window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
     setSeeds(nextSeeds)
