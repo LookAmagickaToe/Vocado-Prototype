@@ -1781,8 +1781,10 @@ export default function AppClient({
     if (!isSupabaseLoaded) return
     if (autoNewsLoading) return
     const checkNews = async () => {
-      // Robust check: Look for actual content from today
-      const today = new Date().toISOString().slice(0, 10)
+      // Use LOCAL time date to ensure "Today" matches user's wall clock
+      const d = new Date()
+      // Format YYYY-MM-DD in local time
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
       const vocabList = worldLists.find(l => l.name === "Vocado Diario")
       let hasNewsToday = false
@@ -1792,8 +1794,10 @@ export default function AppClient({
         if (latestId.startsWith("news-")) {
           const timestamp = Number(latestId.replace("news-", ""))
           if (!isNaN(timestamp)) {
-            const date = new Date(timestamp).toISOString().slice(0, 10)
-            if (date === today) {
+            // Convert content timestamp to LOCAL YYYY-MM-DD
+            const cd = new Date(timestamp)
+            const contentDate = `${cd.getFullYear()}-${String(cd.getMonth() + 1).padStart(2, "0")}-${String(cd.getDate()).padStart(2, "0")}`
+            if (contentDate === today) {
               hasNewsToday = true
             }
           }
@@ -1801,10 +1805,6 @@ export default function AppClient({
       }
 
       if (hasNewsToday) return
-
-      // Double check storage just in case we are offline/optimistic
-      const storedDate = window.localStorage.getItem(LAST_NEWS_FETCH_STORAGE_KEY)
-      if (storedDate === today && hasNewsToday) return
 
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
