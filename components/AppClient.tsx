@@ -1776,6 +1776,24 @@ export default function AppClient({
     })
   }
 
+  // Auto-News Effect
+  useEffect(() => {
+    if (!isSupabaseLoaded) return
+    if (autoNewsLoading) return
+    const checkNews = async () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const storedDate = window.localStorage.getItem(LAST_NEWS_FETCH_STORAGE_KEY)
+      if (storedDate === today) return
+
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (token) {
+        fetchDailyNews(today, token, worldTitleOverrides)
+      }
+    }
+    checkNews()
+  }, [isSupabaseLoaded, profileSettings.newsCategory, profileSettings.sourceLanguage])
+
   const persistWorlds = async (worldsToPersist: World[], activeWorldId?: string) => {
     // Tutorial Hook: If creating, advance to final
     if (tutorialStep === "create_instruction" || tutorialStep === "creating") {
