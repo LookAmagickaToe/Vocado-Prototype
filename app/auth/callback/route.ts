@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export async function GET(request: Request) {
   const debug = process.env.DEBUG_AUTH === "true"
@@ -42,20 +41,6 @@ export async function GET(request: Request) {
       })
     }
 
-    const { data: sessionData } = await supabase.auth.getUser()
-    const email = sessionData.user?.email?.toLowerCase() ?? ""
-    if (email) {
-      const { data: allowedRow } = await supabaseAdmin
-        .from("allowed_users")
-        .select("email")
-        .eq("email", email)
-        .maybeSingle()
-
-      if (!allowedRow?.email) {
-        await supabase.auth.signOut()
-        return NextResponse.redirect(new URL("/login?denied=1", request.url))
-      }
-    }
   }
 
   return NextResponse.redirect(new URL("/", request.url))
