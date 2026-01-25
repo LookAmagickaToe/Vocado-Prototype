@@ -889,20 +889,28 @@ export default function AppClient({
 
     const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
     const today = new Date().toISOString().slice(0, 10)
-    let dailyState = { date: today, games: 0, upload: false, news: false }
+
+    let localDaily: { date: string; games: number; upload: boolean; news: boolean } | null = null
     if (rawDaily) {
       try {
         const parsed = JSON.parse(rawDaily)
         if (parsed?.date === today) {
-          dailyState = {
-            date: today,
-            games: parsed?.games ?? 0,
-            upload: !!parsed?.upload,
-            news: !!parsed?.news,
-          }
+          localDaily = parsed
         }
       } catch {
         // ignore
+      }
+    }
+
+    const serverDaily = initialProfile?.dailyState?.date === today ? initialProfile.dailyState : null
+
+    let dailyState = { date: today, games: 0, upload: false, news: false }
+    if (localDaily || serverDaily) {
+      dailyState = {
+        date: today,
+        games: Math.max(localDaily?.games ?? 0, serverDaily?.games ?? 0),
+        upload: !!(localDaily?.upload || serverDaily?.upload),
+        news: !!(localDaily?.news || serverDaily?.news),
       }
     }
     dailyState.games = Math.min(3, dailyState.games + 1)
