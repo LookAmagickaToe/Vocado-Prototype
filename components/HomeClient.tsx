@@ -331,944 +331,941 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         setSeeds(localSeeds)
       }
     }
-  }
 
     const syncWeeklyFromStorage = () => {
-    const weekStartNormalized = getWeekStartIso()
-    const serverWeekStart = profileState.weeklyWordsWeekStart || ""
-    const rawLocal = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-    const localWeekly = rawLocal ? Number(rawLocal) || 0 : 0
+      const weekStartNormalized = getWeekStartIso()
+      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+      const rawLocal = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+      const localWeekly = rawLocal ? Number(rawLocal) || 0 : 0
 
-    // Always get fresh values for sync
-    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-    const weeklySeedsValue = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+      // Always get fresh values for sync
+      const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+      const weeklySeedsValue = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
 
-    if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
-      const weeklyValue = Math.max(profileState.weeklyWords, localWeekly)
-      window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
-      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
-      setWordsLearned(weeklyValue)
-      if (weeklyValue > profileState.weeklyWords) {
-        syncStatsToServer(currentSeeds, weeklySeedsValue, weeklyValue, weekStartNormalized)
-      }
-    } else {
-      const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
-      if (rawWeekStart !== weekStartNormalized) {
+      if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
+        const weeklyValue = Math.max(profileState.weeklyWords, localWeekly)
         window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
-        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
-        setWordsLearned(0)
-        syncStatsToServer(currentSeeds, weeklySeedsValue, 0, weekStartNormalized)
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
+        setWordsLearned(weeklyValue)
+        if (weeklyValue > profileState.weeklyWords) {
+          syncStatsToServer(currentSeeds, weeklySeedsValue, weeklyValue, weekStartNormalized)
+        }
       } else {
-        setWordsLearned(localWeekly)
+        const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+        if (rawWeekStart !== weekStartNormalized) {
+          window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
+          window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+          setWordsLearned(0)
+          syncStatsToServer(currentSeeds, weeklySeedsValue, 0, weekStartNormalized)
+        } else {
+          setWordsLearned(localWeekly)
+        }
       }
-    }
 
-    const serverSeedsWeekStart = profileState.weeklySeedsWeekStart || ""
-    const rawLocalSeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
-    const localWeeklySeeds = rawLocalSeeds ? Number(rawLocalSeeds) || 0 : 0
+      const serverSeedsWeekStart = profileState.weeklySeedsWeekStart || ""
+      const rawLocalSeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+      const localWeeklySeeds = rawLocalSeeds ? Number(rawLocalSeeds) || 0 : 0
 
-    const currentWeeklyWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+      const currentWeeklyWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
 
-    if (serverSeedsWeekStart === weekStartNormalized && typeof profileState.weeklySeeds === "number") {
-      const nextWeeklySeeds = Math.max(profileState.weeklySeeds, localWeeklySeeds)
-      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
-      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(nextWeeklySeeds))
-      if (nextWeeklySeeds > profileState.weeklySeeds) {
-        syncStatsToServer(currentSeeds, nextWeeklySeeds, currentWeeklyWords, weekStartNormalized)
-      }
-    } else {
-      const rawSeedsStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
-      if (rawSeedsStart !== weekStartNormalized) {
+      if (serverSeedsWeekStart === weekStartNormalized && typeof profileState.weeklySeeds === "number") {
+        const nextWeeklySeeds = Math.max(profileState.weeklySeeds, localWeeklySeeds)
         window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
-        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
-        syncStatsToServer(currentSeeds, 0, currentWeeklyWords, weekStartNormalized)
-      }
-    }
-  }
-
-  const syncDailyFromStorage = () => {
-    const today = new Date().toISOString().slice(0, 10)
-    let local: { date: string; games: number; upload: boolean; news: boolean } | null = null
-    const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
-    if (rawDaily) {
-      try {
-        const parsed = JSON.parse(rawDaily)
-        if (parsed?.date === today) {
-          local = {
-            date: today,
-            games: parsed?.games ?? 0,
-            upload: !!parsed?.upload,
-            news: !!parsed?.news,
-          }
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(nextWeeklySeeds))
+        if (nextWeeklySeeds > profileState.weeklySeeds) {
+          syncStatsToServer(currentSeeds, nextWeeklySeeds, currentWeeklyWords, weekStartNormalized)
         }
-      } catch {
-        // ignore
-      }
-    }
-
-    const server =
-      profileState.dailyState && profileState.dailyState.date === today
-        ? {
-          date: today,
-          games: profileState.dailyState.games ?? 0,
-          upload: !!profileState.dailyState.upload,
-          news: !!profileState.dailyState.news,
+      } else {
+        const rawSeedsStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+        if (rawSeedsStart !== weekStartNormalized) {
+          window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
+          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+          syncStatsToServer(currentSeeds, 0, currentWeeklyWords, weekStartNormalized)
         }
-        : null
-
-    // Always get fresh values for sync
-    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-    const currentWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
-    const currentLearned = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
-
-    if (local || server) {
-      const merged = {
-        date: today,
-        games: Math.max(local?.games ?? 0, server?.games ?? 0),
-        upload: !!(local?.upload || server?.upload),
-        news: !!(local?.news || server?.news),
       }
-      window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(merged))
-      setDailyGames(merged.games)
-      setDailyUploadDone(merged.upload)
-      setDailyNewsDone(merged.news)
-      if (
-        !server ||
-        server.games !== merged.games ||
-        server.upload !== merged.upload ||
-        server.news !== merged.news
-      ) {
-        syncStatsToServer(currentSeeds, currentWeeklySeeds, currentLearned, getWeekStartIso(), merged)
-      }
-      return
     }
 
-    const reset = { date: today, games: 0, upload: false, news: false }
-    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
-    setDailyGames(0)
-    setDailyUploadDone(false)
-    setDailyNewsDone(false)
-    syncStatsToServer(currentSeeds, currentWeeklySeeds, currentLearned, getWeekStartIso(), reset)
-  }
-
-  syncSeedsFromStorage()
-  syncWeeklyFromStorage()
-  syncDailyFromStorage()
-
-  const lastKey = getLastPlayedKey(
-    profileState.sourceLanguage,
-    profileState.targetLanguage
-  )
-  const rawLast = window.localStorage.getItem(lastKey)
-  if (rawLast) {
-    try {
-      const parsed = JSON.parse(rawLast)
-      if (parsed?.id && parsed?.title) {
-        setLastPlayed(parsed)
-      }
-    } catch {
-      // ignore
-    }
-  } else {
-    setLastPlayed(null)
-  }
-
-  const loadTopNews = async () => {
-    try {
-      const preferred = profileState.newsCategory || "world"
-      const cacheKey = `vocado-news-cache-${preferred}`
-      const cached = window.localStorage.getItem(cacheKey)
-      if (cached) {
+    const syncDailyFromStorage = () => {
+      const today = new Date().toISOString().slice(0, 10)
+      let local: { date: string; games: number; upload: boolean; news: boolean } | null = null
+      const rawDaily = window.localStorage.getItem(DAILY_STATE_STORAGE_KEY)
+      if (rawDaily) {
         try {
-          const parsed = JSON.parse(cached)
-          const first = Array.isArray(parsed?.items) ? parsed.items[0] : null
-          if (first?.title) {
-            setTopNewsTitle(first.title)
-            return
+          const parsed = JSON.parse(rawDaily)
+          if (parsed?.date === today) {
+            local = {
+              date: today,
+              games: parsed?.games ?? 0,
+              upload: !!parsed?.upload,
+              news: !!parsed?.news,
+            }
           }
         } catch {
           // ignore
         }
       }
-      const response = await fetch(`/api/news/tagesschau?ressort=${preferred}`)
-      const data = await response.json()
-      const items = Array.isArray(data?.items) ? data.items : []
-      const limited = items.slice(0, 3)
-      const first = limited[0]
-      setTopNewsTitle(first?.title ?? "")
-      window.localStorage.setItem(cacheKey, JSON.stringify({ items: limited }))
-    } catch {
-      setTopNewsTitle("")
-    }
-  }
-  loadTopNews()
 
-  const handleFocus = () => {
+      const server =
+        profileState.dailyState && profileState.dailyState.date === today
+          ? {
+            date: today,
+            games: profileState.dailyState.games ?? 0,
+            upload: !!profileState.dailyState.upload,
+            news: !!profileState.dailyState.news,
+          }
+          : null
+
+      // Always get fresh values for sync
+      const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+      const currentWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+      const currentLearned = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+
+      if (local || server) {
+        const merged = {
+          date: today,
+          games: Math.max(local?.games ?? 0, server?.games ?? 0),
+          upload: !!(local?.upload || server?.upload),
+          news: !!(local?.news || server?.news),
+        }
+        window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(merged))
+        setDailyGames(merged.games)
+        setDailyUploadDone(merged.upload)
+        setDailyNewsDone(merged.news)
+        if (
+          !server ||
+          server.games !== merged.games ||
+          server.upload !== merged.upload ||
+          server.news !== merged.news
+        ) {
+          syncStatsToServer(currentSeeds, currentWeeklySeeds, currentLearned, getWeekStartIso(), merged)
+        }
+        return
+      }
+
+      const reset = { date: today, games: 0, upload: false, news: false }
+      window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(reset))
+      setDailyGames(0)
+      setDailyUploadDone(false)
+      setDailyNewsDone(false)
+      syncStatsToServer(currentSeeds, currentWeeklySeeds, currentLearned, getWeekStartIso(), reset)
+    }
+
     syncSeedsFromStorage()
     syncWeeklyFromStorage()
     syncDailyFromStorage()
-  }
-  window.addEventListener("focus", handleFocus)
-  return () => window.removeEventListener("focus", handleFocus)
-}, [profileState])
 
-useEffect(() => {
-  const today = new Date().toISOString().slice(0, 10)
-  const nextDaily = { date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone }
-  window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(nextDaily))
-  const weeklySeeds =
-    Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
-  syncStatsToServer(seeds, weeklySeeds, wordsLearned, getWeekStartIso(), nextDaily)
-}, [dailyGames, dailyUploadDone, dailyNewsDone, seeds, wordsLearned])
-
-useEffect(() => {
-  const loadListsAndWorlds = async () => {
-    const session = await supabase.auth.getSession()
-    const token = session.data.session?.access_token
-    if (!token) return
-    const response = await fetch("/api/storage/worlds/list", {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!response.ok) return
-    const data = await response.json()
-    const worlds = Array.isArray(data?.worlds) ? data.worlds : []
-    const lists = Array.isArray(data?.lists) ? data.lists : []
-    const filteredWorlds = worlds
-      .map((entry: { worldId: string; title?: string; json?: any }) => ({
-        worldId: entry.worldId,
-        title: entry.title ?? entry?.json?.title ?? entry.worldId,
-        json: entry.json,
-      }))
-      .filter((entry: StoredWorld) => entry.json?.mode === "vocab" && entry.json?.submode !== "conjugation")
-    setAvailableWorlds(filteredWorlds)
-    setAvailableLists(
-      lists.map((list: any) => ({ id: list.id, name: list.name })) as StoredList[]
+    const lastKey = getLastPlayedKey(
+      profileState.sourceLanguage,
+      profileState.targetLanguage
     )
-    const defaultWorld = filteredWorlds.find(
-      (world) => world.title.trim().toLowerCase() === translationWorldName.trim().toLowerCase()
-    )
-    if (defaultWorld) {
-      setSelectedWorldId(defaultWorld.worldId)
-    } else if (filteredWorlds.length > 0) {
-      setSelectedWorldId(filteredWorlds[0].worldId)
-    }
-    const defaultList = lists.find(
-      (list: any) =>
-        typeof list?.name === "string" &&
-        list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
-    )
-    if (defaultList) {
-      setSelectedListId(defaultList.id)
-    }
-  }
-  loadListsAndWorlds()
-}, [profileState.sourceLanguage, profileState.targetLanguage, translationWorldName, privateListName])
-
-useEffect(() => {
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === SEEDS_STORAGE_KEY) {
-      const next = event.newValue ? Number(event.newValue) || 0 : 0
-      setSeeds(next)
-    }
-    if (event.key === WEEKLY_WORDS_STORAGE_KEY) {
-      const next = event.newValue ? Number(event.newValue) || 0 : 0
-      setWordsLearned(next)
-    }
-    if (event.key === DAILY_STATE_STORAGE_KEY && event.newValue) {
+    const rawLast = window.localStorage.getItem(lastKey)
+    if (rawLast) {
       try {
-        const parsed = JSON.parse(event.newValue)
-        const today = new Date().toISOString().slice(0, 10)
-        if (parsed?.date === today) {
-          setDailyGames(parsed?.games ?? 0)
-          setDailyUploadDone(!!parsed?.upload)
-          setDailyNewsDone(!!parsed?.news)
+        const parsed = JSON.parse(rawLast)
+        if (parsed?.id && parsed?.title) {
+          setLastPlayed(parsed)
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      setLastPlayed(null)
+    }
+
+    const loadLeaderboard = async () => {
+      setLeaderboardLoading(true)
+      try {
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token
+        if (!token) {
+          setLeaderboardEntries([])
+          return
+        }
+        const response = await fetch(`/api/leaderboard?scope=${leaderboardMode}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!response.ok) {
+          setLeaderboardEntries([])
+          return
+        }
+        const data = await response.json()
+        const entries = Array.isArray(data?.entries) ? data.entries : []
+        setLeaderboardEntries(
+          entries.map((entry: any) => ({
+            name: entry?.username || entry?.name || "User",
+            score: Number(entry?.score) || 0,
+          }))
+        )
+      } catch {
+        setLeaderboardEntries([])
+      } finally {
+        setLeaderboardLoading(false)
+      }
+    }
+
+    const loadTopNews = async () => {
+      try {
+        const preferred = profileState.newsCategory || "world"
+        const cacheKey = `vocado-news-cache-${preferred}`
+        const cached = window.localStorage.getItem(cacheKey)
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached)
+            const first = Array.isArray(parsed?.items) ? parsed.items[0] : null
+            if (first?.title) {
+              setTopNewsTitle(first.title)
+              return
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const response = await fetch(`/api/news/tagesschau?ressort=${preferred}`)
+        const data = await response.json()
+        const items = Array.isArray(data?.items) ? data.items : []
+        const limited = items.slice(0, 3)
+        const first = limited[0]
+        setTopNewsTitle(first?.title ?? "")
+        window.localStorage.setItem(cacheKey, JSON.stringify({ items: limited }))
+      } catch {
+        setTopNewsTitle("")
+      }
+    }
+    loadTopNews()
+
+    const handleFocus = () => {
+      syncSeedsFromStorage()
+      syncWeeklyFromStorage()
+      syncDailyFromStorage()
+      loadLeaderboard()
+    }
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
+  }, [profileState])
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const nextDaily = { date: today, games: dailyGames, upload: dailyUploadDone, news: dailyNewsDone }
+    window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(nextDaily))
+    const weeklySeeds =
+      Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+    syncStatsToServer(seeds, weeklySeeds, wordsLearned, getWeekStartIso(), nextDaily)
+  }, [dailyGames, dailyUploadDone, dailyNewsDone, seeds, wordsLearned])
+
+  useEffect(() => {
+    const loadListsAndWorlds = async () => {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      const response = await fetch("/api/storage/worlds/list", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      const worlds = Array.isArray(data?.worlds) ? data.worlds : []
+      const lists = Array.isArray(data?.lists) ? data.lists : []
+      const filteredWorlds = worlds
+        .map((entry: { worldId: string; title?: string; json?: any }) => ({
+          worldId: entry.worldId,
+          title: entry.title ?? entry?.json?.title ?? entry.worldId,
+          json: entry.json,
+        }))
+        .filter((entry: StoredWorld) => entry.json?.mode === "vocab" && entry.json?.submode !== "conjugation")
+      setAvailableWorlds(filteredWorlds)
+      setAvailableLists(
+        lists.map((list: any) => ({ id: list.id, name: list.name })) as StoredList[]
+      )
+      const defaultWorld = filteredWorlds.find(
+        (world) => world.title.trim().toLowerCase() === translationWorldName.trim().toLowerCase()
+      )
+      if (defaultWorld) {
+        setSelectedWorldId(defaultWorld.worldId)
+      } else if (filteredWorlds.length > 0) {
+        setSelectedWorldId(filteredWorlds[0].worldId)
+      }
+      const defaultList = lists.find(
+        (list: any) =>
+          typeof list?.name === "string" &&
+          list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
+      )
+      if (defaultList) {
+        setSelectedListId(defaultList.id)
+      }
+    }
+    loadListsAndWorlds()
+  }, [profileState.sourceLanguage, profileState.targetLanguage, translationWorldName, privateListName])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === SEEDS_STORAGE_KEY) {
+        const next = event.newValue ? Number(event.newValue) || 0 : 0
+        setSeeds(next)
+      }
+      if (event.key === WEEKLY_WORDS_STORAGE_KEY) {
+        const next = event.newValue ? Number(event.newValue) || 0 : 0
+        setWordsLearned(next)
+      }
+      if (event.key === DAILY_STATE_STORAGE_KEY && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue)
+          const today = new Date().toISOString().slice(0, 10)
+          if (parsed?.date === today) {
+            setDailyGames(parsed?.games ?? 0)
+            setDailyUploadDone(!!parsed?.upload)
+            setDailyNewsDone(!!parsed?.news)
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [])
+
+
+
+  useEffect(() => {
+    loadLeaderboard()
+  }, [leaderboardMode])
+
+  useEffect(() => {
+    const syncProfileFromStorage = () => {
+      if (typeof window === "undefined") return
+      const raw = window.localStorage.getItem("vocado-profile-settings")
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw)
+        if (
+          parsed &&
+          (parsed.level ||
+            parsed.sourceLanguage ||
+            parsed.targetLanguage ||
+            parsed.newsCategory ||
+            typeof parsed.onboardingDone === "boolean")
+        ) {
+          setProfileState((prev) => ({ ...prev, ...parsed }))
         }
       } catch {
         // ignore
       }
     }
-  }
-  window.addEventListener("storage", handleStorage)
-  return () => window.removeEventListener("storage", handleStorage)
-}, [])
+    syncProfileFromStorage()
+  }, [])
 
-useEffect(() => {
-  let mounted = true
-  const loadLeaderboard = async () => {
-    setLeaderboardLoading(true)
+  const mascotSrc = isSad ? "/mascot/sad_vocado.png" : "/mascot/happy_vocado.png"
+
+  const normalizeText = (value: unknown) =>
+    typeof value === "string" ? value.trim() : ""
+
+  const normalizePos = (value: unknown): ReviewItem["pos"] =>
+    value === "verb" || value === "noun" || value === "adj" ? value : "other"
+
+  const normalizeEmoji = (value: unknown) => {
+    if (typeof value !== "string") return "📝"
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : "📝"
+  }
+
+  const sourceLabel = profileState.sourceLanguage || "Español"
+  const targetLabel = profileState.targetLanguage || "Alemán"
+
+  const callAi = async (payload: Record<string, unknown>) => {
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    let data: any = null
     try {
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
-      if (!token) {
-        setLeaderboardEntries([])
-        return
-      }
-      const response = await fetch(`/api/leaderboard?scope=${leaderboardMode}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+      data = await response.json()
+    } catch {
+      const text = await response.text().catch(() => "")
+      data = { error: text }
+    }
+    if (!response.ok) {
+      throw new Error(data?.error || "AI request failed")
+    }
+    return data
+  }
+
+  const handleTranslate = async () => {
+    setTranslateError(null)
+    setSaveError(null)
+    setIsTranslating(true)
+    try {
+      const result = await callAi({
+        task: "parse_text",
+        text: translateInput,
+        sourceLabel,
+        targetLabel,
+        level: profileState.level || undefined,
       })
-      if (!response.ok) {
-        setLeaderboardEntries([])
+      const items = Array.isArray(result?.items) ? result.items : []
+      if (items.length === 0) {
+        setTranslateError("No se pudo traducir.")
         return
       }
-      const data = await response.json()
-      const entries = Array.isArray(data?.entries) ? data.entries : []
-      if (!mounted) return
-      setLeaderboardEntries(
-        entries.map((entry: any) => ({
-          name: entry?.username || entry?.name || "User",
-          score: Number(entry?.score) || 0,
-        }))
-      )
-    } catch {
-      if (!mounted) return
-      setLeaderboardEntries([])
+      const item = items[0]
+      setTranslateResult({
+        source: normalizeText(item?.source),
+        target: normalizeText(item?.target),
+        pos: normalizePos(item?.pos),
+        lemma: normalizeText(item?.lemma) || undefined,
+        emoji: normalizeEmoji(item?.emoji),
+        explanation: normalizeText(item?.explanation) || undefined,
+        example: normalizeText(item?.example) || undefined,
+        syllables: normalizeText(item?.syllables) || undefined,
+      })
+    } catch (err) {
+      setTranslateError((err as Error).message)
     } finally {
-      if (mounted) setLeaderboardLoading(false)
+      setIsTranslating(false)
     }
   }
-  loadLeaderboard()
-  return () => {
-    mounted = false
-  }
-}, [leaderboardMode])
 
-useEffect(() => {
-  const syncProfileFromStorage = () => {
-    if (typeof window === "undefined") return
-    const raw = window.localStorage.getItem("vocado-profile-settings")
-    if (!raw) return
-    try {
-      const parsed = JSON.parse(raw)
-      if (
-        parsed &&
-        (parsed.level ||
-          parsed.sourceLanguage ||
-          parsed.targetLanguage ||
-          parsed.newsCategory ||
-          typeof parsed.onboardingDone === "boolean")
-      ) {
-        setProfileState((prev) => ({ ...prev, ...parsed }))
-      }
-    } catch {
-      // ignore
-    }
-  }
-  syncProfileFromStorage()
-}, [])
-
-const mascotSrc = isSad ? "/mascot/sad_vocado.png" : "/mascot/happy_vocado.png"
-
-const normalizeText = (value: unknown) =>
-  typeof value === "string" ? value.trim() : ""
-
-const normalizePos = (value: unknown): ReviewItem["pos"] =>
-  value === "verb" || value === "noun" || value === "adj" ? value : "other"
-
-const normalizeEmoji = (value: unknown) => {
-  if (typeof value !== "string") return "📝"
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : "📝"
-}
-
-const sourceLabel = profileState.sourceLanguage || "Español"
-const targetLabel = profileState.targetLanguage || "Alemán"
-
-const callAi = async (payload: Record<string, unknown>) => {
-  const response = await fetch("/api/ai", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-  let data: any = null
-  try {
-    data = await response.json()
-  } catch {
-    const text = await response.text().catch(() => "")
-    data = { error: text }
-  }
-  if (!response.ok) {
-    throw new Error(data?.error || "AI request failed")
-  }
-  return data
-}
-
-const handleTranslate = async () => {
-  setTranslateError(null)
-  setSaveError(null)
-  setIsTranslating(true)
-  try {
+  const ensureConjugation = async (item: ReviewItem) => {
+    if (item.pos !== "verb") return undefined
+    const lemma = item.lemma || item.target
+    if (!lemma) return undefined
     const result = await callAi({
-      task: "parse_text",
-      text: translateInput,
+      task: "conjugate",
+      verbs: [{ lemma, translation: item.source }],
       sourceLabel,
       targetLabel,
-      level: profileState.level || undefined,
     })
-    const items = Array.isArray(result?.items) ? result.items : []
-    if (items.length === 0) {
-      setTranslateError("No se pudo traducir.")
-      return
+    const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
+    const entry = conjugations[0]
+    if (!entry?.verb) return undefined
+    return {
+      infinitive: entry.verb,
+      translation: entry.translation ?? "",
+      sections: Array.isArray(entry.sections) ? entry.sections : [],
     }
-    const item = items[0]
-    setTranslateResult({
-      source: normalizeText(item?.source),
-      target: normalizeText(item?.target),
-      pos: normalizePos(item?.pos),
-      lemma: normalizeText(item?.lemma) || undefined,
-      emoji: normalizeEmoji(item?.emoji),
-      explanation: normalizeText(item?.explanation) || undefined,
-      example: normalizeText(item?.example) || undefined,
-      syllables: normalizeText(item?.syllables) || undefined,
+  }
+
+  const saveWorlds = async (worlds: any[], listId?: string) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) throw new Error("Missing auth token")
+    const response = await fetch("/api/storage/worlds/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        worlds,
+        listId: listId || null,
+        positions: worlds.reduce<Record<string, number>>((acc, world, index) => {
+          acc[world.id] = index
+          return acc
+        }, {}),
+      }),
     })
-  } catch (err) {
-    setTranslateError((err as Error).message)
-  } finally {
-    setIsTranslating(false)
-  }
-}
-
-const ensureConjugation = async (item: ReviewItem) => {
-  if (item.pos !== "verb") return undefined
-  const lemma = item.lemma || item.target
-  if (!lemma) return undefined
-  const result = await callAi({
-    task: "conjugate",
-    verbs: [{ lemma, translation: item.source }],
-    sourceLabel,
-    targetLabel,
-  })
-  const conjugations = Array.isArray(result?.conjugations) ? result.conjugations : []
-  const entry = conjugations[0]
-  if (!entry?.verb) return undefined
-  return {
-    infinitive: entry.verb,
-    translation: entry.translation ?? "",
-    sections: Array.isArray(entry.sections) ? entry.sections : [],
-  }
-}
-
-const saveWorlds = async (worlds: any[], listId?: string) => {
-  const session = await supabase.auth.getSession()
-  const token = session.data.session?.access_token
-  if (!token) throw new Error("Missing auth token")
-  const response = await fetch("/api/storage/worlds/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      worlds,
-      listId: listId || null,
-      positions: worlds.reduce<Record<string, number>>((acc, world, index) => {
-        acc[world.id] = index
-        return acc
-      }, {}),
-    }),
-  })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    throw new Error(data?.error ?? "Save failed")
-  }
-}
-
-const ensurePrivateList = async () => {
-  const existing = availableLists.find(
-    (list) => list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
-  )
-  if (existing) {
-    setSelectedListId(existing.id)
-    return existing.id
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error(data?.error ?? "Save failed")
+    }
   }
 
-  const session = await supabase.auth.getSession()
-  const token = session.data.session?.access_token
-  if (!token) return ""
-
-  const newId =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
-  const nextLists = [
-    ...availableLists.map((list, index) => ({
-      id: list.id,
-      name: list.name,
-      position: index,
-    })),
-    {
-      id: newId,
-      name: privateListName,
-      position: availableLists.length,
-    },
-  ]
-  await fetch("/api/storage/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ lists: nextLists, worlds: [] }),
-  })
-  setAvailableLists((prev) => [...prev, { id: newId, name: privateListName }])
-  setSelectedListId(newId)
-  return newId
-}
-
-const handleAdd = async () => {
-  if (!translateResult) return
-  setSaveError(null)
-  try {
-    const conjugation = await ensureConjugation(translateResult)
-    const explanation = translateResult.explanation?.trim() || `Significado de ${translateResult.source}.`
-    const example = translateResult.example?.trim() || `Ejemplo: ${translateResult.source}.`
-    const syllables = translateResult.syllables?.trim()
-    const explanationWithSyllables =
-      translateResult.pos === "verb" && syllables && translateResult.target
-        ? `${explanation}\n${translateResult.target}\n${syllables}`
-        : explanation
-
-    const newItem = {
-      id: `item-${Date.now()}`,
-      es: translateResult.source,
-      de: translateResult.target,
-      image: { type: "emoji", value: translateResult.emoji ?? "📝" },
-      pos: translateResult.pos,
-      explanation: explanationWithSyllables,
-      example,
-      conjugation,
+  const ensurePrivateList = async () => {
+    const existing = availableLists.find(
+      (list) => list.name.trim().toLowerCase() === privateListName.trim().toLowerCase()
+    )
+    if (existing) {
+      setSelectedListId(existing.id)
+      return existing.id
     }
 
-    if (addMode === "world") {
-      const target = availableWorlds.find((w) => w.worldId === selectedWorldId)
-      if (!target?.json) {
-        const listId = await ensurePrivateList()
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return ""
+
+    const newId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, "0")}`
+    const nextLists = [
+      ...availableLists.map((list, index) => ({
+        id: list.id,
+        name: list.name,
+        position: index,
+      })),
+      {
+        id: newId,
+        name: privateListName,
+        position: availableLists.length,
+      },
+    ]
+    await fetch("/api/storage/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lists: nextLists, worlds: [] }),
+    })
+    setAvailableLists((prev) => [...prev, { id: newId, name: privateListName }])
+    setSelectedListId(newId)
+    return newId
+  }
+
+  const handleAdd = async () => {
+    if (!translateResult) return
+    setSaveError(null)
+    try {
+      const conjugation = await ensureConjugation(translateResult)
+      const explanation = translateResult.explanation?.trim() || `Significado de ${translateResult.source}.`
+      const example = translateResult.example?.trim() || `Ejemplo: ${translateResult.source}.`
+      const syllables = translateResult.syllables?.trim()
+      const explanationWithSyllables =
+        translateResult.pos === "verb" && syllables && translateResult.target
+          ? `${explanation}\n${translateResult.target}\n${syllables}`
+          : explanation
+
+      const newItem = {
+        id: `item-${Date.now()}`,
+        es: translateResult.source,
+        de: translateResult.target,
+        image: { type: "emoji", value: translateResult.emoji ?? "📝" },
+        pos: translateResult.pos,
+        explanation: explanationWithSyllables,
+        example,
+        conjugation,
+      }
+
+      if (addMode === "world") {
+        const target = availableWorlds.find((w) => w.worldId === selectedWorldId)
+        if (!target?.json) {
+          const listId = await ensurePrivateList()
+          const newWorld = {
+            id: `upload-${Date.now()}`,
+            title: translationWorldName,
+            description: `Lista personalizada: ${translationWorldName}`,
+            mode: "vocab",
+            source_language: sourceLabel,
+            target_language: targetLabel,
+            pool: [newItem],
+            chunking: { mode: "sequential", itemsPerGame: 8 },
+          }
+          await saveWorlds([newWorld], listId || null)
+          setSelectedWorldId(newWorld.id)
+        } else {
+          const updatedWorld = {
+            ...target.json,
+            pool: [...(target.json.pool ?? []), newItem],
+          }
+          await saveWorlds([updatedWorld], undefined)
+        }
+      } else {
+        if (!newWorldName.trim()) {
+          setSaveError("Ingresa un nombre de mundo.")
+          return
+        }
         const newWorld = {
           id: `upload-${Date.now()}`,
-          title: translationWorldName,
-          description: `Lista personalizada: ${translationWorldName}`,
+          title: newWorldName.trim(),
+          description: `Lista personalizada: ${newWorldName.trim()}`,
           mode: "vocab",
           source_language: sourceLabel,
           target_language: targetLabel,
           pool: [newItem],
           chunking: { mode: "sequential", itemsPerGame: 8 },
         }
-        await saveWorlds([newWorld], listId || null)
-        setSelectedWorldId(newWorld.id)
-      } else {
-        const updatedWorld = {
-          ...target.json,
-          pool: [...(target.json.pool ?? []), newItem],
+        await saveWorlds([newWorld], selectedListId || null)
+      }
+      if (!dailyUploadDone) {
+        setDailyUploadDone(true)
+        const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+        const nextSeeds = currentSeeds + 10
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+        setSeeds(nextSeeds)
+        const weekStart = getWeekStartIso()
+        const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+        const weeklyValue = Number(rawWeekly || "0") || 0
+        const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+        if (storedSeedsWeekStart !== weekStart) {
+          window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
         }
-        await saveWorlds([updatedWorld], undefined)
+        const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+        let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+        weeklySeeds += 10
+        syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart || new Date().toISOString())
       }
-    } else {
-      if (!newWorldName.trim()) {
-        setSaveError("Ingresa un nombre de mundo.")
-        return
-      }
-      const newWorld = {
-        id: `upload-${Date.now()}`,
-        title: newWorldName.trim(),
-        description: `Lista personalizada: ${newWorldName.trim()}`,
-        mode: "vocab",
-        source_language: sourceLabel,
-        target_language: targetLabel,
-        pool: [newItem],
-        chunking: { mode: "sequential", itemsPerGame: 8 },
-      }
-      await saveWorlds([newWorld], selectedListId || null)
+      setTranslateInput("")
+      setTranslateResult(null)
+      setNewWorldName("")
+    } catch (err) {
+      setSaveError((err as Error).message)
     }
-    if (!dailyUploadDone) {
-      setDailyUploadDone(true)
-      const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-      const nextSeeds = currentSeeds + 10
-      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
-      setSeeds(nextSeeds)
-      const weekStart = getWeekStartIso()
-      const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-      const weeklyValue = Number(rawWeekly || "0") || 0
-      const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
-      if (storedSeedsWeekStart !== weekStart) {
-        window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
-        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
-      }
-      const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
-      let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
-      weeklySeeds += 10
-      syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart || new Date().toISOString())
-    }
-    setTranslateInput("")
-    setTranslateResult(null)
-    setNewWorldName("")
-  } catch (err) {
-    setSaveError((err as Error).message)
   }
-}
 
-const handleSaveProfile = async (data: { source: string; target: string; level: string; news: string }) => {
-  setProfileSaving(true)
-  setProfileError(null)
-  try {
-    const session = await supabase.auth.getSession()
-    const token = session.data.session?.access_token
-    if (!token) throw new Error("No session")
-    const nextProfile = {
-      level: data.level || "A2",
-      sourceLanguage: data.source,
-      targetLanguage: data.target,
-      newsCategory: data.news,
-      onboardingDone: true,
+  const handleSaveProfile = async (data: { source: string; target: string; level: string; news: string }) => {
+    setProfileSaving(true)
+    setProfileError(null)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) throw new Error("No session")
+      const nextProfile = {
+        level: data.level || "A2",
+        sourceLanguage: data.source,
+        targetLanguage: data.target,
+        newsCategory: data.news,
+        onboardingDone: true,
+      }
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
+        const key = onboardingKey || ONBOARDING_STORAGE_KEY
+        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
+        window.localStorage.setItem(key, "1")
+      }
+      setShowTutorial(false)
+      setProfileState((prev) => ({ ...prev, ...nextProfile }))
+      router.push("/play?open=upload")
+      const res = await fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(nextProfile),
+      })
+      if (!res.ok) {
+        const resData = await res.json().catch(() => null)
+        throw new Error(resData?.error ?? "Save failed")
+      }
+    } catch (err) {
+      console.warn("[onboarding] profile update failed", (err as Error).message)
+      setProfileError((err as Error).message)
+    } finally {
+      setProfileSaving(false)
     }
+  }
+
+  const dismissTutorial = () => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("vocado-profile-settings", JSON.stringify(nextProfile))
       const key = onboardingKey || ONBOARDING_STORAGE_KEY
       window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
       window.localStorage.setItem(key, "1")
     }
     setShowTutorial(false)
-    setProfileState((prev) => ({ ...prev, ...nextProfile }))
-    router.push("/play?open=upload")
-    const res = await fetch("/api/auth/profile/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(nextProfile),
+    setProfileState((prev) => ({ ...prev, onboardingDone: true }))
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (!token) return
+      fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          level: profileState.level || "A2",
+          sourceLanguage: profileState.sourceLanguage,
+          targetLanguage: profileState.targetLanguage,
+          newsCategory: profileState.newsCategory,
+          onboardingDone: true,
+        }),
+      }).catch(() => { })
     })
-    if (!res.ok) {
-      const resData = await res.json().catch(() => null)
-      throw new Error(resData?.error ?? "Save failed")
-    }
-  } catch (err) {
-    console.warn("[onboarding] profile update failed", (err as Error).message)
-    setProfileError((err as Error).message)
-  } finally {
-    setProfileSaving(false)
   }
-}
 
-const dismissTutorial = () => {
-  if (typeof window !== "undefined") {
-    const key = onboardingKey || ONBOARDING_STORAGE_KEY
-    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1")
-    window.localStorage.setItem(key, "1")
-  }
-  setShowTutorial(false)
-  setProfileState((prev) => ({ ...prev, onboardingDone: true }))
-  supabase.auth.getSession().then(({ data }) => {
-    const token = data.session?.access_token
-    if (!token) return
-    fetch("/api/auth/profile/update", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        level: profileState.level || "A2",
-        sourceLanguage: profileState.sourceLanguage,
-        targetLanguage: profileState.targetLanguage,
-        newsCategory: profileState.newsCategory,
-        onboardingDone: true,
-      }),
-    }).catch(() => { })
-  })
-}
-
-return (
-  <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
-    <div className="mx-auto w-full max-w-3xl space-y-6">
-      <header className="flex items-center justify-end gap-3">
-        <div className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
-          <span className="font-semibold">{seeds}</span>
-          <span>🌱</span>
-        </div>
-        <UserMenu
-          level={profileState.level || "B1"}
-          sourceLanguage={profileState.sourceLanguage}
-          targetLanguage={profileState.targetLanguage}
-          newsCategory={profileState.newsCategory}
-          onUpdateSettings={setProfileState}
-        />
-      </header>
-
-      <div className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6 text-center shadow-xl">
-        <img
-          src={mascotSrc}
-          alt="Mascot"
-          className="mx-auto h-40 w-40 object-contain"
-        />
-        <div className="mt-4 text-lg font-semibold">{ui.title}</div>
-        <div className="mt-2 text-sm text-neutral-300">
-          {ui.wordsLearnedLabel}:{" "}
-          <span className="font-semibold text-neutral-100">{wordsLearned}</span>
-        </div>
-      </div>
-
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
-        <div className="text-sm font-semibold text-neutral-100">{ui.goalsTitle}</div>
-        <ul className="mt-3 space-y-2 text-sm text-neutral-200">
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
-                {dailyGames >= 3 ? "✓" : ""}
-              </span>
-              {ui.goalPlay}
-            </span>
-            <span className="text-xs text-neutral-400">
-              {ui.goalPlayProgress} {Math.min(dailyGames, 3)}/3 · 45🌱
-            </span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
-                {dailyUploadDone ? "✓" : ""}
-              </span>
-              {ui.goalUpload}
-            </span>
-            <span className="text-xs text-neutral-400">
-              {ui.goalUploadProgress} {dailyUploadDone ? 1 : 0}/1 · 10🌱
-            </span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
-                {dailyNewsDone ? "✓" : ""}
-              </span>
-              {ui.goalNews}
-            </span>
-            <span className="text-xs text-neutral-400">
-              {dailyNewsDone ? 1 : 0}/1 · 30🌱
-            </span>
-          </li>
-        </ul>
-      </section>
-
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-neutral-100">
-            {ui.leaderboardTitle}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6">
+        <header className="flex items-center justify-end gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
+            <span className="font-semibold">{seeds}</span>
+            <span>🌱</span>
           </div>
-          <div className="flex items-center gap-2 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setLeaderboardMode("overall")}
-              className={[
-                "rounded-full border px-3 py-1",
-                leaderboardMode === "overall"
-                  ? "border-neutral-200 text-white"
-                  : "border-neutral-800 text-neutral-400",
-              ].join(" ")}
-            >
-              {ui.leaderboardOverall}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeaderboardMode("weekly")}
-              className={[
-                "rounded-full border px-3 py-1",
-                leaderboardMode === "weekly"
-                  ? "border-neutral-200 text-white"
-                  : "border-neutral-800 text-neutral-400",
-              ].join(" ")}
-            >
-              {ui.leaderboardWeekly}
-            </button>
-          </div>
-        </div>
-        <div className="mt-4 space-y-2 text-sm text-neutral-200">
-          {leaderboardLoading ? (
-            <div className="text-xs text-neutral-400">...</div>
-          ) : leaderboardEntries.length === 0 ? (
-            <div className="text-xs text-neutral-400">{ui.leaderboardEmpty}</div>
-          ) : (
-            leaderboardEntries.slice(0, 5).map((entry, index) => (
-              <div key={`${entry.name}-${index}`} className="flex items-center justify-between">
-                <span>
-                  {index + 1}. {entry.name}
-                </span>
-                <span className="text-neutral-400">{entry.score}🌱</span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
-        <div className="text-sm font-semibold text-neutral-100">{ui.lastPlayedTitle}</div>
-        <div className="mt-2 text-sm text-neutral-300">
-          {lastPlayed?.title ?? "—"}
-        </div>
-        <button
-          type="button"
-          disabled={!lastPlayed}
-          onClick={() =>
-            lastPlayed
-              ? router.push(
-                `/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0
-                }`
-              )
-              : undefined
-          }
-          className="mt-3 rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
-        >
-          {ui.lastPlayedAction}
-        </button>
-      </section>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => router.push("/play?open=upload")}
-          className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-100 hover:text-white"
-        >
-          {ui.uploadAction}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push("/play?open=worlds")}
-          className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-100 hover:text-white"
-        >
-          {ui.worldsAction}
-        </button>
-      </div>
-
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
-        <button
-          type="button"
-          onClick={() => router.push("/news")}
-          className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm text-neutral-100 hover:text-white"
-        >
-          {ui.newsAction}
-        </button>
-        <div className="mt-3 text-sm text-neutral-300">
-          {topNewsTitle || ui.newsTitle}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
-        <div className="text-sm font-semibold text-neutral-100">{ui.translateTitle}</div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            value={translateInput}
-            onChange={(e) => setTranslateInput(e.target.value)}
-            placeholder={ui.translatePlaceholder}
-            className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+          <UserMenu
+            level={profileState.level || "B1"}
+            sourceLanguage={profileState.sourceLanguage}
+            targetLanguage={profileState.targetLanguage}
+            newsCategory={profileState.newsCategory}
+            onUpdateSettings={setProfileState}
           />
+        </header>
+
+        <div className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6 text-center shadow-xl">
+          <img
+            src={mascotSrc}
+            alt="Mascot"
+            className="mx-auto h-40 w-40 object-contain"
+          />
+          <div className="mt-4 text-lg font-semibold">{ui.title}</div>
+          <div className="mt-2 text-sm text-neutral-300">
+            {ui.wordsLearnedLabel}:{" "}
+            <span className="font-semibold text-neutral-100">{wordsLearned}</span>
+          </div>
+        </div>
+
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="text-sm font-semibold text-neutral-100">{ui.goalsTitle}</div>
+          <ul className="mt-3 space-y-2 text-sm text-neutral-200">
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyGames >= 3 ? "✓" : ""}
+                </span>
+                {ui.goalPlay}
+              </span>
+              <span className="text-xs text-neutral-400">
+                {ui.goalPlayProgress} {Math.min(dailyGames, 3)}/3 · 45🌱
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyUploadDone ? "✓" : ""}
+                </span>
+                {ui.goalUpload}
+              </span>
+              <span className="text-xs text-neutral-400">
+                {ui.goalUploadProgress} {dailyUploadDone ? 1 : 0}/1 · 10🌱
+              </span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-neutral-600 text-[10px]">
+                  {dailyNewsDone ? "✓" : ""}
+                </span>
+                {ui.goalNews}
+              </span>
+              <span className="text-xs text-neutral-400">
+                {dailyNewsDone ? 1 : 0}/1 · 30🌱
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-neutral-100">
+              {ui.leaderboardTitle}
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setLeaderboardMode("overall")}
+                className={[
+                  "rounded-full border px-3 py-1",
+                  leaderboardMode === "overall"
+                    ? "border-neutral-200 text-white"
+                    : "border-neutral-800 text-neutral-400",
+                ].join(" ")}
+              >
+                {ui.leaderboardOverall}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaderboardMode("weekly")}
+                className={[
+                  "rounded-full border px-3 py-1",
+                  leaderboardMode === "weekly"
+                    ? "border-neutral-200 text-white"
+                    : "border-neutral-800 text-neutral-400",
+                ].join(" ")}
+              >
+                {ui.leaderboardWeekly}
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2 text-sm text-neutral-200">
+            {leaderboardLoading ? (
+              <div className="text-xs text-neutral-400">...</div>
+            ) : leaderboardEntries.length === 0 ? (
+              <div className="text-xs text-neutral-400">{ui.leaderboardEmpty}</div>
+            ) : (
+              leaderboardEntries.slice(0, 5).map((entry, index) => (
+                <div key={`${entry.name}-${index}`} className="flex items-center justify-between">
+                  <span>
+                    {index + 1}. {entry.name}
+                  </span>
+                  <span className="text-neutral-400">{entry.score}🌱</span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="text-sm font-semibold text-neutral-100">{ui.lastPlayedTitle}</div>
+          <div className="mt-2 text-sm text-neutral-300">
+            {lastPlayed?.title ?? "—"}
+          </div>
           <button
             type="button"
-            onClick={handleTranslate}
-            disabled={isTranslating}
-            className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
+            disabled={!lastPlayed}
+            onClick={() =>
+              lastPlayed
+                ? router.push(
+                  `/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0
+                  }`
+                )
+                : undefined
+            }
+            className="mt-3 rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
           >
-            {isTranslating ? "..." : ui.translateAction}
+            {ui.lastPlayedAction}
+          </button>
+        </section>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => router.push("/play?open=upload")}
+            className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-100 hover:text-white"
+          >
+            {ui.uploadAction}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/play?open=worlds")}
+            className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-100 hover:text-white"
+          >
+            {ui.worldsAction}
           </button>
         </div>
 
-        {translateResult && (
-          <div className="mt-4 space-y-3 text-sm text-neutral-200">
-            <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-              <div className="font-semibold">
-                {translateResult.source} → {translateResult.target}
-              </div>
-              <div className="text-xs text-neutral-400 mt-1">
-                {translateResult.explanation}
-              </div>
-              <div className="text-xs text-neutral-400 mt-1">
-                {translateResult.example}
-              </div>
-            </div>
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <button
+            type="button"
+            onClick={() => router.push("/news")}
+            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm text-neutral-100 hover:text-white"
+          >
+            {ui.newsAction}
+          </button>
+          <div className="mt-3 text-sm text-neutral-300">
+            {topNewsTitle || ui.newsTitle}
+          </div>
+        </section>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setAddMode("world")}
-                className={[
-                  "rounded-lg border px-3 py-1.5 text-xs",
-                  addMode === "world"
-                    ? "border-neutral-200 text-white"
-                    : "border-neutral-800 text-neutral-300",
-                ].join(" ")}
-              >
-                {ui.addToWorldLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddMode("list")}
-                className={[
-                  "rounded-lg border px-3 py-1.5 text-xs",
-                  addMode === "list"
-                    ? "border-neutral-200 text-white"
-                    : "border-neutral-800 text-neutral-300",
-                ].join(" ")}
-              >
-                {ui.addToListLabel}
-              </button>
-            </div>
-
-            {addMode === "world" ? (
-              <div className="space-y-2">
-                <label className="text-xs text-neutral-400">{ui.worldSelectLabel}</label>
-                <select
-                  value={selectedWorldId}
-                  onChange={(e) => setSelectedWorldId(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
-                >
-                  {availableWorlds.map((world) => (
-                    <option key={world.worldId} value={world.worldId}>
-                      {world.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-xs text-neutral-400">{ui.worldNameLabel}</label>
-                <input
-                  type="text"
-                  value={newWorldName}
-                  onChange={(e) => setNewWorldName(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
-                />
-                <label className="text-xs text-neutral-400">{ui.listSelectLabel}</label>
-                <select
-                  value={selectedListId}
-                  onChange={(e) => setSelectedListId(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
-                >
-                  <option value="">—</option>
-                  {availableLists.map((list) => (
-                    <option key={list.id} value={list.id}>
-                      {list.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {saveError && <div className="text-xs text-red-400">{saveError}</div>}
-
+        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="text-sm font-semibold text-neutral-100">{ui.translateTitle}</div>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={translateInput}
+              onChange={(e) => setTranslateInput(e.target.value)}
+              placeholder={ui.translatePlaceholder}
+              className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+            />
             <button
               type="button"
-              onClick={handleAdd}
-              className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30"
+              onClick={handleTranslate}
+              disabled={isTranslating}
+              className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
             >
-              {ui.confirmAdd}
+              {isTranslating ? "..." : ui.translateAction}
             </button>
           </div>
-        )}
 
-        {translateError && <div className="mt-3 text-xs text-red-400">{translateError}</div>}
-      </section>
+          {translateResult && (
+            <div className="mt-4 space-y-3 text-sm text-neutral-200">
+              <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+                <div className="font-semibold">
+                  {translateResult.source} → {translateResult.target}
+                </div>
+                <div className="text-xs text-neutral-400 mt-1">
+                  {translateResult.explanation}
+                </div>
+                <div className="text-xs text-neutral-400 mt-1">
+                  {translateResult.example}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAddMode("world")}
+                  className={[
+                    "rounded-lg border px-3 py-1.5 text-xs",
+                    addMode === "world"
+                      ? "border-neutral-200 text-white"
+                      : "border-neutral-800 text-neutral-300",
+                  ].join(" ")}
+                >
+                  {ui.addToWorldLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddMode("list")}
+                  className={[
+                    "rounded-lg border px-3 py-1.5 text-xs",
+                    addMode === "list"
+                      ? "border-neutral-200 text-white"
+                      : "border-neutral-800 text-neutral-300",
+                  ].join(" ")}
+                >
+                  {ui.addToListLabel}
+                </button>
+              </div>
+
+              {addMode === "world" ? (
+                <div className="space-y-2">
+                  <label className="text-xs text-neutral-400">{ui.worldSelectLabel}</label>
+                  <select
+                    value={selectedWorldId}
+                    onChange={(e) => setSelectedWorldId(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+                  >
+                    {availableWorlds.map((world) => (
+                      <option key={world.worldId} value={world.worldId}>
+                        {world.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-xs text-neutral-400">{ui.worldNameLabel}</label>
+                  <input
+                    type="text"
+                    value={newWorldName}
+                    onChange={(e) => setNewWorldName(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+                  />
+                  <label className="text-xs text-neutral-400">{ui.listSelectLabel}</label>
+                  <select
+                    value={selectedListId}
+                    onChange={(e) => setSelectedListId(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+                  >
+                    <option value="">—</option>
+                    {availableLists.map((list) => (
+                      <option key={list.id} value={list.id}>
+                        {list.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {saveError && <div className="text-xs text-red-400">{saveError}</div>}
+
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30"
+              >
+                {ui.confirmAdd}
+              </button>
+            </div>
+          )}
+
+          {translateError && <div className="mt-3 text-xs text-red-400">{translateError}</div>}
+        </section>
+      </div>
+
+      {showTutorial && (
+        <TutorialOverlay
+          step={tutorialStep}
+          ui={ui}
+          initialLevel={profileState.level}
+          initialSource={profileState.sourceLanguage}
+          initialTarget={profileState.targetLanguage}
+          initialNews={profileState.newsCategory}
+          onNext={() => setTutorialStep("done")}
+          onTerminate={dismissTutorial}
+          onSaveProfile={handleSaveProfile}
+          savingProfile={profileSaving}
+          profileError={profileError}
+        />
+      )}
     </div>
-
-    {showTutorial && (
-      <TutorialOverlay
-        step={tutorialStep}
-        ui={ui}
-        initialLevel={profileState.level}
-        initialSource={profileState.sourceLanguage}
-        initialTarget={profileState.targetLanguage}
-        initialNews={profileState.newsCategory}
-        onNext={() => setTutorialStep("done")}
-        onTerminate={dismissTutorial}
-        onSaveProfile={handleSaveProfile}
-        savingProfile={profileSaving}
-        profileError={profileError}
-      />
-    )}
-  </div>
-)
+  )
 }
