@@ -4542,6 +4542,7 @@ function WorldsOverlay({
   promptPlaceholder,
   onPromptChange,
   onPromptSubmit,
+  bestScores,
 }: {
   ui: UiCopy
   worlds: Array<World>
@@ -4573,6 +4574,7 @@ function WorldsOverlay({
   promptPlaceholder: string
   onPromptChange: (value: string) => void
   onPromptSubmit: () => void
+  bestScores: Record<string, number>
 }) {
   const [editingWorldId, setEditingWorldId] = useState<string | null>(null)
   const [editingWorldTitle, setEditingWorldTitle] = useState("")
