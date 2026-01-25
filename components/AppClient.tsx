@@ -1781,9 +1781,30 @@ export default function AppClient({
     if (!isSupabaseLoaded) return
     if (autoNewsLoading) return
     const checkNews = async () => {
+      // Robust check: Look for actual content from today
       const today = new Date().toISOString().slice(0, 10)
+
+      const vocabList = worldLists.find(l => l.name === "Vocado Diario")
+      let hasNewsToday = false
+
+      if (vocabList && vocabList.worldIds.length > 0) {
+        const latestId = vocabList.worldIds[0] // Assuming first is latest
+        if (latestId.startsWith("news-")) {
+          const timestamp = Number(latestId.replace("news-", ""))
+          if (!isNaN(timestamp)) {
+            const date = new Date(timestamp).toISOString().slice(0, 10)
+            if (date === today) {
+              hasNewsToday = true
+            }
+          }
+        }
+      }
+
+      if (hasNewsToday) return
+
+      // Double check storage just in case we are offline/optimistic
       const storedDate = window.localStorage.getItem(LAST_NEWS_FETCH_STORAGE_KEY)
-      if (storedDate === today) return
+      if (storedDate === today && hasNewsToday) return
 
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
@@ -1792,7 +1813,7 @@ export default function AppClient({
       }
     }
     checkNews()
-  }, [isSupabaseLoaded, profileSettings.newsCategory, profileSettings.sourceLanguage])
+  }, [isSupabaseLoaded, profileSettings.newsCategory, profileSettings.sourceLanguage, worldLists, uploadedWorlds])
 
   const persistWorlds = async (worldsToPersist: World[], activeWorldId?: string) => {
     // Tutorial Hook: If creating, advance to final

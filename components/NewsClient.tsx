@@ -693,7 +693,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       handleGenerate(headline.url)
                     }}
                     className={[
-                      "w-full rounded-xl border p-4 text-left text-sm text-neutral-100",
+                      "w-full rounded-xl border p-4 text-left text-sm text-neutral-100 relative",
                       isLoading
                         ? "border-neutral-900 bg-neutral-900/40 cursor-not-allowed"
                         : "border-neutral-800 bg-neutral-900/60 hover:border-neutral-600",
