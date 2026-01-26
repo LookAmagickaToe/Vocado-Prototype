@@ -64,6 +64,7 @@ type ProfileSettings = {
   weeklyWordsWeekStart?: string
   weeklySeeds?: number
   weeklySeedsWeekStart?: string
+  dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
 }
 
 type ReviewItem = {
@@ -324,27 +325,63 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   useEffect(() => {
     if (typeof window === "undefined") return
     const weekStart = getWeekStartIso()
+
+    // 1. Total Seeds Sync
     if (typeof profileState.seeds === "number") {
-      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(profileState.seeds))
-      setSeeds(profileState.seeds)
+      const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+      const nextSeeds = Math.max(storedSeeds, profileState.seeds)
+      window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+      setSeeds(nextSeeds)
     }
-    if (typeof profileState.weeklyWords === "number") {
-      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
-      if (serverWeekStart === weekStart) {
-        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(profileState.weeklyWords))
-      } else {
-        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
-      }
+
+    // Always get fresh values for sync calls
+    const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const currentWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+
+    // 2. Weekly Words Sync
+    const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+    const localWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
+    const localWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+
+    if (serverWeekStart === weekStart && typeof profileState.weeklyWords === "number") {
+      const nextWeeklyWords = Math.max(profileState.weeklyWords, localWords)
       window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
-    }
-    if (typeof profileState.weeklySeeds === "number") {
-      const serverWeekStart = profileState.weeklySeedsWeekStart || ""
-      if (serverWeekStart === weekStart) {
-        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(profileState.weeklySeeds))
-      } else {
-        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+      window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(nextWeeklyWords))
+      // NewsClient doesn't have setWordsLearned state
+
+      if (nextWeeklyWords > profileState.weeklyWords) {
+        syncStatsToServer(currentSeeds, currentWeeklySeeds, nextWeeklyWords, weekStart)
       }
+    } else {
+      if (localWeekStart !== weekStart) {
+        window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStart)
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
+        syncStatsToServer(currentSeeds, currentWeeklySeeds, 0, weekStart)
+      } else {
+        // Keep local
+      }
+    }
+
+    // 3. Weekly Seeds Sync
+    const serverSeedsWeekStart = profileState.weeklySeedsWeekStart || ""
+    const localSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+    const localWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+    const currentWeeklyWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+
+    if (serverSeedsWeekStart === weekStart && typeof profileState.weeklySeeds === "number") {
+      const nextWeeklySeeds = Math.max(profileState.weeklySeeds, localWeeklySeeds)
       window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(nextWeeklySeeds))
+
+      if (nextWeeklySeeds > profileState.weeklySeeds) {
+        syncStatsToServer(currentSeeds, nextWeeklySeeds, currentWeeklyWords, weekStart)
+      }
+    } else {
+      if (localSeedsWeekStart !== weekStart) {
+        window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+        window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+        syncStatsToServer(currentSeeds, 0, currentWeeklyWords, weekStart)
+      }
     }
   }, [
     profileState.seeds,

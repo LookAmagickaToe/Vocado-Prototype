@@ -349,14 +349,16 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
     const syncSeedsFromStorage = () => {
       const rawSeeds = window.localStorage.getItem(SEEDS_STORAGE_KEY)
       const localSeeds = rawSeeds ? Number(rawSeeds) || 0 : 0
+
+      // Pattern: EXACTLY like weeklySeeds but no week start reset
       if (typeof profileState.seeds === "number") {
-        const seedValue = Math.max(profileState.seeds, localSeeds)
-        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(seedValue))
-        setSeeds(seedValue)
-        if (seedValue > profileState.seeds) {
-          const weeklySeedsValue =
-            Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
-          syncStatsToServer(seedValue, weeklySeedsValue, wordsLearned, getWeekStartIso())
+        const nextSeeds = Math.max(profileState.seeds, localSeeds)
+        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+        setSeeds(nextSeeds)
+
+        if (nextSeeds > profileState.seeds) {
+          const currentWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+          syncStatsToServer(nextSeeds, currentWeeklySeeds, wordsLearned, getWeekStartIso())
         }
       } else {
         setSeeds(localSeeds)
@@ -365,21 +367,24 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
 
     const syncWeeklyFromStorage = () => {
       const weekStartNormalized = getWeekStartIso()
-      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
-      const rawLocal = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-      const localWeekly = rawLocal ? Number(rawLocal) || 0 : 0
 
       // Always get fresh values for sync
       const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-      const weeklySeedsValue = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
+
+      // 1. Weekly Words Logic - EXACTLY like weeklySeeds
+      const serverWeekStart = profileState.weeklyWordsWeekStart || ""
+      const rawLocal = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
+      const localWeekly = rawLocal ? Number(rawLocal) || 0 : 0
+      const currentWeeklySeeds = Number(window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY) || "0") || 0
 
       if (serverWeekStart === weekStartNormalized && typeof profileState.weeklyWords === "number") {
-        const weeklyValue = Math.max(profileState.weeklyWords, localWeekly)
+        const nextWeeklyWords = Math.max(profileState.weeklyWords, localWeekly)
         window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
-        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(weeklyValue))
-        setWordsLearned(weeklyValue)
-        if (weeklyValue > profileState.weeklyWords) {
-          syncStatsToServer(currentSeeds, weeklySeedsValue, weeklyValue, weekStartNormalized)
+        window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, String(nextWeeklyWords))
+        setWordsLearned(nextWeeklyWords)
+
+        if (nextWeeklyWords > profileState.weeklyWords) {
+          syncStatsToServer(currentSeeds, currentWeeklySeeds, nextWeeklyWords, weekStartNormalized)
         }
       } else {
         const rawWeekStart = window.localStorage.getItem(WEEKLY_START_STORAGE_KEY)
@@ -387,12 +392,13 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
           window.localStorage.setItem(WEEKLY_START_STORAGE_KEY, weekStartNormalized)
           window.localStorage.setItem(WEEKLY_WORDS_STORAGE_KEY, "0")
           setWordsLearned(0)
-          syncStatsToServer(currentSeeds, weeklySeedsValue, 0, weekStartNormalized)
+          syncStatsToServer(currentSeeds, currentWeeklySeeds, 0, weekStartNormalized)
         } else {
           setWordsLearned(localWeekly)
         }
       }
 
+      // 2. Weekly Seeds Logic (Original Pattern)
       const serverSeedsWeekStart = profileState.weeklySeedsWeekStart || ""
       const rawLocalSeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
       const localWeeklySeeds = rawLocalSeeds ? Number(rawLocalSeeds) || 0 : 0
@@ -403,6 +409,7 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
         const nextWeeklySeeds = Math.max(profileState.weeklySeeds, localWeeklySeeds)
         window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStartNormalized)
         window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(nextWeeklySeeds))
+
         if (nextWeeklySeeds > profileState.weeklySeeds) {
           syncStatsToServer(currentSeeds, nextWeeklySeeds, currentWeeklyWords, weekStartNormalized)
         }
