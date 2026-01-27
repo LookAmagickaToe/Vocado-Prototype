@@ -35,11 +35,29 @@ export async function GET(req: Request) {
     const scope = searchParams.get("scope") === "weekly" ? "weekly" : "overall"
     const weekStart = getWeekStartIso()
 
-    const { data, error } = await supabaseAdmin
+    let data: any[] | null = null
+    let error: any = null
+    const baseSelect = "id,username,seeds,weekly_seeds,weekly_seeds_week_start"
+    const withAvatarSelect = `${baseSelect},avatar_url`
+
+    const withAvatar = await supabaseAdmin
       .from("profiles")
-      .select("id,username,seeds,weekly_seeds,weekly_seeds_week_start")
+      .select(withAvatarSelect)
       .order(scope === "weekly" ? "weekly_seeds" : "seeds", { ascending: false })
       .limit(20)
+
+    data = withAvatar.data ?? null
+    error = withAvatar.error ?? null
+
+    if (error && typeof error.message === "string" && error.message.includes("avatar_url")) {
+      const fallback = await supabaseAdmin
+        .from("profiles")
+        .select(baseSelect)
+        .order(scope === "weekly" ? "weekly_seeds" : "seeds", { ascending: false })
+        .limit(20)
+      data = fallback.data ?? null
+      error = fallback.error ?? null
+    }
 
     if (error) {
       return NextResponse.json({ error: "Query failed", details: error.message }, { status: 500 })
@@ -66,6 +84,7 @@ export async function GET(req: Request) {
       return {
         username: row.username || "User",
         score: scope === "weekly" ? weeklyScore : Number(row.seeds ?? 0) || 0,
+        avatarUrl: typeof row.avatar_url === "string" && row.avatar_url ? row.avatar_url : null,
       }
     })
 

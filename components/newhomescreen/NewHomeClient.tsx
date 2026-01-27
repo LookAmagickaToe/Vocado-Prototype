@@ -1,8 +1,8 @@
 "use client"
 
-import { Leaf, Camera, ChevronLeft, ChevronRight, Check, Briefcase, User, BookOpen, Star, MoreHorizontal, Users, Trophy, Play } from "lucide-react"
+import { Leaf, Camera, ChevronLeft, ChevronRight, Check, Briefcase, User, BookOpen, Star, MoreHorizontal, Users, Trophy, Play, Plus, FileText } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import clsx from "clsx"
 import WorldReviewOverlay, { type ReviewWord } from "./WorldReviewOverlay"
@@ -10,6 +10,7 @@ import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
+import { formatTemplate } from "@/lib/ui"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
@@ -22,6 +23,7 @@ const COLORS = {
 }
 
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
+const FALLBACK_AVATAR = "/profilepictures/happy_vocado.png"
 
 const getLastPlayedKey = (source?: string, target?: string) => {
     const src = source?.trim() || "auto"
@@ -43,6 +45,7 @@ type ProfileSettings = {
     dailyState?: { date: string; games: number; upload: boolean; news: boolean } | null
     dailyStateDate?: string
     onboardingDone?: boolean
+    avatarUrl?: string
 }
 
 type LastPlayed = {
@@ -91,6 +94,18 @@ const buildReviewItemsFromAi = (items: any[]) =>
         example: normalizeText(item?.example) || undefined,
         syllables: normalizeText(item?.syllables) || undefined,
     })) as NewsReviewItem[]
+
+const buildReviewWordsFromItems = (items: NewsReviewItem[]) =>
+    items
+        .filter((item) => item.source && item.target)
+        .map((item, index) => ({
+            id: `upload-${Date.now()}-${index}`,
+            source: item.source,
+            target: item.target,
+            status: "new" as const,
+            emoji: item.emoji,
+            explanation: item.explanation,
+        }))
 
 const buildWorldFromItems = (
     items: NewsReviewItem[],
@@ -141,12 +156,17 @@ const buildWorldFromItems = (
 
 export default function NewHomeClient({ profile }: { profile: ProfileSettings }) {
     const router = useRouter()
-    const [activeNewsTab, setActiveNewsTab] = useState("World")
+    const [activeNewsTab, setActiveNewsTab] = useState<"world" | "wirtschaft" | "sport">("world")
     const [activeTab, setActiveTab] = useState("Home")
     const [seeds, setSeeds] = useState(profile.seeds ?? 0)
+    const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "")
+    const [leaderboardScope, setLeaderboardScope] = useState<"weekly" | "overall">("weekly")
+    const [leaderboardEntries, setLeaderboardEntries] = useState<
+        Array<{ username: string; score: number; avatarUrl?: string | null }>
+    >([])
+    const [failedAvatarEntries, setFailedAvatarEntries] = useState<Set<string>>(new Set())
 
     // Profile & UserMenu state
-    const [showUserMenu, setShowUserMenu] = useState(false)
     const [profileSettings, setProfileSettings] = useState({
         level: profile.level,
         sourceLanguage: profile.sourceLanguage,
@@ -165,6 +185,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [translateError, setTranslateError] = useState<string | null>(null)
     const [translateMode, setTranslateMode] = useState(false)
     const [lastPlayed, setLastPlayed] = useState<LastPlayed | null>(null)
+    const [showAttachMenu, setShowAttachMenu] = useState(false)
+
+    const cameraInputRef = useRef<HTMLInputElement | null>(null)
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     // Overlay State
     const [isOverlayOpen, setIsOverlayOpen] = useState(false)
@@ -185,14 +209,162 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             translateTitle: uiSettings?.home?.translateTitle ?? "Translate",
             translatePlaceholder: uiSettings?.home?.translatePlaceholder ?? "Type a word...",
             translateAction: uiSettings?.home?.translateAction ?? "Translate",
+            playNow: uiSettings?.news?.playNow ?? "Play now",
             profileSave: uiSettings?.profile?.save ?? "Save",
             sourceLabel: uiSettings?.onboarding?.sourceLabel ?? "Source",
             targetLabel: uiSettings?.onboarding?.targetLabel ?? "Target",
             levelLabel: uiSettings?.onboarding?.levelLabel ?? "Level",
             noWordsError: uiSettings?.errors?.newsNoWords ?? "No words found.",
+            createWorldTitle: uiSettings?.home?.createWorldTitle ?? "Create your World with AI",
+            createWorldPlaceholder: uiSettings?.home?.createWorldPlaceholder ?? "Create your world...",
+            createWorldLoading: uiSettings?.home?.createWorldLoading ?? "Creating world...",
+            promptHelp: uiSettings?.home?.promptHelp ?? "Paste text, write what you want to learn or drop a link, photo, or file",
+            todaysNewsTitle: uiSettings?.home?.todaysNewsTitle ?? "Today's News",
+            newsLoading: uiSettings?.home?.newsLoading ?? "Loading...",
+            noNewsAvailable: uiSettings?.home?.noNewsAvailable ?? "No News Available",
+            continueLearningTitle: uiSettings?.home?.continueLearningTitle ?? "Continue Learning",
+            resumeLabel: uiSettings?.home?.resumeLabel ?? "Resume",
+            noRecentSession: uiSettings?.home?.noRecentSession ?? "No recent session",
+            reviewTitle: uiSettings?.home?.reviewTitle ?? "Review",
+            reviewSubtitle: uiSettings?.home?.reviewSubtitle ?? "{count} words to review",
+            logout: uiSettings?.home?.logout ?? "Log out",
+            leaderboardTitle: uiSettings?.home?.leaderboardTitle ?? "Leaderboard",
+            leaderboardWeekly: uiSettings?.home?.leaderboardWeekly ?? "Weekly",
+            leaderboardOverall: uiSettings?.home?.leaderboardOverall ?? "Overall",
+            nav: uiSettings?.nav ?? {},
+            newsTabs: uiSettings?.news?.categoryOptions ?? {},
         }),
         [uiSettings]
     )
+
+    useEffect(() => {
+        const loadAvatar = async () => {
+            const userRes = await supabase.auth.getUser()
+            const metadata = userRes.data.user?.user_metadata as Record<string, unknown> | undefined
+            const googleAvatar =
+                (typeof metadata?.avatar_url === "string" && metadata.avatar_url) ||
+                (typeof metadata?.picture === "string" && metadata.picture) ||
+                ""
+            if (typeof window !== "undefined") {
+                const raw = window.localStorage.getItem("vocado-profile-settings")
+                if (raw) {
+                    try {
+                        const parsed = JSON.parse(raw)
+                        if (typeof parsed?.avatarUrl === "string" && parsed.avatarUrl) {
+                            setAvatarUrl(parsed.avatarUrl)
+                            return
+                        }
+                        if (parsed && (parsed.sourceLanguage || parsed.targetLanguage || parsed.level || parsed.newsCategory)) {
+                            setProfileSettings((prev) => ({
+                                ...prev,
+                                sourceLanguage: parsed.sourceLanguage ?? prev.sourceLanguage,
+                                targetLanguage: parsed.targetLanguage ?? prev.targetLanguage,
+                                level: parsed.level ?? prev.level,
+                                newsCategory: parsed.newsCategory ?? prev.newsCategory,
+                            }))
+                        }
+                    } catch {
+                        // ignore
+                    }
+                }
+            }
+            if (profile.avatarUrl) {
+                setAvatarUrl(profile.avatarUrl)
+                return
+            }
+            if (googleAvatar) {
+                setAvatarUrl(googleAvatar)
+                return
+            }
+            try {
+                const response = await fetch("/profilepictures/index.json", { cache: "no-store" })
+                if (response.ok) {
+                    const data = await response.json()
+                    if (Array.isArray(data) && data.length > 0) {
+                        const fallback = data[Math.floor(Math.random() * data.length)] || FALLBACK_AVATAR
+                        setAvatarUrl(fallback)
+                        return
+                    }
+                }
+            } catch {
+                // ignore
+            }
+            setAvatarUrl(FALLBACK_AVATAR)
+        }
+        loadAvatar()
+    }, [])
+
+    useEffect(() => {
+        const loadProfile = async () => {
+            const userRes = await supabase.auth.getUser()
+            const userId = userRes.data.user?.id
+            if (!userId) return
+            const baseSelect = "level,source_language,target_language,news_category,seeds,username"
+            const withAvatar = await supabase
+                .from("profiles")
+                .select(`${baseSelect},avatar_url`)
+                .eq("id", userId)
+                .maybeSingle()
+            let row = withAvatar.data
+            if (withAvatar.error && typeof withAvatar.error.message === "string" && withAvatar.error.message.includes("avatar_url")) {
+                const fallback = await supabase
+                    .from("profiles")
+                    .select(baseSelect)
+                    .eq("id", userId)
+                    .maybeSingle()
+                row = fallback.data
+            }
+            if (!row) return
+            if (typeof row.seeds === "number") {
+                setSeeds(row.seeds)
+            }
+            setProfileSettings((prev) => ({
+                ...prev,
+                level: row.level ?? prev.level,
+                sourceLanguage: row.source_language ?? prev.sourceLanguage,
+                targetLanguage: row.target_language ?? prev.targetLanguage,
+                newsCategory: row.news_category ?? prev.newsCategory,
+            }))
+            if (row.avatar_url) {
+                setAvatarUrl(row.avatar_url)
+            }
+        }
+        loadProfile()
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        try {
+            const raw = window.localStorage.getItem("vocado-seeds")
+            if (!raw) return
+            const localSeeds = Number(raw)
+            if (Number.isFinite(localSeeds)) {
+                setSeeds((prev) => Math.max(prev, localSeeds))
+            }
+        } catch {
+            // ignore
+        }
+    }, [])
+
+    useEffect(() => {
+        const loadLeaderboard = async () => {
+            try {
+                const session = await supabase.auth.getSession()
+                const token = session.data.session?.access_token
+                if (!token) return
+                const response = await fetch(`/api/leaderboard?scope=${leaderboardScope}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                if (!response.ok) return
+                const data = await response.json()
+                const entries = Array.isArray(data?.entries) ? data.entries : []
+                setLeaderboardEntries(entries)
+            } catch {
+                // ignore
+            }
+        }
+        loadLeaderboard()
+    }, [leaderboardScope])
 
     // Friends / Leaderboard Data
     const leaderboard = [
@@ -246,27 +418,34 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         return listId
     }
 
-    const loadCachedDailyNews = async (categoryValue: string) => {
-        const session = await supabase.auth.getSession()
-        const token = session.data.session?.access_token
-        if (!token) return null
-        const response = await fetch("/api/storage/worlds/list", {
-            method: "GET",
-            headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!response.ok) return null
-        const data = await response.json()
-        const worlds = Array.isArray(data?.worlds) ? data.worlds : []
-        for (const entry of worlds) {
-            const json = entry?.json
-            if (!json || json.mode !== "vocab") continue
-            const news = json.news
-            if (!news?.summary?.length) continue
-            if (news?.category !== categoryValue) continue
-            if (!isSameDay(news?.date)) continue
-            return json as VocabWorld
+    const loadCachedDailyNewsList = async (categoryValue: string) => {
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return null
+            const response = await fetch("/api/storage/worlds/list", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!response.ok) return null
+            const data = await response.json()
+            const worlds = Array.isArray(data?.worlds) ? data.worlds : []
+            const matched: VocabWorld[] = []
+            for (const entry of worlds) {
+                const json = entry?.json
+                if (!json || json.mode !== "vocab") continue
+                const news = json.news
+                if (!news?.summary?.length) continue
+                if (news?.category !== categoryValue) continue
+                if (!isSameDay(news?.date)) continue
+                matched.push(json as VocabWorld)
+            }
+            if (!matched.length) return null
+            matched.sort((a, b) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
+            return matched
+        } catch {
+            return null
         }
-        return null
     }
 
     // Fetch News (cached daily summary first)
@@ -280,16 +459,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         const fetchNews = async () => {
             setIsNewsLoading(true)
             try {
-                const categoryMap: Record<string, string> = {
-                    World: "world",
-                    Economics: "wirtschaft",
-                    Sport: "sport",
-                }
-                const category = categoryMap[activeNewsTab] || "world"
-                const cached = await loadCachedDailyNews(category)
-                if (cached) {
-                    const summaryLine = cached.news?.summary?.[0] || ""
-                    setNewsItems([{ title: cached.news?.title || cached.title, teaser: summaryLine }])
+                const category = activeNewsTab
+                const cachedList = (await loadCachedDailyNewsList(category)) ?? []
+                if (cachedList.length >= 5) {
+                    const baseItems = cachedList.slice(0, 5).map((item) => ({
+                        title: item.news?.title || item.title,
+                        teaser: item.news?.summary?.[0] || "",
+                    }))
+                    setNewsItems(baseItems)
                     setCurrentNewsIndex(0)
                     setIsNewsLoading(false)
                     return
@@ -298,56 +475,112 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 const res = await fetch(`/api/news/tagesschau?ressort=${category}`)
                 const data = await res.json()
                 const list = Array.isArray(data?.items) ? data.items : []
-                const topHeadline = list[0]
-                if (!topHeadline?.url) {
+                if (!list.length) {
                     setNewsItems([])
                     setIsNewsLoading(false)
                     return
                 }
 
-                const result = await callAi({
-                    task: "news",
-                    url: topHeadline.url,
-                    level: profileSettings.level || undefined,
-                    sourceLabel: profileSettings.sourceLanguage || "Español",
-                    targetLabel: profileSettings.targetLanguage || "Alemán",
-                })
-
-                const nextSummary = Array.isArray(result?.summary) ? result.summary : []
-                const nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
-                const newsWorld = {
-                    ...buildWorldFromItems(nextItems, profileSettings.sourceLanguage || "Español", profileSettings.targetLanguage || "Alemán", ui),
-                    title: `Vocado Diario - ${topHeadline.title || "Noticia"}`,
-                    description: "Noticias del día.",
-                    news: {
-                        summary: nextSummary,
-                        sourceUrl: topHeadline.url,
-                        title: topHeadline.title || "Noticia",
-                        category,
-                        date: new Date().toISOString(),
-                    },
+                const worldsToSave: VocabWorld[] = []
+                const usedUrls = new Set(
+                    cachedList
+                        .map((item) => item.news?.sourceUrl)
+                        .filter((value): value is string => Boolean(value))
+                )
+                for (let i = 0; i < list.length; i += 1) {
+                    if (cachedList.length + worldsToSave.length >= 5) break
+                    const headline = list[i]
+                    if (!headline?.url || usedUrls.has(headline.url)) continue
+                    let nextSummary: string[] = []
+                    let nextItems = [] as NewsReviewItem[]
+                    try {
+                        const result = await callAi({
+                            task: "news",
+                            url: headline.url,
+                            level: profileSettings.level || undefined,
+                            sourceLabel: profileSettings.sourceLanguage || "Español",
+                            targetLabel: profileSettings.targetLanguage || "Alemán",
+                        })
+                        nextSummary = Array.isArray(result?.summary) ? result.summary : []
+                        nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+                    } catch {
+                        const fallbackText = [headline.title, headline.teaser].filter(Boolean).join(". ")
+                        if (fallbackText) {
+                            try {
+                                const result = await callAi({
+                                    task: "news",
+                                    text: fallbackText,
+                                    level: profileSettings.level || undefined,
+                                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                                })
+                                nextSummary = Array.isArray(result?.summary) ? result.summary : [fallbackText]
+                                nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+                            } catch {
+                                nextSummary = [fallbackText]
+                                nextItems = []
+                            }
+                        }
+                    }
+                    if (!nextItems.length) continue
+                    const newsWorld = {
+                        ...buildWorldFromItems(
+                            nextItems,
+                            profileSettings.sourceLanguage || "Español",
+                            profileSettings.targetLanguage || "Alemán",
+                            ui
+                        ),
+                        title: `Vocado Diario - ${headline.title || "Noticia"}`,
+                        description: "Noticias del día.",
+                        news: {
+                            summary: nextSummary,
+                            sourceUrl: headline.url,
+                            title: headline.title || "Noticia",
+                            category,
+                            date: headline.date || new Date().toISOString(),
+                            index: cachedList.length + worldsToSave.length,
+                        },
+                    }
+                    worldsToSave.push(newsWorld)
+                    usedUrls.add(headline.url)
                 }
 
-                const session = await supabase.auth.getSession()
-                const token = session.data.session?.access_token
-                if (token) {
-                    const listId = await ensureNewsListId(token)
-                    await fetch("/api/storage/worlds/save", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({
-                            worlds: [newsWorld],
-                            listId: listId || null,
-                            positions: { [newsWorld.id]: 0 },
-                        }),
-                    })
+                const merged = [...cachedList, ...worldsToSave].slice(0, 5)
+                if (worldsToSave.length) {
+                    const session = await supabase.auth.getSession()
+                    const token = session.data.session?.access_token
+                    if (token) {
+                        const listId = await ensureNewsListId(token)
+                        await fetch("/api/storage/worlds/save", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({
+                                worlds: worldsToSave,
+                                listId: listId || null,
+                                positions: worldsToSave.reduce<Record<string, number>>((acc, world, index) => {
+                                    acc[world.id] = cachedList.length + index
+                                    return acc
+                                }, {}),
+                            }),
+                        })
+                    }
                 }
 
-                const summaryLine = nextSummary[0] || ""
-                setNewsItems([{ title: topHeadline.title || "Noticia", teaser: summaryLine }])
+                const baseItems = merged.map((item) => ({
+                    title: item.news?.title || item.title,
+                    teaser: item.news?.summary?.[0] || "",
+                }))
+                const padded = [
+                    ...baseItems,
+                    ...Array.from({ length: Math.max(0, 5 - baseItems.length) }, () => ({
+                        title: "",
+                        teaser: "",
+                    })),
+                ]
+                setNewsItems(padded)
                 setCurrentNewsIndex(0)
-            } catch (e) {
-                console.error("News fetch error", e)
+            } catch {
+                // ignore network errors for cached news
             } finally {
                 setIsNewsLoading(false)
             }
@@ -432,6 +665,64 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         return data
     }
 
+    const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+        const bytes = new Uint8Array(buffer)
+        let binary = ""
+        bytes.forEach((b) => {
+            binary += String.fromCharCode(b)
+        })
+        return btoa(binary)
+    }
+
+    const handleUploadFile = async (file: File | null) => {
+        if (!file) return
+        setTranslateError(null)
+        setTranslateResult(null)
+        setShowAttachMenu(false)
+        setIsGenerating(true)
+        try {
+            let result: any = null
+            if (file.type.startsWith("image/")) {
+                const buffer = await file.arrayBuffer()
+                const base64 = arrayBufferToBase64(buffer)
+                result = await callAi({
+                    task: "parse_image",
+                    image: { data: base64, mimeType: file.type },
+                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                    level: profileSettings.level || undefined,
+                })
+            } else {
+                const text = await file.text()
+                if (!text.trim()) {
+                    throw new Error(ui.noWordsError)
+                }
+                result = await callAi({
+                    task: "parse_text",
+                    text,
+                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                    level: profileSettings.level || undefined,
+                })
+            }
+
+            const items = Array.isArray(result?.items) ? result.items : []
+            const reviewItems = buildReviewItemsFromAi(items)
+            const words = buildReviewWordsFromItems(reviewItems)
+            if (!words.length) {
+                setTranslateError(ui.noWordsError)
+                return
+            }
+            setGeneratedTitle(file.name)
+            setGeneratedWords(words)
+            setIsOverlayOpen(true)
+        } catch (err) {
+            setTranslateError((err as Error).message)
+        } finally {
+            setIsGenerating(false)
+        }
+    }
+
     const handleTranslate = async () => {
         if (!inputText.trim()) return
         setTranslateError(null)
@@ -480,11 +771,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
     }
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut()
-        router.push("/login")
-    }
-
     // Overlay handlers
     const handleOverlayClose = () => {
         setIsOverlayOpen(false)
@@ -521,9 +807,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     if (activeTab === "Friends") {
         return (
             <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden`}>
-                <header className="px-5 py-4 flex items-center justify-between sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
-                    <h1 className="text-[18px] font-semibold text-[#3A3A3A]">Leaderboard</h1>
-                    <div className="w-[32px] h-[32px] rounded-full bg-[#EAE8E0] border border-white/40 flex items-center justify-center text-[10px] text-[#8A8A8A]">ME</div>
+                <header className="px-5 h-[56px] flex items-center justify-between sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
+                    <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.leaderboardTitle}</h1>
+                    <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">{seeds} 🌱</span>
                 </header>
                 <div className="px-4 py-4 space-y-3">
                     {leaderboard.map((user, i) => (
@@ -542,12 +828,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     ))}
                 </div>
                 {/* Navigation */}
-                <nav className="fixed bottom-0 left-0 right-0 h-[40px] bg-[#FAF7F2]/95 backdrop-blur-md border-t border-[#3A3A3A]/5 flex items-start justify-between px-6 pt-1.5 z-50 text-[#3A3A3A]/40">
-                    <NavTab icon={Star} label="Home" active={activeTab === "Home"} onClick={() => setActiveTab("Home")} />
-                    <NavTab icon={Briefcase} label="Worlds" active={activeTab === "Worlds"} onClick={() => setActiveTab("Worlds")} />
-                    <NavTab icon={BookOpen} label="Vocables" active={activeTab === "Vocables"} onClick={() => setActiveTab("Vocables")} />
-                    <NavTab icon={Users} label="Friends" active={activeTab === "Friends"} onClick={() => setActiveTab("Friends")} />
-                    <NavTab icon={User} label="Me" active={activeTab === "Me"} onClick={() => setActiveTab("Me")} />
+                <nav className="fixed bottom-0 left-0 right-0 h-[56px] bg-[#FAF7F2]/95 backdrop-blur-md border-t border-[#3A3A3A]/5 flex items-center justify-between px-6 z-50 text-[#3A3A3A]/40">
+                    <NavTab icon={Star} label={ui.nav?.home ?? "Home"} active={activeTab === "Home"} onClick={() => setActiveTab("Home")} />
+                    <NavTab icon={Briefcase} label={ui.nav?.worlds ?? "Worlds"} active={activeTab === "Worlds"} onClick={() => setActiveTab("Worlds")} />
+                    <NavTab icon={BookOpen} label={ui.nav?.vocables ?? "Vocables"} active={activeTab === "Vocables"} onClick={() => setActiveTab("Vocables")} />
+                    <NavTab icon={Users} label={ui.nav?.friends ?? "Friends"} active={activeTab === "Friends"} onClick={() => setActiveTab("Friends")} />
+                    <NavTab icon={User} label={ui.nav?.profile ?? "Me"} active={activeTab === "Me"} onClick={() => setActiveTab("Me")} />
                 </nav>
             </div>
         )
@@ -557,7 +843,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden selection:bg-[#E3EBC5] selection:text-[#2C3E30]`}>
 
             {/* --- HEADER --- */}
-            <header className="px-5 py-2 flex items-center justify-between sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40">
+            <header className="px-5 h-[56px] flex items-center justify-end sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40">
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
                     <h1 className="text-[18px] font-semibold tracking-tight text-[#3A3A3A]">
@@ -566,37 +852,32 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 </div>
 
                 {/* Right: Avatar & Seeds */}
-                <div className="flex-1 flex justify-end items-center gap-2.5 relative">
+                <div className="flex-1 flex justify-end items-center gap-2.5">
                     <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">{seeds} 🌱</span>
-                    <button
-                        onClick={() => setShowUserMenu(prev => !prev)}
-                        className="w-[32px] h-[32px] rounded-full bg-[#EAE8E0] border border-white/40 shadow-sm overflow-hidden relative focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
-                    >
-                        {/* Placeholder Avatar */}
-                        <div className="absolute inset-0 flex items-center justify-center text-[9px] text-[#8A8A8A]">ME</div>
-                    </button>
-
-                    {showUserMenu && (
-                        <div className="absolute top-full right-0 mt-2 z-50">
-                            <button
-                                type="button"
-                                onClick={handleLogout}
-                                className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] px-4 py-2 text-[12px] text-[#3A3A3A] shadow-sm"
-                            >
-                                Log out
-                            </button>
-                        </div>
-                    )}
+                    <div className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] overflow-hidden">
+                        <img
+                            src={avatarUrl || FALLBACK_AVATAR}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                                const target = e.currentTarget
+                                if (target.src.endsWith(FALLBACK_AVATAR)) return
+                                target.src = FALLBACK_AVATAR
+                            }}
+                        />
+                    </div>
                 </div>
             </header>
 
 
-            <main className="px-4 pt-4 max-w-md mx-auto space-y-2">
+            <main className="px-4 pt-4 max-w-md mx-auto space-y-6">
 
                 {/* --- 1. AI INPUT (Primary Focus) --- */}
-                <section className="relative mt-1.5">
+                <section className="relative">
                     <div className="mb-1.5 pl-1 flex items-center justify-between">
-                        <span className="text-[12px] font-medium text-[#3A3A3A]/60">Create your World with AI</span>
+                        <span className="text-[12px] font-medium text-[#3A3A3A]/60">
+                            {ui.createWorldTitle}
+                        </span>
                         <button
                             type="button"
                             onClick={toggleTranslateMode}
@@ -617,7 +898,13 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             <input
                                 type="text"
                                 className="bg-transparent border-none outline-none text-[15px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/30 font-normal pr-8 w-[75%]"
-                                placeholder={isGenerating ? "Creating world..." : ui.translatePlaceholder}
+                                placeholder={
+                                    translateMode
+                                        ? ui.translatePlaceholder
+                                        : isGenerating
+                                            ? ui.createWorldLoading
+                                            : ui.createWorldPlaceholder
+                                }
                                 value={inputText}
                                 onChange={(e) => {
                                     setInputText(e.target.value)
@@ -634,25 +921,60 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 }}
                                 disabled={isGenerating}
                             />
-                            {/* Camera Icon - Part of field */}
-                            <button
-                                onClick={() => {
-                                    if (translateMode) {
-                                        handleTranslate()
-                                    } else {
-                                        handleCreateWorld()
-                                    }
-                                }}
-                                disabled={isGenerating || isTranslating}
-                                className="absolute right-3.5 text-[#3A3A3A]/40 hover:text-[#3A3A3A]/70 transition-colors disabled:opacity-50"
-                            >
-                                <Camera className="w-4.5 h-4.5" strokeWidth={1.8} />
-                            </button>
+                            <div className="absolute right-3.5 flex items-center gap-2">
+                                <AnimatePresence>
+                                    {showAttachMenu && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, x: 6 }}
+                                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, x: 6 }}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => cameraInputRef.current?.click()}
+                                                className="w-8 h-8 rounded-full bg-[#FAF7F2] border border-[#3A3A3A]/10 flex items-center justify-center text-[#3A3A3A]/70 hover:text-[#3A3A3A]"
+                                            >
+                                                <Camera className="w-4 h-4" strokeWidth={1.8} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="w-8 h-8 rounded-full bg-[#FAF7F2] border border-[#3A3A3A]/10 flex items-center justify-center text-[#3A3A3A]/70 hover:text-[#3A3A3A]"
+                                            >
+                                                <FileText className="w-4 h-4" strokeWidth={1.8} />
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                                <button
+                                    onClick={() => setShowAttachMenu((prev) => !prev)}
+                                    disabled={isGenerating || isTranslating}
+                                    className="text-[#3A3A3A]/40 hover:text-[#3A3A3A]/70 transition-colors disabled:opacity-50"
+                                >
+                                    <Plus className="w-4.5 h-4.5" strokeWidth={1.8} />
+                                </button>
+                                <input
+                                    ref={cameraInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={(e) => handleUploadFile(e.target.files?.[0] ?? null)}
+                                />
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="*/*"
+                                    className="hidden"
+                                    onChange={(e) => handleUploadFile(e.target.files?.[0] ?? null)}
+                                />
+                            </div>
                         </div>
                     </div>
                     <div className="px-1.5">
                         <p className="text-[9px] leading-tight text-[#3A3A3A]/30 font-medium tracking-tight">
-                            Paste text, write what you want to learn or drop a link, photo, or file
+                            {ui.promptHelp}
                         </p>
                     </div>
                     <AnimatePresence>
@@ -688,22 +1010,28 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 </section>
 
                 {/* --- 2. TODAY'S NEWS --- */}
-                <section className="my-3">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] mb-1.5 pl-1 tracking-tight">Today's News</h2>
+                <section className="space-y-2">
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                        {ui.todaysNewsTitle}
+                    </h2>
 
                     {/* News Card */}
                     <div className="bg-[#FAF7F2] rounded-[24px] p-1 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)] border border-[#3A3A3A]/5 overflow-hidden">
 
                         {/* Categories */}
                         <div className="flex items-center justify-center gap-6 pt-2 pb-1.5 text-[11px] font-medium text-[#3A3A3A]/50 border-b border-[#3A3A3A]/5">
-                            {["World", "Economics", "Sport"].map(cat => (
+                            {([
+                                { id: "world", label: ui.newsTabs?.world ?? "World" },
+                                { id: "wirtschaft", label: ui.newsTabs?.wirtschaft ?? "Economy" },
+                                { id: "sport", label: ui.newsTabs?.sport ?? "Sport" },
+                            ] as const).map((cat) => (
                                 <button
-                                    key={cat}
-                                    onClick={() => setActiveNewsTab(cat)}
-                                    className={`pb-0.5 relative transition-colors ${activeNewsTab === cat ? 'text-[#3A3A3A]' : 'hover:text-[#3A3A3A]/80'}`}
+                                    key={cat.id}
+                                    onClick={() => setActiveNewsTab(cat.id)}
+                                    className={`pb-0.5 relative transition-colors ${activeNewsTab === cat.id ? 'text-[#3A3A3A]' : 'hover:text-[#3A3A3A]/80'}`}
                                 >
-                                    {cat}
-                                    {activeNewsTab === cat && (
+                                    {cat.label}
+                                    {activeNewsTab === cat.id && (
                                         <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#3A3A3A]/20" />
                                     )}
                                 </button>
@@ -713,7 +1041,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         {/* Content */}
                         <div className="p-2.5 pt-2 flex flex-col h-[180px]"> {/* Fixed height container */}
                             <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A]/40 mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center">
-                                {isNewsLoading ? "Loading..." : (currentNews?.title || "No News Available")}
+                                {isNewsLoading ? ui.newsLoading : (currentNews?.title || ui.noNewsAvailable)}
                             </h3>
 
                             {/* Text Preview in Placeholder */}
@@ -739,18 +1067,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 {/* Play Button (Center) */}
                                 <button
                                     onClick={() => {
-                                        const categoryMap: Record<string, string> = {
-                                            World: "world",
-                                            Economics: "wirtschaft",
-                                            Sport: "sport",
-                                        }
-                                        const category = categoryMap[activeNewsTab] || "world"
-                                        router.push(`/news?auto=1&category=${category}`)
+                                        router.push(`/news?auto=1&category=${activeNewsTab}`)
                                     }}
                                     className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#9FB58E] hover:bg-[#8F9F7E] text-white px-3 py-1 rounded-full shadow-sm transition-all group scale-90"
                                 >
                                     <Play className="w-3 h-3 fill-current" />
-                                    <span className="text-[10px] font-bold tracking-wide uppercase">Play Now</span>
+                                    <span className="text-[10px] font-bold tracking-wide uppercase">{ui.playNow}</span>
                                 </button>
 
                                 {/* Right Arrow & Count */}
@@ -773,7 +1095,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                 {/* --- 3. CONTINUE & REVIEW --- */}
                 <section className="space-y-2">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">Continue Learning</h2>
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                        {ui.continueLearningTitle}
+                    </h2>
 
                     {/* Continue Card */}
                     <div className="bg-[#FAF7F2] rounded-[20px] p-2 flex items-center justify-between border border-[#3A3A3A]/5 shadow-[0_2px_10px_-4px_rgba(58,58,58,0.02)]">
@@ -784,7 +1108,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 </span>
                             </div>
                             <div className="text-[10px] text-[#3A3A3A]/50">
-                                {lastPlayed ? `Level ${Math.max(0, (lastPlayed.levelIndex ?? 0)) + 1}` : "No recent session"}
+                                {lastPlayed
+                                    ? `${ui.levelLabel} ${Math.max(0, (lastPlayed.levelIndex ?? 0)) + 1}`
+                                    : ui.noRecentSession}
                             </div>
                         </div>
 
@@ -796,7 +1122,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             disabled={!lastPlayed}
                             className="bg-[#9FB58E] text-white/95 px-3 py-1 rounded-[10px] text-[11px] font-semibold tracking-wide shadow-sm hover:bg-[#8F9F7E] transition-colors disabled:opacity-50"
                         >
-                            Resume
+                            {ui.resumeLabel}
                         </button>
                     </div>
 
@@ -808,8 +1134,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         <div className="flex items-center gap-2.5">
                             {/* Icon could be here, but spec says "Sachliche Tabelle" style content inside. Card itself text based */}
                             <div>
-                                <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">Review</div>
-                                <div className="text-[10px] text-[#3A3A3A]/50">14 wörter zum Wiederholen</div>
+                                <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">{ui.reviewTitle}</div>
+                                <div className="text-[10px] text-[#3A3A3A]/50">
+                                    {formatTemplate(ui.reviewSubtitle, { count: "14" })}
+                                </div>
                             </div>
                         </div>
                         <div className="w-6 h-6 rounded-full bg-[#EAE8E0] flex items-center justify-center text-[#3A3A3A]/40 group-hover:bg-[#EAE8E0]/80">
@@ -818,11 +1146,84 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     </button>
                 </section>
 
+                {/* --- 4. LEADERBOARD --- */}
+                <section className="space-y-2">
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                        {ui.leaderboardTitle}
+                    </h2>
+                    <div className="bg-[#FAF7F2] rounded-[24px] p-4 border border-[#3A3A3A]/5 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)]">
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                            {[
+                                { id: "weekly", label: ui.leaderboardWeekly },
+                                { id: "overall", label: ui.leaderboardOverall },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setLeaderboardScope(tab.id as "weekly" | "overall")}
+                                    className={[
+                                        "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
+                                        leaderboardScope === tab.id
+                                            ? "border-[#9FB58E] bg-[#9FB58E]/20 text-[#3A3A3A]"
+                                            : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
+                                    ].join(" ")}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="space-y-2">
+                            {leaderboardEntries.slice(0, 5).map((entry, index) => {
+                                const entryKey = `${entry.username}-${index}`
+                                const showImage =
+                                    entry.avatarUrl && !failedAvatarEntries.has(entryKey)
+                                return (
+                                    <div
+                                        key={entryKey}
+                                        className="flex items-center justify-between rounded-xl border border-[#3A3A3A]/5 bg-[#F6F2EB] px-3 py-2 text-[13px]"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-7 w-7 rounded-full border border-[#E3EBC5]/80 overflow-hidden bg-[#FFF] flex items-center justify-center">
+                                                {showImage ? (
+                                                    <img
+                                                        src={entry.avatarUrl!}
+                                                        alt={entry.username}
+                                                        className="h-full w-full object-cover"
+                                                        onError={() => {
+                                                            setFailedAvatarEntries((prev) => {
+                                                                const next = new Set(prev)
+                                                                next.add(entryKey)
+                                                                return next
+                                                            })
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span className="text-[12px] font-semibold text-[#3A3A3A]">
+                                                        {entry.username?.charAt(0)?.toUpperCase() ?? "U"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-[#3A3A3A]">{entry.username}</span>
+                                        </div>
+                                        <span className="font-semibold text-[#3A3A3A]/70">{entry.score}</span>
+                                    </div>
+                                )
+                            })}
+                            {leaderboardEntries.length === 0 && (
+                                <div className="text-center text-[12px] text-[#3A3A3A]/50">
+                                    —
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
             </main>
 
 
             {/* --- BOTTOM NAVIGATION --- */}
-            <NavFooter />
+            <NavFooter labels={ui.nav} />
 
             {/* World Review Overlay */}
             <WorldReviewOverlay

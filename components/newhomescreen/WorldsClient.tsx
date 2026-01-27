@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play } from "lucide-react"
 import NavFooter from "@/components/ui/NavFooter"
 import type { World } from "@/types/worlds"
+import { getUiSettings } from "@/lib/ui-settings"
+import { formatTemplate } from "@/lib/ui"
+import { supabase } from "@/lib/supabase/client"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
@@ -42,32 +45,160 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     const [showPromptInput, setShowPromptInput] = useState(false)
     const [promptText, setPromptText] = useState("")
     const [isGenerating, setIsGenerating] = useState(false)
+    const [cachedLists, setCachedLists] = useState<WorldList[]>(lists)
+    const [cachedWorlds, setCachedWorlds] = useState<World[]>(worlds)
+    const [cacheKey, setCacheKey] = useState("vocado-worlds-cache")
 
     // Expanded state tracking
     const [expandedListId, setExpandedListId] = useState<string | null>(null)
     const [expandedWorldId, setExpandedWorldId] = useState<string | null>(null)
 
+    const uiSettings = useMemo(
+        () => getUiSettings(profile.sourceLanguage),
+        [profile.sourceLanguage]
+    )
+    const ui = useMemo(
+        () => ({
+            title: uiSettings?.worlds?.title ?? "Worlds",
+            searchPlaceholder: uiSettings?.worlds?.searchPlaceholder ?? "Search lists or worlds...",
+            emptySearch: uiSettings?.worlds?.emptySearch ?? "No lists found",
+            emptyDefault: uiSettings?.worlds?.emptyDefault ?? "Create your first list",
+            newWorldTitle: uiSettings?.worlds?.newWorldTitle ?? "Create new world",
+            newWorldPlaceholder: uiSettings?.worlds?.newWorldPlaceholder ?? "e.g. Spanish travel vocab",
+            newWorldAction: uiSettings?.worlds?.newWorldAction ?? "Create world",
+            newWorldLoading: uiSettings?.worlds?.newWorldLoading ?? "Creating...",
+            listWorldCount: uiSettings?.worlds?.listWorldCount ?? "{count} worlds",
+            worldMeta: uiSettings?.worlds?.worldMeta ?? "{levels} levels • {words} words",
+            levelItemLabel: uiSettings?.worlds?.levelItemLabel ?? "Level {count}",
+            libraryAction: uiSettings?.worlds?.libraryAction ?? "Library",
+            uploadAction: uiSettings?.worlds?.uploadAction ?? "Upload",
+            nav: uiSettings?.nav ?? {},
+        }),
+        [uiSettings]
+    )
+
     // Build a map of worldId -> world for quick lookup
     const worldMap = useMemo(() => {
         const map = new Map<string, World>()
-        worlds.forEach(w => map.set(w.id, w))
+        cachedWorlds.forEach(w => map.set(w.id, w))
         return map
-    }, [worlds])
+    }, [cachedWorlds])
 
     // Filter lists by search
     const filteredLists = useMemo(() => {
-        if (!searchQuery) return lists
+        if (!searchQuery) return cachedLists
         const q = searchQuery.toLowerCase()
-        return lists.filter(list => {
-            // Match list name
-            if (list.name.toLowerCase().includes(q)) return true
-            // Or match any world title within
-            return list.worldIds.some(wId => {
-                const w = worldMap.get(wId)
-                return w?.title.toLowerCase().includes(q)
+        return cachedLists
+            .map(list => {
+                const listMatches = list.name.toLowerCase().includes(q)
+                if (listMatches) {
+                    return list
+                }
+                const matchingWorldIds = list.worldIds.filter(wId => {
+                    const w = worldMap.get(wId)
+                    return w?.title.toLowerCase().includes(q)
+                })
+                return { ...list, worldIds: matchingWorldIds }
             })
-        })
-    }, [lists, searchQuery, worldMap])
+            .filter(list => list.worldIds.length > 0 || list.name.toLowerCase().includes(q))
+    }, [cachedLists, searchQuery, worldMap])
+
+    useEffect(() => {
+        if (lists.length > 0) {
+            setCachedLists(lists)
+        }
+        if (worlds.length > 0) {
+            setCachedWorlds(worlds)
+        }
+    }, [lists, worlds])
+
+    useEffect(() => {
+        const hydrateCache = async () => {
+            const session = await supabase.auth.getSession()
+            const userId = session.data.session?.user?.id
+            const key = `vocado-worlds-cache:${userId || "anon"}`
+            setCacheKey(key)
+            if (typeof window === "undefined") return
+            const raw = window.localStorage.getItem(key)
+            if (!raw) return
+            try {
+                const parsed = JSON.parse(raw)
+                if (Array.isArray(parsed?.lists)) {
+                    setCachedLists(parsed.lists)
+                }
+                if (Array.isArray(parsed?.worlds)) {
+                    setCachedWorlds(parsed.worlds)
+                }
+            } catch {
+                // ignore cache parse errors
+            }
+        }
+        hydrateCache()
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (!cacheKey) return
+        window.localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+                lists: cachedLists,
+                worlds: cachedWorlds,
+                updatedAt: Date.now(),
+            })
+        )
+    }, [cacheKey, cachedLists, cachedWorlds])
+
+    useEffect(() => {
+        const fetchLatest = async () => {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            try {
+                const response = await fetch("/api/storage/worlds/list", {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                if (!response.ok) return
+                const data = await response.json()
+                const listRows = Array.isArray(data?.lists) ? data.lists : []
+                const worldRows = Array.isArray(data?.worlds) ? data.worlds : []
+                if (listRows.length === 0 && worldRows.length === 0) return
+
+                const listsById = new Map<string, WorldList>()
+                listRows.forEach((row: any) => {
+                    if (row?.id && row?.name) {
+                        listsById.set(row.id, { id: row.id, name: row.name, worldIds: [] })
+                    }
+                })
+
+                const listWorldsMap = new Map<string, Array<{ id: string; position: number }>>()
+                worldRows.forEach((row: any) => {
+                    if (row?.listId && listsById.has(row.listId)) {
+                        const arr = listWorldsMap.get(row.listId) ?? []
+                        arr.push({ id: row.worldId, position: row.position ?? 0 })
+                        listWorldsMap.set(row.listId, arr)
+                    }
+                })
+
+                listsById.forEach((list, id) => {
+                    const entries = listWorldsMap.get(id) ?? []
+                    entries.sort((a, b) => a.position - b.position)
+                    list.worldIds = entries.map((entry) => entry.id)
+                })
+
+                const nextWorlds = worldRows
+                    .map((row: any) => row?.json)
+                    .filter((json: any) => json && typeof json.id === "string") as World[]
+
+                setCachedLists(Array.from(listsById.values()))
+                setCachedWorlds(nextWorlds)
+            } catch {
+                // ignore network errors
+            }
+        }
+        fetchLatest()
+    }, [])
 
     // Get levels count for a world
     const getLevelCount = (world: World): number => {
@@ -110,12 +241,13 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
 
     return (
         <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-            {/* Header */}
-            <header className="px-5 py-4 sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
-                <h1 className="text-[18px] font-semibold text-center">
-                    Welten
-                </h1>
-            </header>
+            <div className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
+                <div className="h-5 w-5" />
+                <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.title}</h1>
+                <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">
+                    {profile.seeds ?? 0} 🌱
+                </span>
+            </div>
 
             {/* Search Bar */}
             <div className="px-4 pt-6">
@@ -125,7 +257,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Suche Listen oder Welten..."
+                        placeholder={ui.searchPlaceholder}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
                     />
                 </div>
@@ -142,7 +274,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                     >
                         <div className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/10 p-4 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-[13px] font-medium text-[#3A3A3A]">Neue Welt erstellen</span>
+                                <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.newWorldTitle}</span>
                                 <button
                                     onClick={() => setShowPromptInput(false)}
                                     className="p-1 rounded-full hover:bg-[#3A3A3A]/5"
@@ -154,7 +286,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 type="text"
                                 value={promptText}
                                 onChange={(e) => setPromptText(e.target.value)}
-                                placeholder="z.B. Spanische Reisevokabeln"
+                                placeholder={ui.newWorldPlaceholder}
                                 className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
                                 onKeyDown={(e) => e.key === "Enter" && handleCreateWorld()}
                             />
@@ -163,7 +295,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 disabled={isGenerating || !promptText.trim()}
                                 className="mt-3 w-full py-2 rounded-xl bg-[#9FB58E] text-white text-[14px] font-medium disabled:opacity-50 transition-colors hover:bg-[#8CA77D]"
                             >
-                                {isGenerating ? "Erstelle..." : "Welt erstellen"}
+                                {isGenerating ? ui.newWorldLoading : ui.newWorldAction}
                             </button>
                         </div>
                     </motion.div>
@@ -174,7 +306,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             <div className="px-4 pt-4 space-y-3">
                 {filteredLists.length === 0 ? (
                     <div className="text-center py-12 text-[#3A3A3A]/50 text-[14px]">
-                        {searchQuery ? "Keine Listen gefunden" : "Erstelle deine erste Liste"}
+                        {searchQuery ? ui.emptySearch : ui.emptyDefault}
                     </div>
                 ) : (
                     filteredLists.map(list => (
@@ -194,7 +326,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 <div className="flex-1">
                                     <div className="text-[15px] font-medium text-[#3A3A3A]">{list.name}</div>
                                     <div className="text-[12px] text-[#3A3A3A]/50">
-                                        {list.worldIds.length} Welt{list.worldIds.length !== 1 ? "en" : ""}
+                                        {formatTemplate(ui.listWorldCount, { count: String(list.worldIds.length) })}
                                     </div>
                                 </div>
                             </button>
@@ -232,7 +364,10 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                         <div className="flex-1">
                                                             <div className="text-[14px] font-medium text-[#3A3A3A]">{world.title}</div>
                                                             <div className="text-[11px] text-[#3A3A3A]/50">
-                                                                {levelCount} Level{levelCount !== 1 ? "s" : ""} • {world.pool?.length ?? 0} Wörter
+                                                                {formatTemplate(ui.worldMeta, {
+                                                                    levels: String(levelCount),
+                                                                    words: String(world.pool?.length ?? 0),
+                                                                })}
                                                             </div>
                                                         </div>
                                                     </button>
@@ -257,7 +392,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                             <Play className="w-3 h-3 text-[#9FB58E]" />
                                                                         </div>
                                                                         <span className="text-[13px] text-[#3A3A3A]/80">
-                                                                            Level {i + 1}
+                                                                            {formatTemplate(ui.levelItemLabel, { count: String(i + 1) })}
                                                                         </span>
                                                                     </button>
                                                                 ))}
@@ -298,14 +433,14 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
                                 >
                                     <BookOpen className="w-4 h-4 text-[#9FB58E]" />
-                                    <span className="text-[13px] font-medium text-[#3A3A3A]">Bibliothek</span>
+                                    <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.libraryAction}</span>
                                 </button>
                                 <button
                                     onClick={handleUpload}
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
                                 >
                                     <Upload className="w-4 h-4 text-[#9FB58E]" />
-                                    <span className="text-[13px] font-medium text-[#3A3A3A]">Hochladen</span>
+                                    <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.uploadAction}</span>
                                 </button>
                             </motion.div>
                         </>
@@ -322,7 +457,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             </div>
 
             {/* Navigation Footer */}
-            <NavFooter />
+            <NavFooter labels={ui.nav} />
         </div>
     )
 }

@@ -25,6 +25,10 @@ export async function POST(req: Request) {
       typeof body?.targetLanguage === "string" ? body.targetLanguage.trim() : undefined
     const newsCategory =
       typeof body?.newsCategory === "string" ? body.newsCategory.trim() : undefined
+    const name =
+      typeof body?.name === "string" ? body.name.trim() : undefined
+    const avatarUrl =
+      typeof body?.avatarUrl === "string" ? body.avatarUrl.trim() : undefined
     const onboardingDone =
       typeof body?.onboardingDone === "boolean" ? body.onboardingDone : undefined
 
@@ -33,16 +37,42 @@ export async function POST(req: Request) {
     if (sourceLanguage !== undefined) updates.source_language = sourceLanguage || null
     if (targetLanguage !== undefined) updates.target_language = targetLanguage || null
     if (newsCategory !== undefined) updates.news_category = newsCategory || null
+    if (name !== undefined) updates.username = name || null
+    if (avatarUrl !== undefined) updates.avatar_url = avatarUrl || null
     if (onboardingDone !== undefined) updates.onboarding_done = onboardingDone
 
     if (!Object.keys(updates).length) {
       return NextResponse.json({ ok: true })
     }
 
-    const { error } = await supabaseAdmin
+    let { error } = await supabaseAdmin
       .from("profiles")
       .update(updates)
       .eq("id", userId)
+
+    const requestedAvatar = updates.avatar_url
+    if (requestedAvatar) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: { avatar_url: requestedAvatar },
+        })
+      } catch {
+        // ignore metadata update failures
+      }
+    }
+
+    if (error && updates.avatar_url) {
+      const message = typeof error.message === "string" ? error.message : ""
+      if (message.includes("avatar_url")) {
+        const retryPayload = { ...updates }
+        delete retryPayload.avatar_url
+        const retry = await supabaseAdmin
+          .from("profiles")
+          .update(retryPayload)
+          .eq("id", userId)
+        error = retry.error ?? null
+      }
+    }
 
     if (error) {
       return NextResponse.json({ error: "Update failed", details: error.message }, { status: 500 })

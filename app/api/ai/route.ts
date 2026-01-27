@@ -255,43 +255,54 @@ export async function POST(req: NextRequest) {
     })
     parts = [{ text: prompt }]
   } else if (task === "news") {
-    const url = typeof body?.url === "string" ? body.url.trim() : ""
-    if (!url) {
-      return NextResponse.json({ error: "Missing url" }, { status: 400 })
+    const rawText = typeof body?.text === "string" ? body.text.trim() : ""
+    if (rawText) {
+      prompt = buildNewsPrompt({
+        sourceLabel,
+        targetLabel,
+        level: typeof body?.level === "string" ? body.level : null,
+        rawText: rawText.slice(0, 12000),
+      })
+      parts = [{ text: prompt }]
+    } else {
+      const url = typeof body?.url === "string" ? body.url.trim() : ""
+      if (!url) {
+        return NextResponse.json({ error: "Missing url" }, { status: 400 })
+      }
+      let parsedUrl: URL
+      try {
+        parsedUrl = new URL(url)
+      } catch {
+        return NextResponse.json({ error: "Invalid url" }, { status: 400 })
+      }
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return NextResponse.json({ error: "Invalid url protocol" }, { status: 400 })
+      }
+      const articleResponse = await fetch(parsedUrl.toString(), {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        },
+      })
+      if (!articleResponse.ok) {
+        return NextResponse.json(
+          { error: `Failed to fetch article (${articleResponse.status})` },
+          { status: 500 }
+        )
+      }
+      const html = await articleResponse.text()
+      const plainText = stripHtml(html).slice(0, 12000)
+      if (!plainText) {
+        return NextResponse.json({ error: "Empty article content" }, { status: 500 })
+      }
+      prompt = buildNewsPrompt({
+        sourceLabel,
+        targetLabel,
+        level: typeof body?.level === "string" ? body.level : null,
+        rawText: plainText,
+      })
+      parts = [{ text: prompt }]
     }
-    let parsedUrl: URL
-    try {
-      parsedUrl = new URL(url)
-    } catch {
-      return NextResponse.json({ error: "Invalid url" }, { status: 400 })
-    }
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return NextResponse.json({ error: "Invalid url protocol" }, { status: 400 })
-    }
-    const articleResponse = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-      },
-    })
-    if (!articleResponse.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch article (${articleResponse.status})` },
-        { status: 500 }
-      )
-    }
-    const html = await articleResponse.text()
-    const plainText = stripHtml(html).slice(0, 12000)
-    if (!plainText) {
-      return NextResponse.json({ error: "Empty article content" }, { status: 500 })
-    }
-    prompt = buildNewsPrompt({
-      sourceLabel,
-      targetLabel,
-      level: typeof body?.level === "string" ? body.level : null,
-      rawText: plainText,
-    })
-    parts = [{ text: prompt }]
   } else {
     return NextResponse.json({ error: "Unknown task" }, { status: 400 })
   }

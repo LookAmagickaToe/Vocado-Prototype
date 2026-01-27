@@ -20,7 +20,15 @@
       "editLabel": "Editar",
       "editTitle": "Editar vocabulario",
       "assignLabel": "Asignar a mundo",
-      "assignAction": "Añadir"
+      "assignAction": "Añadir",
+      "deleteLabel": "Eliminar",
+      "deleteListLabel": "Eliminar lista",
+      "moveLabel": "Mover",
+      "moveToLabel": "Mover a",
+      "deleteWorldConfirm": "¿Seguro que quieres eliminar este mundo?",
+      "deleteListConfirm": "¿Eliminar la lista? Se eliminarán {count} mundos.",
+      "confirmYes": "Sí",
+      "confirmCancel": "Cancelar"
     },
     "levelsOverlay": {
       "titleSuffix": "— Levels",
@@ -119,10 +127,15 @@
       "generateButton": "Generar",
       "playButton": "Jugar",
       "loading": "Procesando...",
+      "loadingDaily": "Cargando el diario...",
       "vocabTitle": "Palabras aprendidas",
+      "readNow": "Leer noticias",
+      "noNews": "No se encontraron noticias.",
+      "playNow": "Jugar ahora",
+      "backLabel": "Volver",
       "categoryLabel": "Categoría",
       "categoryOptions": {
-        "world": "World",
+        "world": "Mundo",
         "wirtschaft": "Economy",
         "sport": "Sport"
       }
@@ -155,10 +168,39 @@
       "worldSelectLabel": "Mundo",
       "listSelectLabel": "Lista",
       "worldNameLabel": "Nombre del mundo",
-      "confirmAdd": "Guardar"
+      "confirmAdd": "Guardar",
+      "createWorldTitle": "Crea tu mundo con IA",
+      "createWorldPlaceholder": "Escribe un tema...",
+      "createWorldLoading": "Creando mundo...",
+      "promptHelp": "Pega texto, escribe lo que quieres aprender o añade un enlace, foto o archivo",
+      "todaysNewsTitle": "Noticias de hoy",
+      "newsLoading": "Cargando...",
+      "noNewsAvailable": "No hay noticias disponibles",
+      "continueLearningTitle": "Continuar aprendiendo",
+      "resumeLabel": "Reanudar",
+      "noRecentSession": "Sin sesión reciente",
+      "reviewTitle": "Repasar",
+      "reviewSubtitle": "{count} palabras para repasar",
+      "logout": "Cerrar sesión",
+      "leaderboardWeekly": "Semanal",
+      "leaderboardOverall": "General"
     },
     "profile": {
-      "save": "Guardar"
+      "save": "Guardar",
+      "title": "Yo",
+      "autoLabel": "Auto",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "avatarLabel": "Foto de perfil",
+      "logout": "Cerrar sesión"
+    },
+    "nav": {
+      "home": "Inicio",
+      "worlds": "Mundos",
+      "news": "Noticias",
+      "vocables": "Vocabulario",
+      "profile": "Yo",
+      "friends": "Amigos"
     },
     "onboarding": {
       "title": "Bienvenido a Vocado",
@@ -252,11 +294,41 @@
       "title": "Mundos",
       "search": "Buscar mundos...",
       "upload": "Subir",
-      "library": "Biblioteca"
+      "library": "Biblioteca",
+      "searchPlaceholder": "Buscar listas o mundos...",
+      "emptySearch": "No se encontraron listas",
+      "emptyDefault": "Crea tu primera lista",
+      "newWorldTitle": "Crear nuevo mundo",
+      "newWorldPlaceholder": "p. ej. Vocabulario de viaje en español",
+      "newWorldAction": "Crear mundo",
+      "newWorldLoading": "Creando...",
+      "listWorldCount": "{count} mundos",
+      "worldMeta": "{levels} niveles • {words} palabras",
+      "levelItemLabel": "Nivel {count}",
+      "libraryAction": "Biblioteca",
+      "uploadAction": "Subir"
     },
     "vocables": {
       "title": "Vocabulario",
-      "startReview": "Empezar repaso"
+      "startReview": "Empezar repaso",
+      "backLabel": "Volver",
+      "loading": "Cargando...",
+      "difficultyHard": "Difícil",
+      "difficultyMedium": "Medio",
+      "difficultyEasy": "Fácil",
+      "dueLabel": "Pendientes",
+      "dueTitle": "Palabras para repasar",
+      "totalLabel": "Total: {count} palabras",
+      "categoriesLabel": "{count} categorías",
+      "bucketSectionTitle": "Por dificultad",
+      "bucketCountLabel": "{count} palabras",
+      "tipTitle": "Consejo",
+      "tipBody": "Repite las palabras difíciles con más frecuencia. El sistema ajusta los intervalos automáticamente según tu progreso.",
+      "reviewModeLabel": "Modo",
+      "reviewModeSrs": "Repaso",
+      "reviewModeMemory": "Memoria",
+      "menuLabel": "Menú",
+      "continueLabel": "Continuar"
     }
   },
   "en": {
@@ -280,7 +352,15 @@
       "editLabel": "Edit",
       "editTitle": "Edit vocabulary",
       "assignLabel": "Assign to world",
-      "assignAction": "Add"
+      "assignAction": "Add",
+      "deleteLabel": "Delete",
+      "deleteListLabel": "Delete list",
+      "moveLabel": "Move",
+      "moveToLabel": "Move to",
+      "deleteWorldConfirm": "Are you sure you want to delete this world?",
+      "deleteListConfirm": "Delete this list? {count} worlds will be removed.",
+      "confirmYes": "Yes",
+      "confirmCancel": "Cancel"
     },
     "levelsOverlay": {
       "titleSuffix": "— Levels",
@@ -380,6 +460,11 @@
       "playButton": "Play",
       "loading": "Processing...",
       "vocabTitle": "Learned words",
+      "loadingDaily": "Loading the daily paper...",
+      "readNow": "Read news",
+      "noNews": "No news found.",
+      "playNow": "Play now",
+      "backLabel": "Back",
       "categoryLabel": "Category",
       "categoryOptions": {
         "world": "World",
@@ -415,10 +500,39 @@
       "worldSelectLabel": "World",
       "listSelectLabel": "List",
       "worldNameLabel": "World name",
-      "confirmAdd": "Save"
+      "confirmAdd": "Save",
+      "createWorldTitle": "Create your world with AI",
+      "createWorldPlaceholder": "Type a theme...",
+      "createWorldLoading": "Creating world...",
+      "promptHelp": "Paste text, write what you want to learn or drop a link, photo, or file",
+      "todaysNewsTitle": "Today's News",
+      "newsLoading": "Loading...",
+      "noNewsAvailable": "No news available",
+      "continueLearningTitle": "Continue learning",
+      "resumeLabel": "Resume",
+      "noRecentSession": "No recent session",
+      "reviewTitle": "Review",
+      "reviewSubtitle": "{count} words to review",
+      "logout": "Log out",
+      "leaderboardWeekly": "Weekly",
+      "leaderboardOverall": "Overall"
     },
     "profile": {
-      "save": "Save"
+      "save": "Save",
+      "title": "Profile",
+      "autoLabel": "Auto",
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "avatarLabel": "Profile picture",
+      "logout": "Log out"
+    },
+    "nav": {
+      "home": "Home",
+      "worlds": "Worlds",
+      "news": "News",
+      "vocables": "Vocables",
+      "profile": "Profile",
+      "friends": "Friends"
     },
     "onboarding": {
       "title": "Welcome to Vocado",
@@ -512,11 +626,41 @@
       "title": "Worlds",
       "search": "Search worlds...",
       "upload": "Upload",
-      "library": "Library"
+      "library": "Library",
+      "searchPlaceholder": "Search lists or worlds...",
+      "emptySearch": "No lists found",
+      "emptyDefault": "Create your first list",
+      "newWorldTitle": "Create new world",
+      "newWorldPlaceholder": "e.g. Spanish travel vocab",
+      "newWorldAction": "Create world",
+      "newWorldLoading": "Creating...",
+      "listWorldCount": "{count} worlds",
+      "worldMeta": "{levels} levels • {words} words",
+      "levelItemLabel": "Level {count}",
+      "libraryAction": "Library",
+      "uploadAction": "Upload"
     },
     "vocables": {
-      "title": "Vocabulary",
-      "startReview": "Start review"
+      "title": "Vocables",
+      "startReview": "Start review",
+      "backLabel": "Back",
+      "loading": "Loading...",
+      "difficultyHard": "Hard",
+      "difficultyMedium": "Medium",
+      "difficultyEasy": "Easy",
+      "dueLabel": "Due",
+      "dueTitle": "Words to review",
+      "totalLabel": "Total: {count} words",
+      "categoriesLabel": "{count} categories",
+      "bucketSectionTitle": "By difficulty",
+      "bucketCountLabel": "{count} words",
+      "tipTitle": "Tip",
+      "tipBody": "Review hard words more often. The system adapts intervals automatically to your progress.",
+      "reviewModeLabel": "Mode",
+      "reviewModeSrs": "Review",
+      "reviewModeMemory": "Memory",
+      "menuLabel": "Menu",
+      "continueLabel": "Continue"
     }
   },
   "de": {
@@ -540,7 +684,15 @@
       "editLabel": "Bearbeiten",
       "editTitle": "Wortschatz bearbeiten",
       "assignLabel": "Zu Welt zuordnen",
-      "assignAction": "Hinzufügen"
+      "assignAction": "Hinzufügen",
+      "deleteLabel": "Löschen",
+      "deleteListLabel": "Liste löschen",
+      "moveLabel": "Verschieben",
+      "moveToLabel": "Verschieben nach",
+      "deleteWorldConfirm": "Möchtest du diese Welt wirklich löschen?",
+      "deleteListConfirm": "Liste löschen? {count} Welten werden entfernt.",
+      "confirmYes": "Ja",
+      "confirmCancel": "Abbrechen"
     },
     "levelsOverlay": {
       "titleSuffix": "— Level",
@@ -640,9 +792,14 @@
       "playButton": "Spielen",
       "loading": "Wird verarbeitet...",
       "vocabTitle": "Gelernte Wörter",
+      "loadingDaily": "Lade das Tagesjournal...",
+      "readNow": "Nachrichten lesen",
+      "noNews": "Keine Nachrichten gefunden.",
+      "playNow": "Jetzt spielen",
+      "backLabel": "Zurück",
       "categoryLabel": "Kategorie",
       "categoryOptions": {
-        "world": "World",
+        "world": "Welt",
         "wirtschaft": "Wirtschaft",
         "sport": "Sport"
       }
@@ -675,10 +832,39 @@
       "worldSelectLabel": "Welt",
       "listSelectLabel": "Liste",
       "worldNameLabel": "Weltname",
-      "confirmAdd": "Speichern"
+      "confirmAdd": "Speichern",
+      "createWorldTitle": "Erstelle deine Welt mit KI",
+      "createWorldPlaceholder": "Thema eingeben...",
+      "createWorldLoading": "Welt wird erstellt...",
+      "promptHelp": "Text einfügen, schreibe, was du lernen willst, oder füge Link, Foto oder Datei hinzu",
+      "todaysNewsTitle": "Heutige Nachrichten",
+      "newsLoading": "Lädt...",
+      "noNewsAvailable": "Keine Nachrichten verfügbar",
+      "continueLearningTitle": "Weiterlernen",
+      "resumeLabel": "Fortsetzen",
+      "noRecentSession": "Keine letzte Sitzung",
+      "reviewTitle": "Wiederholen",
+      "reviewSubtitle": "{count} Wörter zum Wiederholen",
+      "logout": "Abmelden",
+      "leaderboardWeekly": "Wöchentlich",
+      "leaderboardOverall": "Gesamt"
     },
     "profile": {
-      "save": "Speichern"
+      "save": "Speichern",
+      "title": "Profil",
+      "autoLabel": "Auto",
+      "nameLabel": "Name",
+      "namePlaceholder": "Dein Name",
+      "avatarLabel": "Profilbild",
+      "logout": "Abmelden"
+    },
+    "nav": {
+      "home": "Start",
+      "worlds": "Welten",
+      "news": "News",
+      "vocables": "Vokabeln",
+      "profile": "Profil",
+      "friends": "Freunde"
     },
     "onboarding": {
       "title": "Willkommen bei Vocado",
@@ -769,14 +955,44 @@
       "dueCount": "{count} Wörter zu wiederholen"
     },
     "worlds": {
-      "title": "Welten",
+      "title": "🌎 Welten",
       "search": "Welten suchen...",
       "upload": "Hochladen",
-      "library": "Bibliothek"
+      "library": "Bibliothek",
+      "searchPlaceholder": "Listen oder Welten suchen...",
+      "emptySearch": "Keine Listen gefunden",
+      "emptyDefault": "Erstelle deine erste Liste",
+      "newWorldTitle": "Neue Welt erstellen",
+      "newWorldPlaceholder": "z. B. Spanische Reisevokabeln",
+      "newWorldAction": "Welt erstellen",
+      "newWorldLoading": "Erstelle...",
+      "listWorldCount": "{count} Welten",
+      "worldMeta": "{levels} Level • {words} Wörter",
+      "levelItemLabel": "Level {count}",
+      "libraryAction": "Bibliothek",
+      "uploadAction": "Hochladen"
     },
     "vocables": {
       "title": "Vokabeln",
-      "startReview": "Wiederholung starten"
+      "startReview": "Jetzt lernen",
+      "backLabel": "Zurück",
+      "loading": "Lädt...",
+      "difficultyHard": "Schwer",
+      "difficultyMedium": "Mittel",
+      "difficultyEasy": "Leicht",
+      "dueLabel": "Fällig",
+      "dueTitle": "Wörter zur Wiederholung",
+      "totalLabel": "Gesamt: {count} Wörter",
+      "categoriesLabel": "{count} Kategorien",
+      "bucketSectionTitle": "Nach Schwierigkeit",
+      "bucketCountLabel": "{count} Wörter",
+      "tipTitle": "Tipp",
+      "tipBody": "Wiederhole schwere Wörter öfter. Das System passt die Intervalle automatisch an deinen Lernfortschritt an.",
+      "reviewModeLabel": "Modus",
+      "reviewModeSrs": "Karteikarte",
+      "reviewModeMemory": "Memory",
+      "menuLabel": "Menü",
+      "continueLabel": "Weiter"
     }
   },
   "fr": {
@@ -800,7 +1016,15 @@
       "editLabel": "Éditer",
       "editTitle": "Modifier le vocabulaire",
       "assignLabel": "Assigner à un monde",
-      "assignAction": "Ajouter"
+      "assignAction": "Ajouter",
+      "deleteLabel": "Supprimer",
+      "deleteListLabel": "Supprimer la liste",
+      "moveLabel": "Déplacer",
+      "moveToLabel": "Déplacer vers",
+      "deleteWorldConfirm": "Supprimer ce monde ?",
+      "deleteListConfirm": "Supprimer la liste ? {count} mondes seront supprimés.",
+      "confirmYes": "Oui",
+      "confirmCancel": "Annuler"
     },
     "levelsOverlay": {
       "titleSuffix": "— Niveaux",
@@ -893,6 +1117,11 @@
       "playButton": "Jouer",
       "loading": "Traitement...",
       "vocabTitle": "Mots appris",
+      "loadingDaily": "Chargement du journal...",
+      "readNow": "Lire les news",
+      "noNews": "Aucune actualité trouvée.",
+      "playNow": "Jouer maintenant",
+      "backLabel": "Retour",
       "categoryLabel": "Catégorie",
       "categoryOptions": {
         "world": "Monde",
@@ -928,10 +1157,39 @@
       "worldSelectLabel": "Monde",
       "listSelectLabel": "Liste",
       "worldNameLabel": "Nom du monde",
-      "confirmAdd": "Enregistrer"
+      "confirmAdd": "Enregistrer",
+      "createWorldTitle": "Crée ton monde avec l’IA",
+      "createWorldPlaceholder": "Saisis un thème...",
+      "createWorldLoading": "Création du monde...",
+      "promptHelp": "Colle du texte, écris ce que tu veux apprendre ou ajoute un lien, une photo ou un fichier",
+      "todaysNewsTitle": "Actualités du jour",
+      "newsLoading": "Chargement...",
+      "noNewsAvailable": "Aucune actualité disponible",
+      "continueLearningTitle": "Continuer l’apprentissage",
+      "resumeLabel": "Reprendre",
+      "noRecentSession": "Aucune session récente",
+      "reviewTitle": "Réviser",
+      "reviewSubtitle": "{count} mots à réviser",
+      "logout": "Se déconnecter",
+      "leaderboardWeekly": "Hebdomadaire",
+      "leaderboardOverall": "Global"
     },
     "profile": {
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "title": "Profil",
+      "autoLabel": "Auto",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Votre nom",
+      "avatarLabel": "Photo de profil",
+      "logout": "Se déconnecter"
+    },
+    "nav": {
+      "home": "Accueil",
+      "worlds": "Mondes",
+      "news": "Actualités",
+      "vocables": "Vocabulaire",
+      "profile": "Profil",
+      "friends": "Amis"
     },
     "onboarding": {
       "title": "Bienvenue sur Vocado",
@@ -1025,11 +1283,41 @@
       "title": "Mondes",
       "search": "Rechercher des mondes...",
       "upload": "Importer",
-      "library": "Bibliothèque"
+      "library": "Bibliothèque",
+      "searchPlaceholder": "Rechercher des listes ou des mondes...",
+      "emptySearch": "Aucune liste trouvée",
+      "emptyDefault": "Crée ta première liste",
+      "newWorldTitle": "Créer un nouveau monde",
+      "newWorldPlaceholder": "ex. vocabulaire de voyage espagnol",
+      "newWorldAction": "Créer le monde",
+      "newWorldLoading": "Création...",
+      "listWorldCount": "{count} mondes",
+      "worldMeta": "{levels} niveaux • {words} mots",
+      "levelItemLabel": "Niveau {count}",
+      "libraryAction": "Bibliothèque",
+      "uploadAction": "Importer"
     },
     "vocables": {
       "title": "Vocabulaire",
-      "startReview": "Commencer la révision"
+      "startReview": "Commencer la révision",
+      "backLabel": "Retour",
+      "loading": "Chargement...",
+      "difficultyHard": "Difficile",
+      "difficultyMedium": "Moyen",
+      "difficultyEasy": "Facile",
+      "dueLabel": "À réviser",
+      "dueTitle": "Mots à réviser",
+      "totalLabel": "Total : {count} mots",
+      "categoriesLabel": "{count} catégories",
+      "bucketSectionTitle": "Par difficulté",
+      "bucketCountLabel": "{count} mots",
+      "tipTitle": "Astuce",
+      "tipBody": "Révise plus souvent les mots difficiles. Le système adapte automatiquement les intervalles à tes progrès.",
+      "reviewModeLabel": "Mode",
+      "reviewModeSrs": "Révision",
+      "reviewModeMemory": "Mémoire",
+      "menuLabel": "Menu",
+      "continueLabel": "Continuer"
     }
   }
 }

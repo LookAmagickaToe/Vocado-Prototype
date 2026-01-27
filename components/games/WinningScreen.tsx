@@ -49,6 +49,8 @@ export default function WinningScreen({
   summaryItem,
   conjugation,
   awardSummary,
+  customActions,
+  hideDefaultActions = false,
 }: {
   moves: number
   subtitle: string
@@ -69,6 +71,8 @@ export default function WinningScreen({
   summaryItem?: ReviewCarouselItem | null
   conjugation?: Conjugation
   awardSummary?: { payout: number; totalBefore: number; totalAfter: number }
+  customActions?: React.ReactNode
+  hideDefaultActions?: boolean
 
   title?: string
   movesLabel?: string
@@ -291,20 +295,26 @@ export default function WinningScreen({
           )}
         </div>
 
-        <div className="mt-6 flex gap-3 justify-center">
-          {onNext && (
-            <Button
-              onClick={onNext}
-              className="border border-[#9FB58E] bg-[#9FB58E] text-white hover:bg-[#8CA77D]"
-            >
-              {nextLabel ?? nextLabelDefault}
-            </Button>
-          )}
+        {customActions ? (
+          <div className="mt-5 border-t border-[#3A3A3A]/10 pt-4">{customActions}</div>
+        ) : (
+          !hideDefaultActions && (
+            <div className="mt-6 flex gap-3 justify-center">
+              {onNext && (
+                <Button
+                  onClick={onNext}
+                  className="border border-[#9FB58E] bg-[#9FB58E] text-white hover:bg-[#8CA77D]"
+                >
+                  {nextLabel ?? nextLabelDefault}
+                </Button>
+              )}
 
-          <Button onClick={onClose} className="bg-transparent text-[#3A3A3A]/70 hover:text-[#3A3A3A]">
-            {closeLabelDefault}
-          </Button>
-        </div>
+              <Button onClick={onClose} className="bg-transparent text-[#3A3A3A]/70 hover:text-[#3A3A3A]">
+                {closeLabelDefault}
+              </Button>
+            </div>
+          )
+        )}
       </motion.div>
     </motion.div>
   )

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import UserMenu from "@/components/UserMenu"
 import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
 import { getUiSettings } from "@/lib/ui-settings"
 import { supabase } from "@/lib/supabase/client"
@@ -979,13 +978,6 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
             <span className="font-semibold">{seeds}</span>
             <span>🌱</span>
           </div>
-          <UserMenu
-            level={profileState.level || "B1"}
-            sourceLanguage={profileState.sourceLanguage}
-            targetLanguage={profileState.targetLanguage}
-            newsCategory={profileState.newsCategory}
-            onUpdateSettings={setProfileState}
-          />
         </header>
 
         <div className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6 text-center shadow-xl">

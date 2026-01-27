@@ -76,6 +76,7 @@ export default function VocabMemoryGame({
   secondaryLabelOverride,
   onWin,
   nextLabelOverride,
+  renderWinActions,
 }: {
   world: VocabWorld
   levelIndex: number
@@ -87,6 +88,13 @@ export default function VocabMemoryGame({
     wordsLearnedCount: number
   ) => { payout: number; totalBefore: number; totalAfter: number } | void
   nextLabelOverride?: string
+  renderWinActions?: (args: {
+    matchedOrder: string[]
+    carouselIndex: number
+    setCarouselIndex: React.Dispatch<React.SetStateAction<number>>
+    carouselItem: ReviewCarouselItem | null
+    closeWin: () => void
+  }) => React.ReactNode
 }) {
   const VOCAB = useMemo(() => {
     const k = world.chunking.itemsPerGame
@@ -119,6 +127,10 @@ export default function VocabMemoryGame({
     totalBefore: number
     totalAfter: number
   } | null>(null)
+
+  const closeWinOverlay = () => {
+    setShowWinOverlay(false)
+  }
 
   const primaryLabel =
     primaryLabelOverride ??
@@ -493,7 +505,7 @@ export default function VocabMemoryGame({
           <WinningScreen
             moves={moves}
             subtitle={winSubtitle}
-            onClose={() => setShowWinOverlay(false)}
+            onClose={closeWinOverlay}
             onRestart={() => {
               setShowWinOverlay(false)
               setIsWon(false)
@@ -531,6 +543,18 @@ export default function VocabMemoryGame({
             {...(!isConjugation
               ? { matchedOrder, carouselIndex, setCarouselIndex, carouselItem }
               : {})}
+            customActions={
+              renderWinActions
+                ? renderWinActions({
+                    matchedOrder,
+                    carouselIndex,
+                    setCarouselIndex,
+                    carouselItem,
+                    closeWin: closeWinOverlay,
+                  })
+                : undefined
+            }
+            hideDefaultActions={!!renderWinActions}
           />
 
         )}

@@ -25,20 +25,34 @@ export default async function ProfilePage() {
 
     const userId = data.session.user.id
 
-    const { data: profileRow } = await supabaseAdmin
+    let profileRow: any = null
+    const withAvatar = await supabaseAdmin
         .from("profiles")
-        .select("level,source_language,target_language,news_category,seeds")
+        .select("level,source_language,target_language,news_category,seeds,username,avatar_url")
         .eq("id", userId)
         .maybeSingle()
+
+    if (withAvatar.error && typeof withAvatar.error.message === "string" && withAvatar.error.message.includes("avatar_url")) {
+        const fallback = await supabaseAdmin
+            .from("profiles")
+            .select("level,source_language,target_language,news_category,seeds,username")
+            .eq("id", userId)
+            .maybeSingle()
+        profileRow = fallback.data ?? null
+    } else {
+        profileRow = withAvatar.data ?? null
+    }
 
     return (
         <ProfileClient
             profile={{
                 level: profileRow?.level ?? "",
+                name: profileRow?.username ?? "",
                 sourceLanguage: profileRow?.source_language ?? "",
                 targetLanguage: profileRow?.target_language ?? "",
                 newsCategory: profileRow?.news_category ?? "",
                 seeds: profileRow?.seeds ?? 0,
+                avatarUrl: profileRow?.avatar_url ?? "",
             }}
         />
     )

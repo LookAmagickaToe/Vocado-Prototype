@@ -5,6 +5,9 @@ import { motion } from "framer-motion"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabPair, VocabWorld } from "@/types/worlds"
+import { getUiSettings } from "@/lib/ui-settings"
+import { formatTemplate } from "@/lib/ui"
+import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import {
   calculateNextReview,
   countByBucket,
@@ -21,6 +24,9 @@ const COLORS = {
   accent: "#9FB58E",
   text: "#3A3A3A",
 }
+
+const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
+const VOCABLES_CACHE_PREFIX = "vocado-vocables-cache"
 
 type SRSBucket = "hard" | "medium" | "easy"
 
@@ -67,14 +73,73 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
   const [reviewIndex, setReviewIndex] = useState(0)
   const [showBack, setShowBack] = useState(false)
   const [activeReviewLabel, setActiveReviewLabel] = useState<string | null>(null)
+  const [reviewMode, setReviewMode] = useState<"srs" | "memory">("srs")
+  const [memoryWorld, setMemoryWorld] = useState<VocabWorld | null>(null)
+  const [memoryEntries, setMemoryEntries] = useState<ReviewEntry[]>([])
+  const [memoryPairMap, setMemoryPairMap] = useState<Map<string, ReviewEntry>>(new Map())
+  const [memoryAssigned, setMemoryAssigned] = useState<Set<string>>(new Set())
 
   const sourceLabel = profile.sourceLanguage || "Español"
   const targetLabel = profile.targetLanguage || "Alemán"
+
+  const uiSettings = useMemo(
+    () => getUiSettings(profile.sourceLanguage),
+    [profile.sourceLanguage]
+  )
+  const ui = useMemo(
+    () => ({
+      title: uiSettings?.vocables?.title ?? "Vocables",
+      backLabel: uiSettings?.vocables?.backLabel ?? "Back",
+      loading: uiSettings?.vocables?.loading ?? "Loading...",
+      difficultyHard: uiSettings?.vocables?.difficultyHard ?? "Hard",
+      difficultyMedium: uiSettings?.vocables?.difficultyMedium ?? "Medium",
+      difficultyEasy: uiSettings?.vocables?.difficultyEasy ?? "Easy",
+      dueLabel: uiSettings?.vocables?.dueLabel ?? "Due",
+      dueTitle: uiSettings?.vocables?.dueTitle ?? "Words to review",
+      startReview: uiSettings?.vocables?.startReview ?? "Start review",
+      totalLabel: uiSettings?.vocables?.totalLabel ?? "Total: {count} words",
+      categoriesLabel: uiSettings?.vocables?.categoriesLabel ?? "{count} categories",
+      bucketSectionTitle: uiSettings?.vocables?.bucketSectionTitle ?? "By difficulty",
+      bucketCountLabel: uiSettings?.vocables?.bucketCountLabel ?? "{count} words",
+      tipTitle: uiSettings?.vocables?.tipTitle ?? "Tip",
+      tipBody: uiSettings?.vocables?.tipBody ??
+        "Review hard words more often. The system adapts intervals automatically to your progress.",
+      reviewModeLabel: uiSettings?.vocables?.reviewModeLabel ?? "Review mode",
+      reviewModeSrs: uiSettings?.vocables?.reviewModeSrs ?? "Review",
+      reviewModeMemory: uiSettings?.vocables?.reviewModeMemory ?? "Memory",
+      menuLabel: uiSettings?.vocables?.menuLabel ?? "Menu",
+      continueLabel: uiSettings?.vocables?.continueLabel ?? "Continue",
+      nav: uiSettings?.nav ?? {},
+    }),
+    [uiSettings]
+  )
+
+  const cacheKey = useMemo(
+    () => `${VOCABLES_CACHE_PREFIX}:${sourceLabel}:${targetLabel}`,
+    [sourceLabel, targetLabel]
+  )
 
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
       setLoadError(null)
+      if (typeof window !== "undefined") {
+        try {
+          const rawCache = window.localStorage.getItem(cacheKey)
+          if (rawCache) {
+            const parsed = JSON.parse(rawCache)
+            const cachedWorlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
+            const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0")
+            if (cachedWorlds.length && (!lastLogin || parsed?.lastLogin === lastLogin)) {
+              setWorlds(cachedWorlds)
+              setIsLoading(false)
+              return
+            }
+          }
+        } catch {
+          // ignore cache errors
+        }
+      }
       try {
         const session = await supabase.auth.getSession()
         const token = session.data.session?.access_token
@@ -116,6 +181,17 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           })
           .filter(Boolean)
         setWorlds(loaded)
+        if (typeof window !== "undefined") {
+          try {
+            const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()
+            window.localStorage.setItem(
+              cacheKey,
+              JSON.stringify({ lastLogin, worlds: loaded })
+            )
+          } catch {
+            // ignore cache failures
+          }
+        }
       } catch (err) {
         setLoadError((err as Error).message)
       } finally {
@@ -123,7 +199,18 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       }
     }
     load()
-  }, [])
+  }, [cacheKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (isLoading) return
+    try {
+      const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()
+      window.localStorage.setItem(cacheKey, JSON.stringify({ lastLogin, worlds }))
+    } catch {
+      // ignore cache failures
+    }
+  }, [cacheKey, isLoading, worlds])
 
   const allPairs = useMemo(() => {
     const entries: ReviewEntry[] = []
@@ -158,9 +245,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
   }, [allPairs])
 
   const buckets: BucketInfo[] = [
-    { id: "hard", label: "Schwer", count: bucketCounts.hard ?? 0, color: "#E57373", emoji: "🔴" },
-    { id: "medium", label: "Mittel", count: bucketCounts.medium ?? 0, color: "#FFB74D", emoji: "🟡" },
-    { id: "easy", label: "Leicht", count: bucketCounts.easy ?? 0, color: "#81C784", emoji: "🟢" },
+    { id: "hard", label: ui.difficultyHard, count: bucketCounts.hard ?? 0, color: "#F4E6E3", emoji: "" },
+    { id: "medium", label: ui.difficultyMedium, count: bucketCounts.medium ?? 0, color: "#F6F0E1", emoji: "" },
+    { id: "easy", label: ui.difficultyEasy, count: bucketCounts.easy ?? 0, color: "#E9F2E7", emoji: "" },
   ]
 
   const totalWords = buckets.reduce((sum, b) => sum + b.count, 0)
@@ -173,10 +260,76 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       setActiveReviewLabel(null)
       return
     }
+    setMemoryWorld(null)
+    setMemoryEntries([])
+    setMemoryPairMap(new Map())
+    setMemoryAssigned(new Set())
     setReviewQueue(entries)
     setReviewIndex(0)
     setShowBack(false)
     setActiveReviewLabel(label)
+  }
+
+  const startMemoryReview = (entries: ReviewEntry[], label: string) => {
+    if (!entries.length) {
+      setMemoryWorld(null)
+      setMemoryEntries([])
+      setMemoryPairMap(new Map())
+      setMemoryAssigned(new Set())
+      setActiveReviewLabel(null)
+      return
+    }
+    const worldId = `review-memory-${Date.now()}`
+    const pool = entries.map((entry, index) => ({
+      id: `${worldId}-${index}`,
+      es: entry.pair.es,
+      de: entry.pair.de,
+      image: entry.pair.image ?? { type: "emoji", value: "🃏" },
+      pos: entry.pair.pos ?? "other",
+      explanation: entry.pair.explanation,
+      example: entry.pair.example,
+    }))
+    setMemoryWorld({
+      id: worldId,
+      title: ui.reviewModeMemory,
+      description: ui.reviewModeMemory,
+      mode: "vocab",
+      pool,
+      chunking: { itemsPerGame: 8 },
+      source_language: sourceLabel,
+      target_language: targetLabel,
+    })
+    setMemoryEntries(entries)
+    const map = new Map<string, ReviewEntry>()
+    entries.forEach((entry, index) => {
+      map.set(`${worldId}-${index}`, entry)
+    })
+    setMemoryPairMap(map)
+    setMemoryAssigned(new Set())
+    setActiveReviewLabel(label)
+  }
+
+  const persistWorldByMeta = async (
+    world: VocabWorld,
+    listId?: string | null,
+    position?: number
+  ) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return
+    const response = await fetch("/api/storage/worlds/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        worlds: [world],
+        listId: listId ?? null,
+        positions: { [world.id]: position ?? 0 },
+      }),
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error(data?.error ?? "Save failed")
+    }
   }
 
   const handleBucketClick = (bucketId: SRSBucket) => {
@@ -187,7 +340,12 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     const queue = sorted
       .map((pair) => entryByPair.get(pair))
       .filter((entry): entry is ReviewEntry => Boolean(entry))
-    startReview(queue, buckets.find((b) => b.id === bucketId)?.label ?? "")
+    const label = buckets.find((b) => b.id === bucketId)?.label ?? ""
+    if (reviewMode === "memory") {
+      startMemoryReview(queue, label)
+    } else {
+      startReview(queue, label)
+    }
   }
 
   const handleReviewAll = () => {
@@ -196,7 +354,11 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     const queue = due
       .map((pair) => entryByPair.get(pair))
       .filter((entry): entry is ReviewEntry => Boolean(entry))
-    startReview(queue, "Fällig")
+    if (reviewMode === "memory") {
+      startMemoryReview(queue, ui.dueLabel)
+    } else {
+      startReview(queue, ui.dueLabel)
+    }
   }
 
   const currentEntry = reviewQueue[reviewIndex]
@@ -257,35 +419,180 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   return (
     <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-      {/* Header */}
-      <header className="px-5 py-4 sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
-        <div className="flex items-center justify-between">
-          {reviewQueue.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setReviewQueue([])
-                setReviewIndex(0)
-                setShowBack(false)
-                setActiveReviewLabel(null)
-              }}
-              className="h-9 w-9 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center"
-              aria-label="Zurück"
-            >
-              ←
-            </button>
-          ) : (
-            <div className="h-9 w-9" />
-          )}
-          <h1 className="text-[18px] font-semibold text-center flex-1">Vokabeln</h1>
+      <div className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
+        {reviewQueue.length > 0 || memoryWorld ? (
+          <button
+            type="button"
+            onClick={() => {
+              setMemoryWorld(null)
+              setMemoryEntries([])
+              setReviewQueue([])
+              setReviewIndex(0)
+              setShowBack(false)
+              setActiveReviewLabel(null)
+            }}
+            className="h-9 w-9 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center"
+            aria-label={ui.backLabel}
+          >
+            ←
+          </button>
+        ) : (
           <div className="h-9 w-9" />
-        </div>
-      </header>
+        )}
+        <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">
+          {profile.seeds ?? 0} 🌱
+        </span>
+      </div>
 
       {isLoading ? (
-        <div className="px-4 pt-8 text-[13px] text-[#3A3A3A]/60">Lädt...</div>
+        <div className="px-4 pt-16 flex flex-col items-center text-[#3A3A3A]/70">
+          <img
+            src="/mascot/happy_vocado.png"
+            alt="Vocado"
+            className="h-24 w-24 object-contain"
+          />
+          <div className="mt-3 text-sm">{ui.loading}</div>
+        </div>
       ) : loadError ? (
         <div className="px-4 pt-8 text-[12px] text-[#B45353]">{loadError}</div>
+      ) : memoryWorld ? (
+        <div className="px-4 pt-6 pb-24">
+          <div className="mb-3 text-[12px] text-[#3A3A3A]/50 text-center">
+            {activeReviewLabel ? `${activeReviewLabel} • ` : ""}
+            {formatTemplate(ui.bucketCountLabel, { count: String(memoryEntries.length) })}
+          </div>
+          <VocabMemoryGame
+            key={memoryWorld.id}
+            world={memoryWorld}
+            levelIndex={0}
+            onWin={() => {}}
+            onNextLevel={() => {
+              if (!memoryEntries.length) {
+                setMemoryWorld(null)
+                setMemoryEntries([])
+                setMemoryPairMap(new Map())
+                setMemoryAssigned(new Set())
+                return
+              }
+              const label = activeReviewLabel ?? ui.reviewModeMemory
+              const queue = [...memoryEntries]
+              setMemoryWorld(null)
+              setMemoryEntries([])
+              setMemoryPairMap(new Map())
+              setMemoryAssigned(new Set())
+              startReview(queue, label)
+            }}
+            nextLabelOverride={ui.reviewModeSrs}
+            renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem, closeWin }) => {
+              if (!matchedOrder.length || !carouselItem) return null
+              const isAssigned = memoryAssigned.has(carouselItem.id)
+              const allAssigned = memoryAssigned.size >= matchedOrder.length
+              const handleAssign = async (rating: "easy" | "medium" | "difficult") => {
+                const entry = memoryPairMap.get(carouselItem.id)
+                if (!entry) return
+                const nextSrs = calculateNextReview(entry.pair.srs, rating)
+                const updatedWorld: VocabWorld = {
+                  ...entry.world,
+                  pool: entry.world.pool.map((pair, index) =>
+                    index === entry.pairIndex ? { ...pair, srs: nextSrs } : pair
+                  ),
+                }
+                setWorlds((prev) =>
+                  prev.map((stored) =>
+                    stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
+                  )
+                )
+                try {
+                  await persistWorldByMeta(updatedWorld, entry.listId, entry.position)
+                } catch {
+                  // ignore save failures
+                }
+                const nextAssigned = new Set(memoryAssigned)
+                nextAssigned.add(carouselItem.id)
+                setMemoryAssigned(nextAssigned)
+                if (matchedOrder.length > 1) {
+                  let nextIndex = carouselIndex
+                  for (let i = 1; i <= matchedOrder.length; i += 1) {
+                    const idx = (carouselIndex + i) % matchedOrder.length
+                    if (!nextAssigned.has(matchedOrder[idx])) {
+                      nextIndex = idx
+                      break
+                    }
+                  }
+                  setCarouselIndex(nextIndex)
+                }
+              }
+
+              if (allAssigned) {
+                const hasRemaining = dueCount > 0
+                return (
+                  <div className="grid grid-cols-3 items-center gap-3">
+                    <div />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeWin()
+                        setMemoryWorld(null)
+                        setMemoryEntries([])
+                        setMemoryPairMap(new Map())
+                        setMemoryAssigned(new Set())
+                        setActiveReviewLabel(null)
+                      }}
+                      className="justify-self-center rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-4 py-2 text-sm text-[#3A3A3A]"
+                    >
+                      {ui.menuLabel}
+                    </button>
+                    {hasRemaining ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeWin()
+                          const words = allPairs.map((entry) => entry.pair)
+                          const due = selectDueWords(words, 50)
+                          const queue = due
+                            .map((pair) => entryByPair.get(pair))
+                            .filter((entry): entry is ReviewEntry => Boolean(entry))
+                          startMemoryReview(queue, ui.dueLabel)
+                        }}
+                        className="justify-self-end rounded-full bg-[#9FB58E] px-4 py-2 text-sm font-medium text-white"
+                      >
+                        {ui.continueLabel}
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                )
+              }
+
+              return (
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAssign("difficult")}
+                    className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F4E6E3] px-3 py-2 text-xs text-[#3A3A3A]"
+                  >
+                    {ui.difficultyHard}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssign("medium")}
+                    className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F6F0E1] px-3 py-2 text-xs text-[#3A3A3A]"
+                  >
+                    {ui.difficultyMedium}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssign("easy")}
+                    className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#E9F2E7] px-3 py-2 text-xs text-[#3A3A3A]"
+                  >
+                    {ui.difficultyEasy}
+                  </button>
+                </div>
+              )
+            }}
+          />
+        </div>
       ) : reviewQueue.length > 0 && currentEntry ? (
         <div className="px-4 pt-6 pb-6 space-y-4">
           <div className="text-[12px] text-[#3A3A3A]/50 text-center">
@@ -357,21 +664,21 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 onClick={() => rateCurrent("difficult")}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
-                Schwer
+                {ui.difficultyHard}
               </button>
               <button
                 type="button"
                 onClick={() => rateCurrent("medium")}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
-                Mittel
+                {ui.difficultyMedium}
               </button>
               <button
                 type="button"
                 onClick={() => rateCurrent("easy")}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
-                Leicht
+                {ui.difficultyEasy}
               </button>
             </div>
           </div>
@@ -384,45 +691,53 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[24px] font-bold text-[#3A3A3A]">{dueCount}</div>
-                  <div className="text-[12px] text-[#3A3A3A]/50">Wörter zur Wiederholung</div>
+                  <div className="text-[12px] text-[#3A3A3A]/50">{ui.dueTitle}</div>
                 </div>
                 <button
                   onClick={handleReviewAll}
                   disabled={dueCount === 0}
                   className="px-5 py-2.5 rounded-xl bg-[#9FB58E] text-white text-[14px] font-medium disabled:opacity-50 hover:bg-[#8CA77D] transition-colors"
                 >
-                  Jetzt lernen
+                  {ui.startReview}
                 </button>
               </div>
               <div className="mt-3 pt-3 border-t border-[#3A3A3A]/5 flex items-center justify-between text-[12px] text-[#3A3A3A]/50">
-                <span>Gesamt: {totalWords} Wörter</span>
-                <span>3 Kategorien</span>
+                <span>{formatTemplate(ui.totalLabel, { count: String(totalWords) })}</span>
+                <span>{formatTemplate(ui.categoriesLabel, { count: "3" })}</span>
               </div>
             </div>
           </div>
 
           {/* SRS Buckets */}
           <div className="px-4 pt-6">
-            <h2 className="text-[13px] font-medium text-[#3A3A3A]/60 mb-3 px-1">Nach Schwierigkeit</h2>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-[13px] font-medium text-[#3A3A3A]/60">{ui.bucketSectionTitle}</h2>
+              <button
+                type="button"
+                onClick={() => setReviewMode((prev) => (prev === "srs" ? "memory" : "srs"))}
+                className="flex items-center gap-2 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] px-2 py-1 text-[10px] text-[#3A3A3A]/70"
+              >
+                <span>{ui.reviewModeLabel}</span>
+                <span className="rounded-full bg-[#EAE8E0] px-2 py-0.5 text-[10px] text-[#3A3A3A]">
+                  {reviewMode === "srs" ? ui.reviewModeSrs : ui.reviewModeMemory}
+                </span>
+              </button>
+            </div>
             <div className="space-y-3">
               {buckets.map((bucket) => (
                 <motion.button
                   key={bucket.id}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleBucketClick(bucket.id)}
-                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[#FAF7F2] border border-[#3A3A3A]/5 shadow-sm text-left hover:bg-[#F6F2EB] transition-colors"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl border border-[#3A3A3A]/5 shadow-sm text-left transition-colors"
+                  style={{ backgroundColor: bucket.color }}
                 >
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                    style={{ backgroundColor: `${bucket.color}20` }}
-                  >
-                    {bucket.emoji}
-                  </div>
                   <div className="flex-1">
                     <div className="text-[15px] font-medium text-[#3A3A3A]">{bucket.label}</div>
-                    <div className="text-[12px] text-[#3A3A3A]/50">{bucket.count} Wörter</div>
+                    <div className="text-[12px] text-[#3A3A3A]/50">
+                      {formatTemplate(ui.bucketCountLabel, { count: String(bucket.count) })}
+                    </div>
                   </div>
-                  <div className="w-2 h-8 rounded-full" style={{ backgroundColor: bucket.color }} />
                 </motion.button>
               ))}
             </div>
@@ -431,9 +746,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           {/* Info Section */}
           <div className="px-4 pt-6">
             <div className="bg-[#E3EBC5]/30 rounded-2xl border border-[#9FB58E]/20 p-4">
-              <div className="text-[13px] font-medium text-[#3A3A3A] mb-1">💡 Tipp</div>
+              <div className="text-[13px] font-medium text-[#3A3A3A] mb-1">💡 {ui.tipTitle}</div>
               <div className="text-[12px] text-[#3A3A3A]/70 leading-relaxed">
-                Wiederhole schwere Wörter öfter. Das System passt die Intervalle automatisch an deinen Lernfortschritt an.
+                {ui.tipBody}
               </div>
             </div>
           </div>
@@ -441,7 +756,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       )}
 
       {/* Navigation Footer */}
-      <NavFooter />
+      <NavFooter labels={ui.nav} />
     </div>
   )
 }

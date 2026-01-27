@@ -13,7 +13,6 @@ import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
-import UserMenu from "@/components/UserMenu"
 import NavFooter from "@/components/ui/NavFooter"
 import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
 import { callAi } from "@/lib/ai"
@@ -144,6 +143,18 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
     editTitle: uiSettings?.worldsOverlay?.editTitle ?? "Editar vocabulario",
     assignLabel: uiSettings?.worldsOverlay?.assignLabel ?? "Asignar a mundo",
     assignAction: uiSettings?.worldsOverlay?.assignAction ?? "Añadir",
+    deleteLabel: uiSettings?.worldsOverlay?.deleteLabel ?? "Eliminar",
+    deleteListLabel: uiSettings?.worldsOverlay?.deleteListLabel ?? "Eliminar lista",
+    moveLabel: uiSettings?.worldsOverlay?.moveLabel ?? "Mover",
+    moveToLabel: uiSettings?.worldsOverlay?.moveToLabel ?? "Mover a",
+    deleteWorldConfirm:
+      uiSettings?.worldsOverlay?.deleteWorldConfirm ??
+      "¿Seguro que quieres eliminar este mundo?",
+    deleteListConfirm:
+      uiSettings?.worldsOverlay?.deleteListConfirm ??
+      "¿Eliminar la lista? Se eliminarán {count} mundos.",
+    confirmYes: uiSettings?.worldsOverlay?.confirmYes ?? "Sí",
+    confirmCancel: uiSettings?.worldsOverlay?.confirmCancel ?? "Cancelar",
   },
   levelsOverlay: {
     titleSuffix: uiSettings?.levelsOverlay?.titleSuffix ?? "— Levels",
@@ -1647,6 +1658,82 @@ export default function AppClient({
     })
   }
 
+  const deleteWorld = async (worldIdToDelete: string) => {
+    setUploadedWorlds((prev) => prev.filter((world) => world.id !== worldIdToDelete))
+    setWorldTitleOverrides((prev) => {
+      if (!prev[worldIdToDelete]) return prev
+      const next = { ...prev }
+      delete next[worldIdToDelete]
+      return next
+    })
+    setHiddenWorldIds((prev) => prev.filter((id) => id !== worldIdToDelete))
+    setWorldLists((prev) =>
+      prev.map((list) => ({
+        ...list,
+        worldIds: list.worldIds.filter((id) => id !== worldIdToDelete),
+      }))
+    )
+
+    if (worldIdToDelete === worldId) {
+      const nextWorld = visibleWorlds.find((w) => w.id !== worldIdToDelete)
+      if (nextWorld) {
+        setWorldId(nextWorld.id)
+      }
+    }
+
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/storage/worlds/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ worldIds: [worldIdToDelete] }),
+      })
+    } catch (error) {
+      console.error("Failed to delete world from Supabase", error)
+    }
+  }
+
+  const deleteList = async (listId: string) => {
+    const list = worldLists.find((item) => item.id === listId)
+    const worldIds = list?.worldIds ?? []
+
+    if (worldIds.length > 0) {
+      setUploadedWorlds((prev) => prev.filter((world) => !worldIds.includes(world.id)))
+      setWorldTitleOverrides((prev) => {
+        const next = { ...prev }
+        worldIds.forEach((id) => {
+          delete next[id]
+        })
+        return next
+      })
+      setHiddenWorldIds((prev) => prev.filter((id) => !worldIds.includes(id)))
+    }
+
+    setWorldLists((prev) => prev.filter((item) => item.id !== listId))
+
+    if (worldIds.includes(worldId)) {
+      const nextWorld = visibleWorlds.find((w) => !worldIds.includes(w.id))
+      if (nextWorld) {
+        setWorldId(nextWorld.id)
+      }
+    }
+
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/storage/lists/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listId }),
+      })
+    } catch (error) {
+      console.error("Failed to delete list from Supabase", error)
+    }
+  }
+
   const listNameForUpload =
     worldLists.find((list) => list.id === uploadListId)?.name ?? ""
 
@@ -3044,8 +3131,8 @@ export default function AppClient({
       <div className="mx-auto w-full max-w-6xl">
         <div className="grid grid-cols-12 gap-4 items-start">
           {/* STICKY HEADER */}
-          <div className="col-span-12 sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm py-3 sm:py-4">
-            <div className="flex items-center justify-between gap-2 md:hidden">
+          <div className="col-span-12 sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm h-[56px] flex items-center">
+            <div className="flex items-center justify-between gap-2 md:hidden w-full">
               <div className="text-center flex-1 min-w-0">
                 <button
                   type="button"
@@ -3063,20 +3150,13 @@ export default function AppClient({
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                <UserMenu
-                  level={profileSettings.level || "B1"}
-                  sourceLanguage={profileSettings.sourceLanguage}
-                  targetLanguage={profileSettings.targetLanguage}
-                  onUpdateSettings={handleProfileUpdate}
-                  newsCategory={profileSettings.newsCategory}
-                />
                 <div className="text-xs text-[#3A3A3A]/60">
                   <span className="font-semibold">{seeds}</span> 🌱
                 </div>
               </div>
             </div>
 
-            <div className="hidden md:flex items-end justify-between gap-4">
+            <div className="hidden md:flex items-end justify-between gap-4 w-full">
               <div>
                 <button
                   type="button"
@@ -3105,13 +3185,6 @@ export default function AppClient({
                 <div className="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
                   <span className="font-semibold">{seeds}</span> 🌱
                 </div>
-                <UserMenu
-                  level={profileSettings.level || "B1"}
-                  sourceLanguage={profileSettings.sourceLanguage}
-                  targetLanguage={profileSettings.targetLanguage}
-                  onUpdateSettings={handleProfileUpdate}
-                  newsCategory={profileSettings.newsCategory}
-                />
               </div>
             </div>
           </div>
@@ -3212,6 +3285,8 @@ export default function AppClient({
             onMoveList={moveList}
             onHideWorld={hideWorld}
             onEditWorld={openWorldEditor}
+            onDeleteWorld={deleteWorld}
+            onDeleteList={deleteList}
             activeWorldId={worldId}
             onClose={() => setIsWorldsOpen(false)}
             onSelectWorld={(id) => {
@@ -4416,6 +4491,8 @@ function WorldsOverlay({
   onMoveList,
   onHideWorld,
   onEditWorld,
+  onDeleteWorld,
+  onDeleteList,
   collapsedListIds,
   onSetCollapsedListIds,
   activeWorldId,
@@ -4450,6 +4527,8 @@ function WorldsOverlay({
   onMoveList: (listId: string, direction: "up" | "down") => void
   onHideWorld: (worldId: string) => void
   onEditWorld: (worldId: string) => void
+  onDeleteWorld: (worldId: string) => void
+  onDeleteList: (listId: string) => void
   activeWorldId: string
   onClose: () => void
   onSelectWorld: (id: string) => void
@@ -4467,6 +4546,13 @@ function WorldsOverlay({
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingListTitle, setEditingListTitle] = useState("")
   const [openMenuWorldId, setOpenMenuWorldId] = useState<string | null>(null)
+  const [openMenuListId, setOpenMenuListId] = useState<string | null>(null)
+  const [movingWorldId, setMovingWorldId] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState<
+    | { type: "world"; id: string }
+    | { type: "list"; id: string; count: number }
+    | null
+  >(null)
 
   const safeWorlds = useMemo(
     () => (Array.isArray(worlds) ? worlds.filter((w) => w && typeof w.id === "string") : []),
@@ -4613,7 +4699,6 @@ function WorldsOverlay({
             const listWorlds = list.worldIds
               .map((id) => worldById.get(id))
               .filter(Boolean) as Array<{ id: string; title: string; description?: string }>
-            if (listWorlds.length === 0) return null
 
             return (
               <div key={list.id}>
@@ -4679,6 +4764,37 @@ function WorldsOverlay({
                     >
                       ↓
                     </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenMenuListId((prev) => (prev === list.id ? null : list.id))
+                        }}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
+                      >
+                        ⋯
+                      </button>
+                      {openMenuListId === list.id && (
+                        <div className="absolute right-0 top-8 z-10 w-36 rounded-lg border border-neutral-800 bg-neutral-950 p-2 text-xs text-neutral-200">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuListId(null)
+                              setConfirmingDelete({
+                                type: "list",
+                                id: list.id,
+                                count: list.worldIds.length,
+                              })
+                            }}
+                            className="w-full rounded-md px-2 py-1 text-left text-red-200 hover:bg-red-500/10"
+                          >
+                            {ui.worldsOverlay.deleteListLabel}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {!collapsedListIds[list.id] && (
@@ -4763,6 +4879,7 @@ function WorldsOverlay({
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setOpenMenuWorldId((prev) => (prev === w.id ? null : w.id))
+                                  setMovingWorldId(null)
                                 }}
                                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
                               >
@@ -4781,6 +4898,61 @@ function WorldsOverlay({
                                   >
                                     {ui.worldsOverlay.editLabel}
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMovingWorldId((prev) => (prev === w.id ? null : w.id))
+                                    }}
+                                    className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                  >
+                                    {ui.worldsOverlay.moveLabel}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenMenuWorldId(null)
+                                      setConfirmingDelete({ type: "world", id: w.id })
+                                    }}
+                                    className="w-full rounded-md px-2 py-1 text-left text-red-200 hover:bg-red-500/10"
+                                  >
+                                    {ui.worldsOverlay.deleteLabel}
+                                  </button>
+                                  {movingWorldId === w.id && (
+                                    <div className="mt-2 border-t border-neutral-800 pt-2">
+                                      <div className="px-2 pb-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                                        {ui.worldsOverlay.moveToLabel}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          onAssignWorldToList(w.id, null)
+                                          setOpenMenuWorldId(null)
+                                          setMovingWorldId(null)
+                                        }}
+                                        className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                      >
+                                        {ui.worldsOverlay.unlisted}
+                                      </button>
+                                      {safeLists.map((opt) => (
+                                        <button
+                                          key={opt.id}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onAssignWorldToList(w.id, opt.id)
+                                            setOpenMenuWorldId(null)
+                                            setMovingWorldId(null)
+                                          }}
+                                          className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                        >
+                                          {opt.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -4934,6 +5106,7 @@ function WorldsOverlay({
                             onClick={(e) => {
                               e.stopPropagation()
                               setOpenMenuWorldId((prev) => (prev === w.id ? null : w.id))
+                              setMovingWorldId(null)
                             }}
                             className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-1 text-xs text-neutral-200"
                           >
@@ -4952,6 +5125,61 @@ function WorldsOverlay({
                               >
                                 {ui.worldsOverlay.editLabel}
                               </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setMovingWorldId((prev) => (prev === w.id ? null : w.id))
+                                }}
+                                className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                              >
+                                {ui.worldsOverlay.moveLabel}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenMenuWorldId(null)
+                                  setConfirmingDelete({ type: "world", id: w.id })
+                                }}
+                                className="w-full rounded-md px-2 py-1 text-left text-red-200 hover:bg-red-500/10"
+                              >
+                                {ui.worldsOverlay.deleteLabel}
+                              </button>
+                              {movingWorldId === w.id && (
+                                <div className="mt-2 border-t border-neutral-800 pt-2">
+                                  <div className="px-2 pb-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                                    {ui.worldsOverlay.moveToLabel}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onAssignWorldToList(w.id, null)
+                                      setOpenMenuWorldId(null)
+                                      setMovingWorldId(null)
+                                    }}
+                                    className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                  >
+                                    {ui.worldsOverlay.unlisted}
+                                  </button>
+                                  {safeLists.map((opt) => (
+                                    <button
+                                      key={opt.id}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        onAssignWorldToList(w.id, opt.id)
+                                        setOpenMenuWorldId(null)
+                                        setMovingWorldId(null)
+                                      }}
+                                      className="w-full rounded-md px-2 py-1 text-left hover:bg-neutral-800"
+                                    >
+                                      {opt.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -5006,6 +5234,50 @@ function WorldsOverlay({
             {ui.worldsOverlay.close}
           </button>
         </div>
+
+        {confirmingDelete && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setConfirmingDelete(null)
+              }
+            }}
+          >
+            <div className="w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-100 shadow-xl">
+              <div className="text-base font-semibold text-neutral-50">
+                {confirmingDelete.type === "world"
+                  ? ui.worldsOverlay.deleteWorldConfirm
+                  : formatTemplate(ui.worldsOverlay.deleteListConfirm, {
+                      count: confirmingDelete.count,
+                    })}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(null)}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-xs text-neutral-200 hover:text-white"
+                >
+                  {ui.worldsOverlay.confirmCancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirmingDelete.type === "world") {
+                      onDeleteWorld(confirmingDelete.id)
+                    } else {
+                      onDeleteList(confirmingDelete.id)
+                    }
+                    setConfirmingDelete(null)
+                  }}
+                  className="rounded-lg border border-red-500/40 bg-red-600/20 px-3 py-2 text-xs text-red-100 hover:bg-red-600/30"
+                >
+                  {ui.worldsOverlay.confirmYes}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   )
