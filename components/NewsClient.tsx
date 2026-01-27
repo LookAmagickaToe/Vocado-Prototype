@@ -359,6 +359,35 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     })
   }
 
+  const findExistingNewsWorldByUrl = async (url: string): Promise<VocabWorld | null> => {
+    const normalized = url.trim()
+    if (!normalized) return null
+    const fromState = newsWorlds.find((world) => world.news?.sourceUrl === normalized)
+    if (fromState) return fromState
+    const localCached = loadLocalNewsCache()
+    const fromLocal = localCached?.find((world) => world.news?.sourceUrl === normalized)
+    if (fromLocal) return fromLocal
+    const token = await getAuthToken()
+    if (!token) return null
+    const response = await fetch("/api/storage/worlds/list", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    const entries = Array.isArray(data?.worlds) ? data.worlds : []
+    for (const entry of entries) {
+      const json = entry?.json
+      if (!json?.news?.sourceUrl) continue
+      if (json.news.sourceUrl !== normalized) continue
+      const id = entry?.worldId || json.id
+      if (id) json.id = id
+      if (entry?.title) json.title = entry.title
+      return json as VocabWorld
+    }
+    return null
+  }
+
   const startPlayFromWorld = (newsWorld: VocabWorld) => {
     let needsSave = false
     const normalizedPool = (newsWorld.pool ?? []).map((pair) => {
@@ -911,9 +940,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setError("Agrega un enlace válido.")
       return
     }
-    const existingWorld = newsWorlds.find(
-      (entry) => entry.news?.sourceUrl && entry.news.sourceUrl === finalUrl
-    )
+    const existingWorld = await findExistingNewsWorldByUrl(finalUrl)
     if (existingWorld) {
       let needsSave = false
       const normalizedPool = (existingWorld.pool ?? []).map((pair) => {
