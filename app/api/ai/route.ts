@@ -117,6 +117,7 @@ function buildThemePrompt({
   theme,
   count,
   level,
+  exclude,
 }: {
   sourceLabel: string
   targetLabel: string
@@ -124,10 +125,15 @@ function buildThemePrompt({
   theme: string
   count: number
   level: string
+  exclude?: string[]
 }) {
   const modeLine = desiredMode
     ? `The user selected mode: "${desiredMode}". Respect it even if you disagree.`
     : "Auto-select mode based on the content."
+  const excludeLine =
+    Array.isArray(exclude) && exclude.length > 0
+      ? `Avoid generating items that match these source words: ${JSON.stringify(exclude)}`
+      : ""
 
   return [
     "You are generating a vocabulary list from a theme.",
@@ -136,6 +142,7 @@ function buildThemePrompt({
     `Level: ${level}`,
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     modeLine,
+    excludeLine,
     "Return ONLY valid JSON with this shape:",
     `{"title":"...","mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
@@ -242,6 +249,9 @@ export async function POST(req: NextRequest) {
     const theme = typeof body?.theme === "string" ? body.theme : ""
     const count = typeof body?.count === "number" ? body.count : 20
     const level = typeof body?.level === "string" ? body.level : "A2"
+    const exclude = Array.isArray(body?.exclude)
+      ? body.exclude.filter((entry: unknown) => typeof entry === "string" && entry.trim())
+      : []
     if (!theme.trim()) {
       return NextResponse.json({ error: "Missing theme" }, { status: 400 })
     }
@@ -252,6 +262,7 @@ export async function POST(req: NextRequest) {
       theme,
       count,
       level,
+      exclude,
     })
     parts = [{ text: prompt }]
   } else if (task === "news") {

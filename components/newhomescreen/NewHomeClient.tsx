@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase/client"
 import type { VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
 import { formatTemplate } from "@/lib/ui"
+import { calculateNextReview, initializeSRS } from "@/lib/srs"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
@@ -60,6 +61,8 @@ type TranslateResult = {
     emoji?: string
     explanation?: string
     example?: string
+    pos?: "verb" | "noun" | "adj" | "other"
+    syllables?: string
 }
 
 type NewsReviewItem = {
@@ -105,6 +108,9 @@ const buildReviewWordsFromItems = (items: NewsReviewItem[]) =>
             status: "new" as const,
             emoji: item.emoji,
             explanation: item.explanation,
+            example: item.example,
+            pos: item.pos,
+            syllables: item.syllables,
         }))
 
 const buildWorldFromItems = (
@@ -154,6 +160,79 @@ const buildWorldFromItems = (
     }
 }
 
+const buildWorldFromReviewWords = (
+    words: ReviewWord[],
+    title: string,
+    sourceLabel: string,
+    targetLabel: string,
+    baseWorld?: VocabWorld | null
+): VocabWorld => {
+    const id = baseWorld?.id ?? `upload-${Date.now()}`
+    const cleanTitle = baseWorld?.title ?? (title.trim() || "New world")
+    const existingKeys = new Set(
+        (baseWorld?.pool ?? []).map((pair) =>
+            `${pair.es.toLowerCase()}::${pair.de.toLowerCase()}`
+        )
+    )
+    const newPairs = words
+        .map((word, index) => {
+            const source = word.source.trim()
+            const target = word.target.trim()
+            if (!source || !target) return null
+            const key = `${source.toLowerCase()}::${target.toLowerCase()}`
+            if (existingKeys.has(key)) return null
+            const baseSrs = initializeSRS()
+            const srs =
+                word.status === "known"
+                    ? calculateNextReview(baseSrs, "easy")
+                    : word.status === "unsure"
+                        ? calculateNextReview(baseSrs, "difficult")
+                        : baseSrs
+            const explanation =
+                word.explanation?.trim() || `Meaning of ${source}.`
+            const example =
+                word.example?.trim() || `Example: ${source}.`
+            const syllables = word.syllables?.trim()
+            const explanationWithSyllables =
+                word.pos === "verb" && syllables && target
+                    ? `${explanation}\n${target}\n${syllables}`
+                    : explanation
+            return {
+                id: `${id}-${Date.now()}-${index}`,
+                es: source,
+                de: target,
+                pos: word.pos ?? ("other" as const),
+                image: { type: "emoji", value: word.emoji ?? "📝" } as any,
+                explanation: explanationWithSyllables,
+                example,
+                srs,
+            }
+        })
+        .filter(Boolean) as any[]
+    const pool = [...(baseWorld?.pool ?? []), ...newPairs]
+    return {
+        ...(baseWorld ?? {}),
+        id,
+        title: cleanTitle,
+        description: cleanTitle,
+        mode: "vocab",
+        pool,
+        chunking: { itemsPerGame: 8 },
+        source_language: sourceLabel,
+        target_language: targetLabel,
+        ui: {
+            ...(baseWorld?.ui ?? {}),
+            vocab: {
+                ...(baseWorld?.ui?.vocab ?? {}),
+                carousel: {
+                    primaryLabel: `${sourceLabel}:`,
+                    secondaryLabel: `${targetLabel}:`,
+                },
+            },
+        },
+    } as VocabWorld
+}
+
 export default function NewHomeClient({ profile }: { profile: ProfileSettings }) {
     const router = useRouter()
     const [activeNewsTab, setActiveNewsTab] = useState<"world" | "wirtschaft" | "sport">("world")
@@ -186,14 +265,21 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [translateMode, setTranslateMode] = useState(false)
     const [lastPlayed, setLastPlayed] = useState<LastPlayed | null>(null)
     const [showAttachMenu, setShowAttachMenu] = useState(false)
+    const [createWorldError, setCreateWorldError] = useState<string | null>(null)
 
     const cameraInputRef = useRef<HTMLInputElement | null>(null)
     const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const attachMenuRef = useRef<HTMLDivElement | null>(null)
 
     // Overlay State
     const [isOverlayOpen, setIsOverlayOpen] = useState(false)
     const [generatedWords, setGeneratedWords] = useState<ReviewWord[]>([])
     const [generatedTitle, setGeneratedTitle] = useState("")
+    const [lastPromptTheme, setLastPromptTheme] = useState("")
+    const [storedWorlds, setStoredWorlds] = useState<VocabWorld[]>([])
+    const [storedLists, setStoredLists] = useState<Array<{ id: string; name: string }>>([])
+    const [worldMetaMap, setWorldMetaMap] = useState<Record<string, { listId: string | null }>>({})
+    const [selectedOverlayListId, setSelectedOverlayListId] = useState<string | null>(null)
 
     // Derived news values
     const currentNews = newsItems[currentNewsIndex] || null
@@ -233,6 +319,85 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             leaderboardOverall: uiSettings?.home?.leaderboardOverall ?? "Overall",
             nav: uiSettings?.nav ?? {},
             newsTabs: uiSettings?.news?.categoryOptions ?? {},
+        }),
+        [uiSettings]
+    )
+    const translationWorldName = useMemo(() => {
+        const value = (profileSettings.sourceLanguage || "").toLowerCase()
+        if (value.includes("deutsch") || value.includes("german")) return "Übersetzung"
+        if (value.includes("english")) return "Translation"
+        if (value.includes("français") || value.includes("french")) return "Traduction"
+        return "Traducción"
+    }, [profileSettings.sourceLanguage])
+
+    const overlayLabels = useMemo(
+        () => ({
+            titlePlaceholder:
+                uiSettings?.overlay?.titlePlaceholder ?? "Untitled world",
+            belongsLabel:
+                uiSettings?.overlay?.worldLabel ?? "These words belong to:",
+            newWorldLabel:
+                uiSettings?.overlay?.newWorld ?? "Create new world",
+            listLabel:
+                uiSettings?.overlay?.listLabel ??
+                uiSettings?.home?.listSelectLabel ??
+                "List",
+            listUnlisted:
+                uiSettings?.overlay?.listUnlisted ??
+                uiSettings?.worldsOverlay?.unlisted ??
+                "Unlisted",
+            wordLabel:
+                uiSettings?.overlay?.wordColumn ?? "Word",
+            translationLabel:
+                uiSettings?.overlay?.translationColumn ?? "Translation",
+            statusLabel:
+                uiSettings?.overlay?.statusColumn ?? "Status",
+            statusNew:
+                uiSettings?.overlay?.statusNew ?? "new",
+            statusKnown:
+                uiSettings?.overlay?.statusKnown ?? "known",
+            statusUnsure:
+                uiSettings?.overlay?.statusUnsure ?? "unsure",
+            posVerb:
+                uiSettings?.upload?.posVerb ?? "verb",
+            posNoun:
+                uiSettings?.upload?.posNoun ?? "noun",
+            posAdj:
+                uiSettings?.upload?.posAdj ?? "adj",
+            posOther:
+                uiSettings?.upload?.posOther ?? "other",
+            emojiLabel:
+                uiSettings?.upload?.reviewEmoji ?? "Emoji",
+            posLabel:
+                uiSettings?.upload?.reviewPos ?? "Type",
+            explanationLabel:
+                uiSettings?.upload?.reviewExplanation ?? "Explanation",
+            exampleLabel:
+                uiSettings?.upload?.reviewExample ?? "Example",
+            syllablesLabel:
+                uiSettings?.upload?.reviewSyllables ?? "Syllables",
+            emptyLabel:
+                uiSettings?.overlay?.emptyLabel ??
+                uiSettings?.errors?.newsNoWords ??
+                "No words yet",
+            generateMoreLabel:
+                uiSettings?.overlay?.generateMore ?? "Generate more",
+            generateMorePlaceholder:
+                uiSettings?.overlay?.generateMorePlaceholder ??
+                uiSettings?.upload?.reviewMorePlaceholder ??
+                "Count",
+            generateMoreButton:
+                uiSettings?.overlay?.generateMoreButton ??
+                uiSettings?.upload?.reviewMoreButton ??
+                "Generate",
+            generateMoreLoading:
+                uiSettings?.overlay?.generateMoreLoading ??
+                uiSettings?.upload?.processing ??
+                "Generating...",
+            saveLabel:
+                uiSettings?.overlay?.save ?? "Save",
+            playNowLabel:
+                uiSettings?.overlay?.playNow ?? "Play now",
         }),
         [uiSettings]
     )
@@ -340,6 +505,47 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
         loadProfile()
     }, [])
+
+    useEffect(() => {
+        const loadWorlds = async () => {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            try {
+                const response = await fetch("/api/storage/worlds/list", {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                if (!response.ok) return
+                const data = await response.json()
+                const entries = Array.isArray(data?.worlds) ? data.worlds : []
+            const list: VocabWorld[] = []
+            const meta: Record<string, { listId: string | null }> = {}
+            const lists = Array.isArray(data?.lists)
+                ? data.lists.map((entry: any) => ({
+                    id: entry.id,
+                    name: entry.name,
+                }))
+                : []
+            entries.forEach((entry: any) => {
+                const json = entry?.json
+                if (!json) return
+                const id = entry?.worldId || json.id
+                if (!id) return
+                    json.id = id
+                    if (entry?.title) json.title = entry.title
+                    list.push(json as VocabWorld)
+                meta[id] = { listId: entry?.listId ?? null }
+            })
+            setStoredWorlds(list)
+            setWorldMetaMap(meta)
+            setStoredLists(lists)
+        } catch {
+            // ignore
+        }
+    }
+    loadWorlds()
+}, [])
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -626,30 +832,51 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
     }, [profileSettings.sourceLanguage, profileSettings.targetLanguage])
 
+    useEffect(() => {
+        if (!showAttachMenu) return
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node | null
+            if (!attachMenuRef.current || !target) return
+            if (attachMenuRef.current.contains(target)) return
+            setShowAttachMenu(false)
+        }
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [showAttachMenu])
+
     // Handle Create World
     const handleCreateWorld = async () => {
-        if (!inputText.trim()) return
+        const theme = inputText.trim()
+        if (!theme) return
         setIsGenerating(true)
+        setCreateWorldError(null)
         try {
-            // TODO: Replace with actual AI integration
-            // For now, simulate generating words
-            await new Promise(resolve => setTimeout(resolve, 1000))
-
-            // Simulated generated words
-            const mockWords: ReviewWord[] = [
-                { id: "1", source: "hola", target: "Hallo", status: "new", emoji: "👋" },
-                { id: "2", source: "gracias", target: "Danke", status: "new", emoji: "🙏" },
-                { id: "3", source: "por favor", target: "Bitte", status: "new", emoji: "🙂" },
-                { id: "4", source: "adiós", target: "Tschüss", status: "new", emoji: "👋" },
-                { id: "5", source: "buenos días", target: "Guten Morgen", status: "new", emoji: "🌅" },
-            ]
-
-            setGeneratedTitle(inputText.trim())
-            setGeneratedWords(mockWords)
+            const result = await callAi({
+                task: "theme_list",
+                theme,
+                count: 20,
+                level: profileSettings.level || "A2",
+                sourceLabel: profileSettings.sourceLanguage || "Español",
+                targetLabel: profileSettings.targetLanguage || "Alemán",
+            })
+            const items = Array.isArray(result?.items) ? result.items : []
+            const reviewItems = buildReviewItemsFromAi(items)
+            const words = buildReviewWordsFromItems(reviewItems)
+            if (!words.length) {
+                setCreateWorldError(ui.noWordsError)
+                return
+            }
+            const title =
+                typeof result?.title === "string" && result.title.trim()
+                    ? result.title.trim()
+                    : theme
+            setGeneratedTitle(title)
+            setLastPromptTheme(theme)
+            setGeneratedWords(words)
             setIsOverlayOpen(true)
             setInputText("")
         } catch (e) {
-            console.error(e)
+            setCreateWorldError((e as Error).message)
         } finally {
             setIsGenerating(false)
         }
@@ -757,6 +984,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 explanation: normalizeText(item?.explanation) || undefined,
                 example: normalizeText(item?.example) || undefined,
                 emoji: normalizeEmoji(item?.emoji, "📝"),
+                pos: normalizePos(item?.pos),
+                syllables: normalizeText(item?.syllables) || undefined,
             })
         } catch (err) {
             setTranslateError((err as Error).message)
@@ -765,13 +994,34 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
     }
 
+    const handleAddTranslation = async () => {
+        if (!translateResult) return
+        const word: ReviewWord = {
+            id: `translate-${Date.now()}`,
+            source: translateResult.source,
+            target: translateResult.target,
+            status: "new",
+            emoji: translateResult.emoji,
+            explanation: translateResult.explanation,
+            example: translateResult.example,
+            pos: translateResult.pos,
+            syllables: translateResult.syllables,
+        }
+        const existing = storedWorlds.find(
+            (world) =>
+                world.title?.trim().toLowerCase() ===
+                translationWorldName.trim().toLowerCase()
+        )
+        await saveOverlayWorld([word], existing?.id ?? null, translationWorldName, false)
+        setTranslateResult(null)
+        setInputText("")
+    }
+
     const toggleTranslateMode = () => {
         if (translateMode) {
-            if (inputText.trim()) {
-                handleTranslate()
-                return
-            }
             setTranslateMode(false)
+            setTranslateResult(null)
+            setTranslateError(null)
             return
         }
         setTranslateMode(true)
@@ -783,33 +1033,89 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     // Overlay handlers
     const handleOverlayClose = () => {
         setIsOverlayOpen(false)
+        setSelectedOverlayListId(null)
     }
 
     const handleOverlaySave = (words: ReviewWord[], worldId: string | null, title: string) => {
-        // TODO: Save to Supabase
-        console.log("Saving world:", { words, worldId, title })
-        setIsOverlayOpen(false)
+        saveOverlayWorld(words, worldId, title, false)
     }
 
     const handleOverlayPlayNow = (words: ReviewWord[], worldId: string | null, title: string) => {
-        // TODO: Save to Supabase and navigate to game
-        console.log("Play now:", { words, worldId, title })
-        setIsOverlayOpen(false)
-        // router.push("/play")
+        saveOverlayWorld(words, worldId, title, true)
     }
 
     const handleGenerateMoreWords = async (count: number, existingWords: ReviewWord[]): Promise<ReviewWord[]> => {
-        // TODO: Replace with actual AI call
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        const theme = lastPromptTheme || generatedTitle || "Vocabulary"
+        const exclude = existingWords
+            .map((word) => word.source?.trim())
+            .filter((word): word is string => Boolean(word))
+        const result = await callAi({
+            task: "theme_list",
+            theme,
+            count,
+            level: profileSettings.level || "A2",
+            sourceLabel: profileSettings.sourceLanguage || "Español",
+            targetLabel: profileSettings.targetLanguage || "Alemán",
+            exclude,
+        })
+        const items = Array.isArray(result?.items) ? result.items : []
+        const reviewItems = buildReviewItemsFromAi(items)
+        const words = buildReviewWordsFromItems(reviewItems)
+        return words
+    }
 
-        const newWords: ReviewWord[] = Array.from({ length: count }, (_, i) => ({
-            id: `gen-${Date.now()}-${i}`,
-            source: `palabra ${existingWords.length + i + 1}`,
-            target: `Wort ${existingWords.length + i + 1}`,
-            status: "new" as const,
-        }))
+    const saveOverlayWorld = async (
+        words: ReviewWord[],
+        worldId: string | null,
+        title: string,
+        playNow: boolean
+    ) => {
+        setIsGenerating(true)
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) throw new Error("Missing auth token")
+            const sourceLabel = profileSettings.sourceLanguage || "Español"
+            const targetLabel = profileSettings.targetLanguage || "Alemán"
+            const baseWorld = worldId ? storedWorlds.find((w) => w.id === worldId) ?? null : null
+            const world = buildWorldFromReviewWords(words, title, sourceLabel, targetLabel, baseWorld)
+            const listId = worldId
+                ? worldMetaMap[worldId]?.listId ?? null
+                : selectedOverlayListId ?? null
 
-        return newWords
+            const response = await fetch("/api/storage/worlds/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    worlds: [world],
+                    listId,
+                    positions: { [world.id]: 0 },
+                }),
+            })
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}))
+                throw new Error(data?.error || "Save failed")
+            }
+
+            setStoredWorlds((prev) => {
+                const existing = prev.find((item) => item.id === world.id)
+                if (existing) {
+                    return prev.map((item) => (item.id === world.id ? world : item))
+                }
+                return [...prev, world]
+            })
+            if (listId) {
+                setWorldMetaMap((prev) => ({ ...prev, [world.id]: { listId } }))
+            }
+            setIsOverlayOpen(false)
+            if (playNow) {
+                router.push(`/play?world=${encodeURIComponent(world.id)}&level=0`)
+            }
+        } catch (err) {
+            setCreateWorldError((err as Error).message)
+        } finally {
+            setIsGenerating(false)
+        }
     }
 
     // Render Friends Page if active
@@ -884,7 +1190,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 {/* --- 1. AI INPUT (Primary Focus) --- */}
                 <section className="relative">
                     <div className="mb-1.5 pl-1 flex items-center justify-between">
-                        <span className="text-[12px] font-medium text-[#3A3A3A]/60">
+                        <span className="text-[12px] font-medium text-[#3A3A3A]">
                             {ui.createWorldTitle}
                         </span>
                         <button
@@ -919,6 +1225,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     setInputText(e.target.value)
                                     setTranslateError(null)
                                     setTranslateResult(null)
+                                    setCreateWorldError(null)
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key !== "Enter") return
@@ -930,7 +1237,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 }}
                                 disabled={isGenerating}
                             />
-                            <div className="absolute right-3.5 flex items-center gap-2">
+                            <div ref={attachMenuRef} className="absolute right-3.5 flex items-center gap-2">
                                 <AnimatePresence>
                                     {showAttachMenu && (
                                         <motion.div
@@ -956,6 +1263,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
+                                {isGenerating && !translateMode && (
+                                    <div className="h-5 w-5 rounded-full border-2 border-[#9FB58E] border-t-transparent animate-spin" />
+                                )}
                                 <button
                                     onClick={() => setShowAttachMenu((prev) => !prev)}
                                     disabled={isGenerating || isTranslating}
@@ -980,6 +1290,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 />
                             </div>
                         </div>
+                        {createWorldError && !translateMode && (
+                            <div className="mt-2 text-[11px] text-[#B45353]">{createWorldError}</div>
+                        )}
                     </div>
                     <div className="px-1.5">
                         <p className="text-[9px] leading-tight text-[#3A3A3A]/30 font-medium tracking-tight">
@@ -992,10 +1305,17 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: 6 }}
-                                className="mt-2 bg-[#FAF7F2] rounded-[16px] border border-[#3A3A3A]/5 p-3 shadow-[0_2px_10px_-6px_rgba(58,58,58,0.08)]"
+                                className="mt-2 bg-[#FAF7F2] rounded-[16px] border border-[#3A3A3A]/5 p-3 shadow-[0_2px_10px_-6px_rgba(58,58,58,0.08)] relative"
                             >
                                 {translateResult ? (
                                     <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            onClick={handleAddTranslation}
+                                            className="absolute right-3 top-3 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A]/70 hover:text-[#3A3A3A] flex items-center justify-center"
+                                        >
+                                            <Plus className="w-4 h-4" strokeWidth={1.8} />
+                                        </button>
                                         <div className="text-[13px] font-medium text-[#3A3A3A]">
                                             {translateResult.emoji ? `${translateResult.emoji} ` : ""}{translateResult.source} → {translateResult.target}
                                         </div>
@@ -1049,13 +1369,13 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                         {/* Content */}
                         <div className="p-2.5 pt-2 flex flex-col h-[180px]"> {/* Fixed height container */}
-                            <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A]/40 mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center">
+                            <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center">
                                 {isNewsLoading ? ui.newsLoading : (currentNews?.title || ui.noNewsAvailable)}
                             </h3>
 
                             {/* Text Preview in Placeholder */}
                             <div className="relative flex-1 overflow-hidden bg-[#EBE7DF] rounded-[12px] px-3 py-2 mb-2">
-                                <p className="text-[11px] leading-relaxed text-[#3A3A3A]/70 font-serif">
+                                <p className="text-[11px] leading-relaxed text-[#3A3A3A] font-serif">
                                     {isNewsLoading ? "" : currentNewsBody}
                                 </p>
                                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#FAF7F2] to-transparent" />
@@ -1182,7 +1502,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             ))}
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             {leaderboardEntries.slice(0, 5).map((entry, index) => {
                                 const entryKey = `${entry.username}-${index}`
                                 const showImage =
@@ -1190,10 +1510,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 return (
                                     <div
                                         key={entryKey}
-                                        className="flex items-center justify-between rounded-xl border border-[#3A3A3A]/5 bg-[#F6F2EB] px-3 py-2 text-[13px]"
+                                        className="flex items-center justify-between px-1 py-1.5 text-[12px]"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="h-7 w-7 rounded-full border border-[#E3EBC5]/80 overflow-hidden bg-[#FFF] flex items-center justify-center">
+                                            <div className="h-6 w-6 rounded-full border border-[#E3EBC5]/80 overflow-hidden bg-[#FFF] flex items-center justify-center">
                                                 {showImage ? (
                                                     <img
                                                         src={entry.avatarUrl!}
@@ -1242,12 +1562,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 onPlayNow={handleOverlayPlayNow}
                 initialWords={generatedWords}
                 initialTitle={generatedTitle}
-                existingWorlds={[
-                    { id: "1", title: "Spanish Travel" },
-                    { id: "2", title: "German Basics" },
-                ]}
-                onGenerateMore={handleGenerateMoreWords}
-            />
+            labels={overlayLabels}
+            existingWorlds={storedWorlds.map((world) => ({
+                id: world.id,
+                title: world.title,
+            }))}
+            existingLists={storedLists}
+            selectedListId={selectedOverlayListId}
+            onSelectList={setSelectedOverlayListId}
+            onGenerateMore={handleGenerateMoreWords}
+        />
         </div>
     )
 }

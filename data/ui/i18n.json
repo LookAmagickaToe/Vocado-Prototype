@@ -85,6 +85,8 @@
       "reviewEmoji": "Emoji",
       "reviewPos": "Tipo",
       "reviewConjugate": "Conjugación",
+      "reviewExplanation": "Explicación",
+      "reviewExample": "Ejemplo",
       "reviewSyllables": "Sílabas",
       "posVerb": "verbo",
       "posNoun": "sustantivo",
@@ -269,9 +271,15 @@
     },
     "overlay": {
       "close": "Cerrar",
+      "titlePlaceholder": "Mundo sin título",
       "worldLabel": "Estas palabras pertenecen a:",
       "newWorld": "Crear nuevo mundo",
+      "listLabel": "Lista",
+      "listUnlisted": "Sin lista",
       "generateMore": "Generar más",
+      "generateMorePlaceholder": "Cantidad",
+      "generateMoreButton": "Generar",
+      "generateMoreLoading": "Generando...",
       "save": "Guardar",
       "playNow": "Jugar ahora",
       "wordColumn": "Palabra",
@@ -279,7 +287,8 @@
       "statusColumn": "Estado",
       "statusNew": "nuevo",
       "statusKnown": "conocido",
-      "statusUnsure": "inseguro"
+      "statusUnsure": "inseguro",
+      "emptyLabel": "No hay palabras"
     },
     "srs": {
       "easy": "Fácil",
@@ -417,6 +426,8 @@
       "reviewEmoji": "Emoji",
       "reviewPos": "Type",
       "reviewConjugate": "Conjugation",
+      "reviewExplanation": "Explanation",
+      "reviewExample": "Example",
       "reviewSyllables": "Syllables",
       "posVerb": "verb",
       "posNoun": "noun",
@@ -601,9 +612,15 @@
     },
     "overlay": {
       "close": "Close",
+      "titlePlaceholder": "Untitled world",
       "worldLabel": "These words belong to:",
       "newWorld": "Create new world",
+      "listLabel": "List",
+      "listUnlisted": "Unlisted",
       "generateMore": "Generate more",
+      "generateMorePlaceholder": "Count",
+      "generateMoreButton": "Generate",
+      "generateMoreLoading": "Generating...",
       "save": "Save",
       "playNow": "Play Now",
       "wordColumn": "Word",
@@ -611,7 +628,8 @@
       "statusColumn": "Status",
       "statusNew": "new",
       "statusKnown": "known",
-      "statusUnsure": "unsure"
+      "statusUnsure": "unsure",
+      "emptyLabel": "No words yet"
     },
     "srs": {
       "easy": "Easy",
@@ -749,6 +767,8 @@
       "reviewEmoji": "Emoji",
       "reviewPos": "Wortart",
       "reviewConjugate": "Konjugation",
+      "reviewExplanation": "Erklärung",
+      "reviewExample": "Beispiel",
       "reviewSyllables": "Silben",
       "posVerb": "Verb",
       "posNoun": "Substantiv",
@@ -933,9 +953,15 @@
     },
     "overlay": {
       "close": "Schließen",
+      "titlePlaceholder": "Unbenannte Welt",
       "worldLabel": "Diese Wörter gehören zu:",
       "newWorld": "Neue Welt erstellen",
+      "listLabel": "Liste",
+      "listUnlisted": "Ohne Liste",
       "generateMore": "Mehr generieren",
+      "generateMorePlaceholder": "Anzahl",
+      "generateMoreButton": "Generieren",
+      "generateMoreLoading": "Generiert...",
       "save": "Speichern",
       "playNow": "Jetzt spielen",
       "wordColumn": "Wort",
@@ -943,7 +969,8 @@
       "statusColumn": "Status",
       "statusNew": "neu",
       "statusKnown": "bekannt",
-      "statusUnsure": "unsicher"
+      "statusUnsure": "unsicher",
+      "emptyLabel": "Keine Wörter"
     },
     "srs": {
       "easy": "Einfach",
@@ -1074,6 +1101,8 @@
       "reviewEmoji": "Emoji",
       "reviewPos": "Type",
       "reviewConjugate": "Conjugaison",
+      "reviewExplanation": "Explication",
+      "reviewExample": "Exemple",
       "reviewSyllables": "Syllabes",
       "posVerb": "verbe",
       "posNoun": "nom",
@@ -1258,9 +1287,15 @@
     },
     "overlay": {
       "close": "Fermer",
+      "titlePlaceholder": "Monde sans titre",
       "worldLabel": "Ces mots appartiennent à :",
       "newWorld": "Créer un nouveau monde",
+      "listLabel": "Liste",
+      "listUnlisted": "Sans liste",
       "generateMore": "Générer plus",
+      "generateMorePlaceholder": "Nombre",
+      "generateMoreButton": "Générer",
+      "generateMoreLoading": "Génération...",
       "save": "Enregistrer",
       "playNow": "Jouer maintenant",
       "wordColumn": "Mot",
@@ -1268,7 +1303,8 @@
       "statusColumn": "Statut",
       "statusNew": "nouveau",
       "statusKnown": "connu",
-      "statusUnsure": "incertain"
+      "statusUnsure": "incertain",
+      "emptyLabel": "Aucun mot"
     },
     "srs": {
       "easy": "Facile",
