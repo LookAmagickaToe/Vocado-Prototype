@@ -673,21 +673,21 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
               <button
                 type="button"
                 onClick={() => rateCurrent("difficult")}
-                className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
+                className="rounded-xl border border-[#3A3A3A]/10 bg-[#F4E6E3] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyHard}
               </button>
               <button
                 type="button"
                 onClick={() => rateCurrent("medium")}
-                className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
+                className="rounded-xl border border-[#3A3A3A]/10 bg-[#F6F0E1] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyMedium}
               </button>
               <button
                 type="button"
                 onClick={() => rateCurrent("easy")}
-                className="rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] py-2 text-[12px] font-medium text-[#3A3A3A]"
+                className="rounded-xl border border-[#3A3A3A]/10 bg-[#E9F2E7] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyEasy}
               </button>

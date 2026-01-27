@@ -9,6 +9,7 @@ import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import { formatTemplate } from "@/lib/ui"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
+import { initializeSRS } from "@/lib/srs"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
@@ -129,6 +130,8 @@ const buildWorldFromItems = (
 ): VocabWorld => {
   const id = `news-${Date.now()}`
   const pool = items.map((item, index) => {
+    const baseSrs = initializeSRS()
+    const hardSrs = { ...baseSrs, bucket: "hard" as const, nextReviewAt: new Date().toISOString() }
     const explanation =
       item.explanation?.trim() || formatTemplate(ui.generation.meaningOf, { source: item.source })
     const example =
@@ -146,6 +149,7 @@ const buildWorldFromItems = (
       pos: item.pos,
       explanation: explanationWithSyllables,
       example,
+      srs: hardSrs,
     }
   })
   return {
@@ -348,13 +352,23 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   }
 
   const startPlayFromWorld = (newsWorld: VocabWorld) => {
-    setWorld(newsWorld)
-    setSummary(Array.isArray(newsWorld.news?.summary) ? newsWorld.news!.summary : [])
-    setNewsUrl(newsWorld.news?.sourceUrl ?? "")
-    setNewsTitle(newsWorld.news?.title ?? newsWorld.title)
-    setNewsDate(newsWorld.news?.date ?? todayKey)
-    setItems(buildReviewItemsFromWorld(newsWorld))
+    let needsSave = false
+    const normalizedPool = (newsWorld.pool ?? []).map((pair) => {
+      if (pair.srs) return pair
+      needsSave = true
+      return { ...pair, srs: { ...initializeSRS(), bucket: "hard" as const } }
+    })
+    const patchedWorld = needsSave ? { ...newsWorld, pool: normalizedPool } : newsWorld
+    setWorld(patchedWorld)
+    setSummary(Array.isArray(patchedWorld.news?.summary) ? patchedWorld.news!.summary : [])
+    setNewsUrl(patchedWorld.news?.sourceUrl ?? "")
+    setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title)
+    setNewsDate(patchedWorld.news?.date ?? todayKey)
+    setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("play")
+    if (needsSave) {
+      void saveNewsWorld(patchedWorld).catch(() => {})
+    }
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
@@ -884,6 +898,28 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const finalUrl = urlOverride?.trim() || newsUrl.trim()
     if (!finalUrl) {
       setError("Agrega un enlace válido.")
+      return
+    }
+    const existingWorld = newsWorlds.find(
+      (entry) => entry.news?.sourceUrl && entry.news.sourceUrl === finalUrl
+    )
+    if (existingWorld) {
+      let needsSave = false
+      const normalizedPool = (existingWorld.pool ?? []).map((pair) => {
+        if (pair.srs) return pair
+        needsSave = true
+        return { ...pair, srs: { ...initializeSRS(), bucket: "hard" as const } }
+      })
+      const patchedWorld = { ...existingWorld, pool: normalizedPool }
+      setWorld(patchedWorld)
+      setSummary(Array.isArray(patchedWorld.news?.summary) ? patchedWorld.news!.summary : [])
+      setItems(buildReviewItemsFromWorld(patchedWorld))
+      setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
+      setNewsDate(patchedWorld.news?.date ?? newsDate)
+      setStep("play")
+      if (needsSave) {
+        void saveNewsWorld(patchedWorld).catch(() => {})
+      }
       return
     }
     if (!newsDate) {
