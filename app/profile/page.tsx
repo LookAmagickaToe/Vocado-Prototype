@@ -17,13 +17,13 @@ export default async function ProfilePage() {
             },
         }
     )
-    const { data } = await supabase.auth.getSession()
+    const { data: authUser } = await supabase.auth.getUser()
 
-    if (!data.session?.user) {
+    if (!authUser.user) {
         redirect("/login")
     }
 
-    const userId = data.session.user.id
+    const userId = authUser.user.id
 
     let profileRow: any = null
     const withAvatar = await supabaseAdmin

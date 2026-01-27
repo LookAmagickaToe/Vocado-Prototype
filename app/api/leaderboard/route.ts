@@ -82,6 +82,7 @@ export async function GET(req: Request) {
 
       const weeklyScore = validWeek ? Number(row.weekly_seeds ?? 0) || 0 : 0
       return {
+        id: row.id,
         username: row.username || "User",
         score: scope === "weekly" ? weeklyScore : Number(row.seeds ?? 0) || 0,
         avatarUrl: typeof row.avatar_url === "string" && row.avatar_url ? row.avatar_url : null,
@@ -92,7 +93,29 @@ export async function GET(req: Request) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
 
-    return NextResponse.json({ entries, scope })
+    const enriched = await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.avatarUrl || !entry.id) return entry
+        try {
+          const { data } = await supabaseAdmin.auth.admin.getUserById(entry.id)
+          const meta = data.user?.user_metadata as Record<string, unknown> | undefined
+          const avatar =
+            (typeof meta?.avatar_url === "string" && meta.avatar_url) ||
+            (typeof meta?.picture === "string" && meta.picture) ||
+            ""
+          if (avatar) {
+            return { ...entry, avatarUrl: avatar }
+          }
+        } catch {
+          // ignore
+        }
+        return entry
+      })
+    )
+
+    const sanitized = enriched.map(({ id, ...rest }) => rest)
+
+    return NextResponse.json({ entries: sanitized, scope })
   } catch (error) {
     return NextResponse.json(
       { error: "Load failed", details: (error as Error).message },

@@ -18,6 +18,15 @@ const COLORS = {
     text: "#3A3A3A",
 }
 
+const normalizeText = (value: unknown) => (typeof value === "string" ? value.trim() : "")
+const normalizePos = (value: unknown) =>
+    value === "verb" || value === "noun" || value === "adj" ? value : "other"
+const normalizeEmoji = (value: unknown, fallback = "📘") => {
+    if (typeof value !== "string") return fallback
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : fallback
+}
+
 type WorldList = {
     id: string
     name: string
@@ -45,6 +54,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     const [showPromptInput, setShowPromptInput] = useState(false)
     const [promptText, setPromptText] = useState("")
     const [isGenerating, setIsGenerating] = useState(false)
+    const [promptError, setPromptError] = useState<string | null>(null)
     const [cachedLists, setCachedLists] = useState<WorldList[]>(lists)
     const [cachedWorlds, setCachedWorlds] = useState<World[]>(worlds)
     const [cacheKey, setCacheKey] = useState("vocado-worlds-cache")
@@ -207,6 +217,55 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
         return Math.ceil(world.pool.length / itemsPerGame)
     }
 
+    const buildWorldFromAiItems = (
+        items: any[],
+        title: string,
+        sourceLabel: string,
+        targetLabel: string
+    ): World => {
+        const id = `upload-${Date.now()}`
+        const cleanTitle = title.trim() || "New world"
+        const pool = items
+            .map((item, index) => {
+                const source = normalizeText(item?.source)
+                const target = normalizeText(item?.target)
+                if (!source || !target) return null
+                const pos = normalizePos(item?.pos)
+                const explanation =
+                    normalizeText(item?.explanation) || `Meaning of ${source}.`
+                const example = normalizeText(item?.example) || `Example: ${source}.`
+                return {
+                    id: `${id}-${index}`,
+                    es: source,
+                    de: target,
+                    image: { type: "emoji", value: normalizeEmoji(item?.emoji, "📘") } as any,
+                    pos,
+                    explanation,
+                    example,
+                }
+            })
+            .filter(Boolean) as any[]
+
+        return {
+            id,
+            title: cleanTitle,
+            description: cleanTitle,
+            mode: "vocab",
+            pool,
+            chunking: { itemsPerGame: 8 },
+            source_language: sourceLabel,
+            target_language: targetLabel,
+            ui: {
+                vocab: {
+                    carousel: {
+                        primaryLabel: `${sourceLabel}:`,
+                        secondaryLabel: `${targetLabel}:`,
+                    },
+                },
+            },
+        } as World
+    }
+
     const handleListClick = (listId: string) => {
         setExpandedWorldId(null) // Close any expanded world
         setExpandedListId(prev => prev === listId ? null : listId)
@@ -228,15 +287,100 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     }
 
     const handleCreateWorld = async () => {
-        if (!promptText.trim()) return
+        const theme = promptText.trim()
+        if (!theme) return
         setIsGenerating(true)
+        setPromptError(null)
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) {
+                throw new Error("Missing auth token")
+            }
 
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        // TODO: Implement actual world creation
+            const sourceLabel = profile.sourceLanguage || "Español"
+            const targetLabel = profile.targetLanguage || "Deutsch"
+            const response = await fetch("/api/ai", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    task: "theme_list",
+                    theme,
+                    count: 20,
+                    level: profile.level || "A2",
+                    sourceLabel,
+                    targetLabel,
+                }),
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(data?.error || "AI request failed")
+            }
 
-        setPromptText("")
-        setShowPromptInput(false)
-        setIsGenerating(false)
+            const items = Array.isArray(data?.items) ? data.items : []
+            if (items.length === 0) {
+                setPromptError(ui.emptySearch ?? "No words found")
+                return
+            }
+
+            const generatedTitle =
+                typeof data?.title === "string" && data.title.trim()
+                    ? data.title.trim()
+                    : theme
+            const world = buildWorldFromAiItems(items, generatedTitle, sourceLabel, targetLabel)
+            if (!world.pool || world.pool.length === 0) {
+                setPromptError(ui.emptySearch ?? "No words found")
+                return
+            }
+
+            let listId = cachedLists[0]?.id ?? ""
+            if (!listId) {
+                const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                    ? crypto.randomUUID()
+                    : `list-${Date.now()}`
+                listId = uuid
+                const newList = { id: listId, name: generatedTitle, worldIds: [] }
+                setCachedLists((prev) => [...prev, newList])
+                await fetch("/api/storage/state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        lists: [{ id: listId, name: generatedTitle, position: cachedLists.length }],
+                    }),
+                })
+            }
+
+            await fetch("/api/storage/worlds/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    worlds: [world],
+                    listId,
+                    positions: { [world.id]: 0 },
+                }),
+            })
+
+            setCachedWorlds((prev) => [...prev, world])
+            setCachedLists((prev) =>
+                prev.map((list) =>
+                    list.id === listId
+                        ? {
+                              ...list,
+                              worldIds: list.worldIds.includes(world.id)
+                                  ? list.worldIds
+                                  : [...list.worldIds, world.id],
+                          }
+                        : list
+                )
+            )
+            setExpandedListId(listId)
+            setPromptText("")
+            setShowPromptInput(false)
+        } catch (err) {
+            setPromptError((err as Error).message)
+        } finally {
+            setIsGenerating(false)
+        }
     }
 
     return (
@@ -290,6 +434,9 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
                                 onKeyDown={(e) => e.key === "Enter" && handleCreateWorld()}
                             />
+                            {promptError && (
+                                <div className="mt-2 text-[11px] text-[#B45353]">{promptError}</div>
+                            )}
                             <button
                                 onClick={handleCreateWorld}
                                 disabled={isGenerating || !promptText.trim()}

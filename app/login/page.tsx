@@ -16,9 +16,9 @@ export default async function LoginPage() {
       },
     }
   )
-  const { data } = await supabase.auth.getSession()
+  const { data: authUser } = await supabase.auth.getUser()
 
-  if (data.session?.user) {
+  if (authUser.user) {
     redirect("/")
   }
 

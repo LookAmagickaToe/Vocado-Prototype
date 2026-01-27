@@ -17,13 +17,13 @@ export default async function PlayPage() {
       },
     }
   )
-  const { data } = await supabase.auth.getSession()
+  const { data: authUser } = await supabase.auth.getUser()
 
-  if (!data.session?.user) {
+  if (!authUser.user) {
     redirect("/login")
   }
 
-  const userId = data.session.user.id
+  const userId = authUser.user.id
 
   const { data: files } = await supabaseAdmin
     .from("world_files")

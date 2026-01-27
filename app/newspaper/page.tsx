@@ -17,13 +17,13 @@ export default async function NewspaperPage() {
             },
         }
     )
-    const { data } = await supabase.auth.getSession()
+    const { data: authUser } = await supabase.auth.getUser()
 
-    if (!data.session?.user) {
+    if (!authUser.user) {
         redirect("/login")
     }
 
-    const userId = data.session.user.id
+    const userId = authUser.user.id
 
     // Reuse the query logic from app/news/page.tsx
     const { data: profileRow } = await supabaseAdmin

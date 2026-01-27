@@ -327,6 +327,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             }))
             if (row.avatar_url) {
                 setAvatarUrl(row.avatar_url)
+                return
+            }
+            const metadata = userRes.data.user?.user_metadata as Record<string, unknown> | undefined
+            const googleAvatar =
+                (typeof metadata?.avatar_url === "string" && metadata.avatar_url) ||
+                (typeof metadata?.picture === "string" && metadata.picture) ||
+                ""
+            if (googleAvatar) {
+                setAvatarUrl(googleAvatar)
             }
         }
         loadProfile()

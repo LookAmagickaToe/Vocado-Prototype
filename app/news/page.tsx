@@ -17,13 +17,13 @@ export default async function NewsPage() {
       },
     }
   )
-  const { data } = await supabase.auth.getSession()
+  const { data: authUser } = await supabase.auth.getUser()
 
-  if (!data.session?.user) {
+  if (!authUser.user) {
     redirect("/login")
   }
 
-  const userId = data.session.user.id
+  const userId = authUser.user.id
   const { data: profileRow } = await supabaseAdmin
     .from("profiles")
     .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start")
