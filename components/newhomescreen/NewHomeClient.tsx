@@ -873,6 +873,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setGeneratedTitle(title)
             setLastPromptTheme(theme)
             setGeneratedWords(words)
+            if (!selectedOverlayListId && storedLists.length > 0) {
+                setSelectedOverlayListId(storedLists[0].id)
+            }
             setIsOverlayOpen(true)
             setInputText("")
         } catch (e) {
@@ -949,8 +952,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 setTranslateError(ui.noWordsError)
                 return
             }
-            setGeneratedTitle(file.name)
+            const aiTitle =
+                typeof result?.title === "string" ? result.title.trim() : ""
+            const fallbackTitle = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ").trim()
+            setGeneratedTitle(aiTitle || fallbackTitle || file.name)
             setGeneratedWords(words)
+            if (!selectedOverlayListId && storedLists.length > 0) {
+                setSelectedOverlayListId(storedLists[0].id)
+            }
             setIsOverlayOpen(true)
         } catch (err) {
             setTranslateError((err as Error).message)
