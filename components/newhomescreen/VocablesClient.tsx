@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client"
 import type { VocabPair, VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
 import { formatTemplate } from "@/lib/ui"
+import AutoFitText from "@/components/ui/auto-fit-text"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import {
   calculateNextReview,
@@ -382,7 +383,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     }
   }
 
-  const rateCurrent = async (rating: "easy" | "medium" | "difficult") => {
+  const rateCurrent = (rating: "easy" | "medium" | "difficult") => {
     if (!currentEntry) return
     const nextSrs = calculateNextReview(currentEntry.pair.srs, rating)
 
@@ -399,22 +400,18 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       )
     )
 
-    try {
-      await persistWorld({ ...currentEntry, world: updatedWorld })
-    } catch {
-      // ignore save failures for now
-    }
-
     const nextIndex = reviewIndex + 1
     if (nextIndex >= reviewQueue.length) {
       setReviewQueue([])
       setActiveReviewLabel(null)
       setReviewIndex(0)
       setShowBack(false)
+      void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => {})
       return
     }
     setReviewIndex(nextIndex)
     setShowBack(false)
+    void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => {})
   }
 
   return (
@@ -487,7 +484,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
               if (!matchedOrder.length || !carouselItem) return null
               const isAssigned = memoryAssigned.has(carouselItem.id)
               const allAssigned = memoryAssigned.size >= matchedOrder.length
-              const handleAssign = async (rating: "easy" | "medium" | "difficult") => {
+              const handleAssign = (rating: "easy" | "medium" | "difficult") => {
                 const entry = memoryPairMap.get(carouselItem.id)
                 if (!entry) return
                 const nextSrs = calculateNextReview(entry.pair.srs, rating)
@@ -502,14 +499,10 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                     stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
                   )
                 )
-                try {
-                  await persistWorldByMeta(updatedWorld, entry.listId, entry.position)
-                } catch {
-                  // ignore save failures
-                }
                 const nextAssigned = new Set(memoryAssigned)
                 nextAssigned.add(carouselItem.id)
                 setMemoryAssigned(nextAssigned)
+                void persistWorldByMeta(updatedWorld, entry.listId, entry.position).catch(() => {})
                 if (matchedOrder.length > 1) {
                   let nextIndex = carouselIndex
                   for (let i = 1; i <= matchedOrder.length; i += 1) {
@@ -607,22 +600,40 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             {!showBack ? (
               <div className="space-y-2">
                 <div className="text-[11px] uppercase tracking-wide text-[#3A3A3A]/40">{sourceLabel}</div>
-                <div className="text-[24px] font-semibold text-[#3A3A3A]">
-                  {currentEntry.pair.es}
+                <div className="h-[64px]">
+                  <AutoFitText
+                    text={currentEntry.pair.es}
+                    maxPx={24}
+                    minPx={12}
+                    lineHeight={1.1}
+                    className="h-full w-full font-semibold text-[#3A3A3A]"
+                  />
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-wide text-[#3A3A3A]/40">{sourceLabel}</div>
-                  <div className="text-[18px] font-semibold text-[#3A3A3A]">
-                    {currentEntry.pair.es}
+                  <div className="h-[48px]">
+                    <AutoFitText
+                      text={currentEntry.pair.es}
+                      maxPx={18}
+                      minPx={12}
+                      lineHeight={1.1}
+                      className="h-full w-full font-semibold text-[#3A3A3A]"
+                    />
                   </div>
                 </div>
                 <div>
                   <div className="text-[11px] uppercase tracking-wide text-[#3A3A3A]/40">{targetLabel}</div>
-                  <div className="text-[18px] font-semibold text-[#3A3A3A]">
-                    {currentEntry.pair.de}
+                  <div className="h-[48px]">
+                    <AutoFitText
+                      text={currentEntry.pair.de}
+                      maxPx={18}
+                      minPx={12}
+                      lineHeight={1.1}
+                      className="h-full w-full font-semibold text-[#3A3A3A]"
+                    />
                   </div>
                 </div>
                 {currentEntry.pair.explanation && (
