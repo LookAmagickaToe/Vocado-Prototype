@@ -98,12 +98,13 @@ export default function MemoryCard({
             }}
           >
             {model.kind === "word" ? (
-              <div className="h-full w-full px-2 text-center">
+              <div className="h-full w-full px-2 text-center flex items-center justify-center">
                 <AutoFitText
                   text={model.front.title}
                   maxPx={18}
-                  minPx={6}
-                  className="h-full w-full flex items-center justify-center font-semibold tracking-tight"
+                  minPx={5}
+                  lineHeight={1.05}
+                  className="w-full font-semibold tracking-tight leading-tight"
                 />
               </div>
             ) : (
@@ -124,8 +125,9 @@ export default function MemoryCard({
                   <AutoFitText
                     text={model.front.subtitle}
                     maxPx={14}
-                    minPx={6}
-                    className="w-full max-h-[35%] font-medium leading-tight flex items-center justify-center"
+                    minPx={5}
+                    lineHeight={1.05}
+                    className="w-full max-h-[35%] font-medium leading-tight"
                   />
                 ) : null}
               </div>
