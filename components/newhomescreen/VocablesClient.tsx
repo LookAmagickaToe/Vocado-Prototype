@@ -627,9 +627,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                   <AutoFitText
                     text={currentEntry.pair.es}
                     maxPx={24}
-                    minPx={12}
-                    lineHeight={1.1}
-                    className="h-full w-full font-semibold text-[#3A3A3A]"
+                    minPx={9}
+                    lineHeight={1.05}
+                    className="h-full w-full font-semibold text-[#3A3A3A] whitespace-nowrap"
                   />
                 </div>
               </div>
@@ -641,9 +641,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                     <AutoFitText
                       text={currentEntry.pair.es}
                       maxPx={18}
-                      minPx={12}
-                      lineHeight={1.1}
-                      className="h-full w-full font-semibold text-[#3A3A3A]"
+                      minPx={9}
+                      lineHeight={1.05}
+                      className="h-full w-full font-semibold text-[#3A3A3A] whitespace-nowrap"
                     />
                   </div>
                 </div>
@@ -653,9 +653,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                     <AutoFitText
                       text={currentEntry.pair.de}
                       maxPx={18}
-                      minPx={12}
-                      lineHeight={1.1}
-                      className="h-full w-full font-semibold text-[#3A3A3A]"
+                      minPx={9}
+                      lineHeight={1.05}
+                      className="h-full w-full font-semibold text-[#3A3A3A] whitespace-nowrap"
                     />
                   </div>
                 </div>

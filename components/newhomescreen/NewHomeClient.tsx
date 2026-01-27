@@ -463,6 +463,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }),
         [uiSettings]
     )
+    const unlistedListName = overlayLabels.listUnlisted?.trim() || "Without List"
 
     useEffect(() => {
         const loadAvatar = async () => {
@@ -692,6 +693,37 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 lists: [{ id: listId, name: "Vocado Diario", position: 0 }],
             }),
         })
+        return listId
+    }
+
+    const ensureUnlistedListId = async (token: string) => {
+        const existingLocal = storedLists.find((list) => list.name === unlistedListName)
+        if (existingLocal?.id) return existingLocal.id
+        const response = await fetch("/api/storage/worlds/list", {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+        })
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}))
+            const lists = Array.isArray(data?.lists) ? data.lists : []
+            const existingRemote = lists.find((list: any) => list?.name === unlistedListName)
+            if (existingRemote?.id) {
+                setStoredLists((prev) => {
+                    if (prev.some((item) => item.id === existingRemote.id)) return prev
+                    return [...prev, { id: existingRemote.id, name: existingRemote.name || unlistedListName }]
+                })
+                return existingRemote.id
+            }
+        }
+        const listId = generateUuid()
+        await fetch("/api/storage/state", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+                lists: [{ id: listId, name: unlistedListName, position: 0 }],
+            }),
+        })
+        setStoredLists((prev) => [...prev, { id: listId, name: unlistedListName }])
         return listId
     }
 
@@ -962,10 +994,13 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     targetLabel,
                     uiSettings
                 )
-                const listId = selectedOverlayListId ?? storedLists[0]?.id ?? null
+                let listId = selectedOverlayListId ?? null
                 const session = await supabase.auth.getSession()
                 const token = session.data.session?.access_token
                 if (!token) throw new Error("Missing auth token")
+                if (!listId) {
+                    listId = await ensureUnlistedListId(token)
+                }
                 const response = await fetch("/api/storage/worlds/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -980,9 +1015,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     throw new Error(data?.error || "Save failed")
                 }
                 setStoredWorlds((prev) => [...prev, conjugationWorld])
-                if (listId) {
-                    setWorldMetaMap((prev) => ({ ...prev, [conjugationWorld.id]: { listId } }))
-                }
+                setWorldMetaMap((prev) => ({ ...prev, [conjugationWorld.id]: { listId } }))
                 setInputText("")
                 router.push(`/play?world=${encodeURIComponent(conjugationWorld.id)}&level=0`)
                 return
@@ -1010,9 +1043,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setGeneratedTitle(title)
             setLastPromptTheme(theme)
             setGeneratedWords(words)
-            if (!selectedOverlayListId && storedLists.length > 0) {
-                setSelectedOverlayListId(storedLists[0].id)
-            }
             setIsOverlayOpen(true)
             setInputText("")
         } catch (e) {
@@ -1094,9 +1124,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             const fallbackTitle = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ").trim()
             setGeneratedTitle(aiTitle || fallbackTitle || file.name)
             setGeneratedWords(words)
-            if (!selectedOverlayListId && storedLists.length > 0) {
-                setSelectedOverlayListId(storedLists[0].id)
-            }
             setIsOverlayOpen(true)
         } catch (err) {
             setTranslateError((err as Error).message)
@@ -1225,9 +1252,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             const targetLabel = profileSettings.targetLanguage || "Alemán"
             const baseWorld = worldId ? storedWorlds.find((w) => w.id === worldId) ?? null : null
             const world = buildWorldFromReviewWords(words, title, sourceLabel, targetLabel, baseWorld)
-            const listId = worldId
+            let listId = worldId
                 ? worldMetaMap[worldId]?.listId ?? null
                 : selectedOverlayListId ?? null
+            if (!listId) {
+                listId = await ensureUnlistedListId(token)
+            }
 
             const response = await fetch("/api/storage/worlds/save", {
                 method: "POST",
@@ -1250,9 +1280,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 }
                 return [...prev, world]
             })
-            if (listId) {
-                setWorldMetaMap((prev) => ({ ...prev, [world.id]: { listId } }))
-            }
+            setWorldMetaMap((prev) => ({ ...prev, [world.id]: { listId } }))
             setIsOverlayOpen(false)
             if (playNow) {
                 router.push(`/play?world=${encodeURIComponent(world.id)}&level=0`)

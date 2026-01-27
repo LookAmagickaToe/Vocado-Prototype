@@ -7,6 +7,7 @@ import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { formatTemplate } from "@/lib/ui"
+import { calculateNextReview } from "@/lib/srs"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
 import type { World } from "@/types/worlds"
@@ -614,9 +615,14 @@ export default function AppClient({
 
   // used to force-remount the game (restart) without touching game internals
   const [gameSeed, setGameSeed] = useState(0)
+  const [winAssignedIds, setWinAssignedIds] = useState<Set<string>>(new Set())
 
   // Tutorial State
   const [tutorialStep, setTutorialStep] = useState<TutorialStep>("done")
+
+  useEffect(() => {
+    setWinAssignedIds(new Set())
+  }, [worldId, levelIndex, gameSeed])
 
   useEffect(() => {
     // Initialize tutorial step from dailyState (persisted in DB) or profile
@@ -1818,6 +1824,26 @@ export default function AppClient({
       const details = data?.details ? `: ${data.details}` : ""
       throw new Error(`${data?.error ?? "Save failed"}${details}`)
     }
+  }
+
+  const persistWorldUpdate = async (world: World) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return
+    const listEntry = worldLists.find((list) => list.worldIds.includes(world.id))
+    const listId = listEntry?.id ?? null
+    const position = listEntry
+      ? listEntry.worldIds.indexOf(world.id)
+      : uploadedWorlds.findIndex((item) => item.id === world.id)
+    await fetch("/api/storage/worlds/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        worlds: [world],
+        listId,
+        positions: { [world.id]: Math.max(0, position) },
+      }),
+    })
   }
 
   const loadSupabaseState = async () => {
@@ -3227,6 +3253,70 @@ export default function AppClient({
                   primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                   secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
+                  renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem }) => {
+                    if (!currentWorld || currentWorld.submode === "conjugation") return null
+                    if (!matchedOrder?.length || !carouselItem) return null
+                    if (typeof carouselIndex !== "number" || !setCarouselIndex) return null
+                    const isAssigned = winAssignedIds.has(carouselItem.id)
+                    const handleAssign = (rating: "easy" | "medium" | "difficult") => {
+                      const pairIndex = currentWorld.pool.findIndex((pair) => pair.id === carouselItem.id)
+                      if (pairIndex < 0) return
+                      const pair = currentWorld.pool[pairIndex]
+                      const nextSrs = calculateNextReview(pair.srs, rating)
+                      const updatedWorld: World = {
+                        ...currentWorld,
+                        pool: currentWorld.pool.map((item, index) =>
+                          index === pairIndex ? { ...item, srs: nextSrs } : item
+                        ),
+                      }
+                      setUploadedWorlds((prev) =>
+                        prev.map((stored) => (stored.id === updatedWorld.id ? updatedWorld : stored))
+                      )
+                      const nextAssigned = new Set(winAssignedIds)
+                      nextAssigned.add(carouselItem.id)
+                      setWinAssignedIds(nextAssigned)
+                      void persistWorldUpdate(updatedWorld).catch(() => {})
+                      if (matchedOrder.length > 1) {
+                        let nextIndex = carouselIndex
+                        for (let i = 1; i <= matchedOrder.length; i += 1) {
+                          const idx = (carouselIndex + i) % matchedOrder.length
+                          if (!nextAssigned.has(matchedOrder[idx])) {
+                            nextIndex = idx
+                            break
+                          }
+                        }
+                        setCarouselIndex(nextIndex)
+                      }
+                    }
+                    return (
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAssign("difficult")}
+                          disabled={isAssigned}
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F4E6E3] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                        >
+                          {ui.difficultyHard}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAssign("medium")}
+                          disabled={isAssigned}
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F6F0E1] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                        >
+                          {ui.difficultyMedium}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAssign("easy")}
+                          disabled={isAssigned}
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#E9F2E7] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                        >
+                          {ui.difficultyEasy}
+                        </button>
+                      </div>
+                    )
+                  }}
                   onWin={(moves, wordsLearnedCount) => {
                     const res = awardExperience(
                       moves,
