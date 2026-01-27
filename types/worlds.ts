@@ -15,7 +15,7 @@ export type Conjugation = {
 
 // -------- Spaced Repetition System types --------
 
-export type SRSBucket = "hard" | "medium" | "easy"
+export type SRSBucket = "new" | "hard" | "medium" | "easy"
 
 export type VocabSRS = {
   bucket: SRSBucket

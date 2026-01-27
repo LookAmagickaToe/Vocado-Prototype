@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play } from "lucide-react"
+import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, MoreHorizontal } from "lucide-react"
 import NavFooter from "@/components/ui/NavFooter"
 import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
@@ -62,6 +62,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     // Expanded state tracking
     const [expandedListId, setExpandedListId] = useState<string | null>(null)
     const [expandedWorldId, setExpandedWorldId] = useState<string | null>(null)
+    const [openWorldMenuId, setOpenWorldMenuId] = useState<string | null>(null)
 
     const uiSettings = useMemo(
         () => getUiSettings(profile.sourceLanguage),
@@ -82,6 +83,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             levelItemLabel: uiSettings?.worlds?.levelItemLabel ?? "Level {count}",
             libraryAction: uiSettings?.worlds?.libraryAction ?? "Library",
             uploadAction: uiSettings?.worlds?.uploadAction ?? "Upload",
+            deleteLabel: uiSettings?.worldsOverlay?.deleteLabel ?? "Delete",
             nav: uiSettings?.nav ?? {},
         }),
         [uiSettings]
@@ -209,6 +211,30 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
         }
         fetchLatest()
     }, [])
+
+    const deleteWorld = async (worldId: string) => {
+        setCachedWorlds((prev) => prev.filter((world) => world.id !== worldId))
+        setCachedLists((prev) =>
+            prev.map((list) => ({
+                ...list,
+                worldIds: list.worldIds.filter((id) => id !== worldId),
+            }))
+        )
+        setExpandedWorldId((prev) => (prev === worldId ? null : prev))
+        setOpenWorldMenuId(null)
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            await fetch("/api/storage/worlds/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ worldIds: [worldId] }),
+            })
+        } catch {
+            // ignore delete failures for now
+        }
+    }
 
     // Get levels count for a world
     const getLevelCount = (world: World): number => {
@@ -495,29 +521,57 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                             const isWorldExpanded = expandedWorldId === worldId
 
                                             return (
-                                                <div key={worldId}>
+                                                <div key={worldId} className="relative">
                                                     {/* World Row */}
-                                                    <button
-                                                        onClick={(e) => handleWorldClick(worldId, e)}
-                                                        className="w-full flex items-center gap-3 px-6 py-3 text-left hover:bg-[#F6F2EB] transition-colors"
-                                                    >
-                                                        <div className="w-8 h-8 rounded-lg bg-white border border-[#3A3A3A]/5 flex items-center justify-center text-sm">
-                                                            {isWorldExpanded ? (
-                                                                <ChevronDown className="w-4 h-4 text-[#3A3A3A]/40" />
-                                                            ) : (
-                                                                <ChevronRight className="w-4 h-4 text-[#3A3A3A]/40" />
+                                                    <div className="w-full flex items-center gap-2 px-6 py-3 text-left hover:bg-[#F6F2EB] transition-colors">
+                                                        <button
+                                                            onClick={(e) => handleWorldClick(worldId, e)}
+                                                            className="flex items-center gap-3 flex-1 text-left"
+                                                        >
+                                                            <div className="w-8 h-8 rounded-lg bg-white border border-[#3A3A3A]/5 flex items-center justify-center text-sm">
+                                                                {isWorldExpanded ? (
+                                                                    <ChevronDown className="w-4 h-4 text-[#3A3A3A]/40" />
+                                                                ) : (
+                                                                    <ChevronRight className="w-4 h-4 text-[#3A3A3A]/40" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="text-[14px] font-medium text-[#3A3A3A]">{world.title}</div>
+                                                                <div className="text-[11px] text-[#3A3A3A]/50">
+                                                                    {formatTemplate(ui.worldMeta, {
+                                                                        levels: String(levelCount),
+                                                                        words: String(world.pool?.length ?? 0),
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                        <div className="relative">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setOpenWorldMenuId((prev) => (prev === worldId ? null : worldId))
+                                                                }}
+                                                                className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A]"
+                                                            >
+                                                                <MoreHorizontal className="w-4 h-4" />
+                                                            </button>
+                                                            {openWorldMenuId === worldId && (
+                                                                <div className="absolute right-0 mt-2 w-28 rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] shadow-sm overflow-hidden z-10">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            deleteWorld(worldId)
+                                                                        }}
+                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                                                    >
+                                                                        {ui.deleteLabel}
+                                                                    </button>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                        <div className="flex-1">
-                                                            <div className="text-[14px] font-medium text-[#3A3A3A]">{world.title}</div>
-                                                            <div className="text-[11px] text-[#3A3A3A]/50">
-                                                                {formatTemplate(ui.worldMeta, {
-                                                                    levels: String(levelCount),
-                                                                    words: String(world.pool?.length ?? 0),
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    </button>
+                                                    </div>
 
                                                     {/* Expanded Levels inside World */}
                                                     <AnimatePresence>

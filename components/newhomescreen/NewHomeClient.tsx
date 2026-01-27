@@ -233,6 +233,68 @@ const buildWorldFromReviewWords = (
     } as VocabWorld
 }
 
+const buildConjugationWorld = (
+    conjugations: any[],
+    title: string,
+    sourceLabel: string,
+    targetLabel: string,
+    uiSettings: any
+): VocabWorld => {
+    const id = `upload-${Date.now()}-conjugation`
+    const conjugationMap: Record<string, any> = {}
+    const pool: Array<any> = []
+
+    conjugations.forEach((entry) => {
+        const verb = entry?.verb
+        if (!verb) return
+        const sections = Array.isArray(entry?.sections) ? entry.sections : []
+        const translation = typeof entry?.translation === "string" ? entry.translation : ""
+        conjugationMap[verb] = {
+            infinitive: verb,
+            translation,
+            sections,
+        }
+        const firstSection = sections[0]
+        const rows = Array.isArray(firstSection?.rows) ? firstSection.rows : []
+        rows.forEach((row: any, idx: number) => {
+            if (!Array.isArray(row) || row.length < 2) return
+            pool.push({
+                id: `${verb}_${idx + 1}`,
+                es: row[0],
+                de: row[1],
+                image: { type: "emoji", value: "📝" },
+            })
+        })
+    })
+
+    return {
+        id,
+        title: `${title.trim() || "Conjugation"} ${uiSettings?.conjugationWorld?.titleSuffix ?? ""}`.trim(),
+        description: "Custom conjugation list.",
+        mode: "vocab",
+        submode: "conjugation",
+        pool,
+        conjugations: conjugationMap,
+        chunking: { itemsPerGame: 6 },
+        source_language: sourceLabel,
+        target_language: targetLabel,
+        ui: {
+            header: { levelLabelTemplate: "{verb}", levelItemTemplate: "{verb}" },
+            page: { instructions: uiSettings?.conjugationWorld?.instructions },
+            vocab: {
+                carousel: {
+                    primaryLabel: uiSettings?.conjugationWorld?.primaryLabel,
+                    secondaryLabel: uiSettings?.conjugationWorld?.secondaryLabel,
+                },
+                rightPanel: {
+                    title: uiSettings?.conjugationWorld?.rightTitle,
+                    emptyHint: uiSettings?.conjugationWorld?.emptyHint,
+                },
+            },
+        },
+    } as VocabWorld
+}
+
 export default function NewHomeClient({ profile }: { profile: ProfileSettings }) {
     const router = useRouter()
     const [activeNewsTab, setActiveNewsTab] = useState<"world" | "wirtschaft" | "sport">("world")
@@ -851,6 +913,81 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         setIsGenerating(true)
         setCreateWorldError(null)
         try {
+            const lowerTheme = theme.toLowerCase()
+            const isConjugationRequest = /conjug|konjug/.test(lowerTheme)
+            if (isConjugationRequest) {
+                const parseResult = await callAi({
+                    task: "parse_text",
+                    text: theme,
+                    mode: "conjugation",
+                    level: profileSettings.level || "A2",
+                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                })
+                const items = Array.isArray(parseResult?.items) ? parseResult.items : []
+                const verbs = items
+                    .filter((item: any) => (item?.pos === "verb") || item?.lemma)
+                    .map((item: any) => ({
+                        lemma: (item?.lemma || item?.target || "").trim(),
+                        translation: (item?.source || "").trim(),
+                    }))
+                    .filter((item: any) => item.lemma)
+                if (!verbs.length) {
+                    setCreateWorldError(ui.noWordsError)
+                    return
+                }
+                const conjugationResult = await callAi({
+                    task: "conjugate",
+                    verbs,
+                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                })
+                const conjugations = Array.isArray(conjugationResult?.conjugations)
+                    ? conjugationResult.conjugations
+                    : []
+                if (!conjugations.length) {
+                    setCreateWorldError(ui.noWordsError)
+                    return
+                }
+                const title =
+                    typeof parseResult?.title === "string" && parseResult.title.trim()
+                        ? parseResult.title.trim()
+                        : theme
+                const sourceLabel = profileSettings.sourceLanguage || "Español"
+                const targetLabel = profileSettings.targetLanguage || "Alemán"
+                const conjugationWorld = buildConjugationWorld(
+                    conjugations,
+                    title,
+                    sourceLabel,
+                    targetLabel,
+                    uiSettings
+                )
+                const listId = selectedOverlayListId ?? storedLists[0]?.id ?? null
+                const session = await supabase.auth.getSession()
+                const token = session.data.session?.access_token
+                if (!token) throw new Error("Missing auth token")
+                const response = await fetch("/api/storage/worlds/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        worlds: [conjugationWorld],
+                        listId,
+                        positions: { [conjugationWorld.id]: 0 },
+                    }),
+                })
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}))
+                    throw new Error(data?.error || "Save failed")
+                }
+                setStoredWorlds((prev) => [...prev, conjugationWorld])
+                if (listId) {
+                    setWorldMetaMap((prev) => ({ ...prev, [conjugationWorld.id]: { listId } }))
+                }
+                setInputText("")
+                router.push(`/play?world=${encodeURIComponent(conjugationWorld.id)}&level=0`)
+                return
+            }
+
             const result = await callAi({
                 task: "theme_list",
                 theme,
@@ -1404,7 +1541,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 {/* Play Button (Center) */}
                                 <button
                                     onClick={() => {
-                                        router.push(`/news?auto=1&category=${activeNewsTab}`)
+                                        router.push(`/news?auto=1&category=${activeNewsTab}&index=${currentNewsIndex}`)
                                     }}
                                     className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#9FB58E] hover:bg-[#8F9F7E] text-white px-3 py-1 rounded-full shadow-sm transition-all group scale-90"
                                 >

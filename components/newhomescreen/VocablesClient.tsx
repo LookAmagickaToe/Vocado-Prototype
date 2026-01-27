@@ -29,7 +29,7 @@ const COLORS = {
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
 const VOCABLES_CACHE_PREFIX = "vocado-vocables-cache"
 
-type SRSBucket = "hard" | "medium" | "easy"
+type SRSBucket = "new" | "hard" | "medium" | "easy"
 
 type BucketInfo = {
   id: SRSBucket
@@ -95,6 +95,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       difficultyHard: uiSettings?.vocables?.difficultyHard ?? "Hard",
       difficultyMedium: uiSettings?.vocables?.difficultyMedium ?? "Medium",
       difficultyEasy: uiSettings?.vocables?.difficultyEasy ?? "Easy",
+      newWordsLabel: uiSettings?.vocables?.newWordsLabel ?? "New words",
       dueLabel: uiSettings?.vocables?.dueLabel ?? "Due",
       dueTitle: uiSettings?.vocables?.dueTitle ?? "Words to review",
       startReview: uiSettings?.vocables?.startReview ?? "Start review",
@@ -215,19 +216,40 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const allPairs = useMemo(() => {
     const entries: ReviewEntry[] = []
+    const seen = new Map<string, ReviewEntry>()
+    const getBucketScore = (bucket: SRSBucket) => {
+      if (bucket === "easy") return 3
+      if (bucket === "medium") return 2
+      if (bucket === "hard") return 1
+      return 0
+    }
     for (const stored of worlds) {
       const world = stored.json
       world.pool.forEach((pair, index) => {
-        entries.push({
+        const source = pair.es?.trim().toLowerCase()
+        const target = pair.de?.trim().toLowerCase()
+        const key = `${source}::${target}`
+        const bucket = (pair.srs?.bucket ?? "new") as SRSBucket
+        const entry: ReviewEntry = {
           worldId: stored.worldId,
           listId: stored.listId,
           position: stored.position,
           pairIndex: index,
           pair,
           world,
-        })
+        }
+        if (!seen.has(key)) {
+          seen.set(key, entry)
+        } else {
+          const existing = seen.get(key)!
+          const existingBucket = (existing.pair.srs?.bucket ?? "new") as SRSBucket
+          if (getBucketScore(bucket) > getBucketScore(existingBucket)) {
+            seen.set(key, entry)
+          }
+        }
       })
     }
+    seen.forEach((entry) => entries.push(entry))
     return entries
   }, [worlds])
 
@@ -246,6 +268,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
   }, [allPairs])
 
   const buckets: BucketInfo[] = [
+    { id: "new", label: ui.newWordsLabel, count: bucketCounts.new ?? 0, color: "#EFE9DF", emoji: "" },
     { id: "hard", label: ui.difficultyHard, count: bucketCounts.hard ?? 0, color: "#F4E6E3", emoji: "" },
     { id: "medium", label: ui.difficultyMedium, count: bucketCounts.medium ?? 0, color: "#F6F0E1", emoji: "" },
     { id: "easy", label: ui.difficultyEasy, count: bucketCounts.easy ?? 0, color: "#E9F2E7", emoji: "" },
@@ -335,7 +358,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const handleBucketClick = (bucketId: SRSBucket) => {
     const words = allPairs
-      .filter((entry) => (entry.pair.srs?.bucket ?? "medium") === bucketId)
+      .filter((entry) => (entry.pair.srs?.bucket ?? "new") === bucketId)
       .map((entry) => entry.pair)
     const sorted = getWordsByBucket(words, bucketId)
     const queue = sorted

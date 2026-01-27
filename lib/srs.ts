@@ -4,6 +4,7 @@ import type { SRSBucket, VocabPair, VocabSRS } from "@/types/worlds"
 
 // Default intervals in days for each bucket
 const BUCKET_INTERVALS: Record<SRSBucket, number> = {
+    new: 0,
     hard: 1,
     medium: 3,
     easy: 7,
@@ -24,12 +25,21 @@ export function calculateNextReview(
     rating: "easy" | "medium" | "difficult"
 ): VocabSRS {
     const now = new Date().toISOString()
-    const currentBucket = currentSRS?.bucket ?? "medium"
+    const currentBucket = currentSRS?.bucket ?? "new"
 
     let nextBucket: SRSBucket
     let intervalDays: number
 
-    if (rating === "easy") {
+    if (currentBucket === "new") {
+        if (rating === "easy") {
+            nextBucket = "easy"
+        } else if (rating === "medium") {
+            nextBucket = "medium"
+        } else {
+            nextBucket = "hard"
+        }
+        intervalDays = BUCKET_INTERVALS[nextBucket] * RATING_MULTIPLIERS[rating]
+    } else if (rating === "easy") {
         // Move toward easier bucket, increase interval
         nextBucket = currentBucket === "hard" ? "medium" : "easy"
         intervalDays = BUCKET_INTERVALS[nextBucket] * RATING_MULTIPLIERS.easy
@@ -59,7 +69,7 @@ export function calculateNextReview(
  */
 export function initializeSRS(): VocabSRS {
     return {
-        bucket: "medium",
+        bucket: "new",
         lastReviewedAt: null,
         nextReviewAt: new Date().toISOString(), // Due immediately for new words
     }
@@ -81,11 +91,11 @@ export function selectDueWords(words: VocabPair[], limit: number): VocabPair[] {
     const dueWords = words.filter(word => isDueForReview(word.srs))
 
     // Sort by bucket priority (hard first) and then by next review date
-    const bucketPriority: Record<SRSBucket, number> = { hard: 0, medium: 1, easy: 2 }
+    const bucketPriority: Record<SRSBucket, number> = { new: 0, hard: 1, medium: 2, easy: 3 }
 
     const sorted = dueWords.sort((a, b) => {
-        const bucketA = a.srs?.bucket ?? "medium"
-        const bucketB = b.srs?.bucket ?? "medium"
+        const bucketA = a.srs?.bucket ?? "new"
+        const bucketB = b.srs?.bucket ?? "new"
 
         // Primary: bucket priority (harder first)
         if (bucketPriority[bucketA] !== bucketPriority[bucketB]) {
@@ -105,10 +115,10 @@ export function selectDueWords(words: VocabPair[], limit: number): VocabPair[] {
  * Count words in each SRS bucket
  */
 export function countByBucket(words: VocabPair[]): Record<SRSBucket, number> {
-    const counts: Record<SRSBucket, number> = { hard: 0, medium: 0, easy: 0 }
+    const counts: Record<SRSBucket, number> = { new: 0, hard: 0, medium: 0, easy: 0 }
 
     for (const word of words) {
-        const bucket = word.srs?.bucket ?? "medium"
+        const bucket = word.srs?.bucket ?? "new"
         counts[bucket]++
     }
 
@@ -126,5 +136,5 @@ export function countDueWords(words: VocabPair[]): number {
  * Get words in a specific bucket
  */
 export function getWordsByBucket(words: VocabPair[], bucket: SRSBucket): VocabPair[] {
-    return words.filter(word => (word.srs?.bucket ?? "medium") === bucket)
+    return words.filter(word => (word.srs?.bucket ?? "new") === bucket)
 }

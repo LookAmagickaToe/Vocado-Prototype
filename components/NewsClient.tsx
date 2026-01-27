@@ -176,7 +176,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const searchParams = useSearchParams()
   const autoPlay = searchParams.get("auto") === "1"
   const autoCategory = searchParams.get("category")
+  const autoIndexParam = searchParams.get("index")
   const autoStartedRef = useRef(false)
+  const autoIndexRef = useRef<number | null>(null)
   const [profileState, setProfileState] = useState(profile)
   const [seeds, setSeeds] = useState(0)
   const [newsUrl, setNewsUrl] = useState("")
@@ -213,6 +215,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (!autoPlay || !autoCategory) return
     if (autoCategory !== "world" && autoCategory !== "wirtschaft" && autoCategory !== "sport") return
     setCategory(autoCategory)
+    if (autoIndexParam) {
+      const parsed = Number(autoIndexParam)
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        autoIndexRef.current = Math.floor(parsed)
+      }
+    }
   }, [autoPlay, autoCategory])
 
 
@@ -672,8 +680,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     autoStartedRef.current = true
     setStep("loading")
     ensureDailyNewsList(category).then((list) => {
-      if (list[0]) {
-        startPlayFromWorld(list[0])
+      const index = autoIndexRef.current ?? 0
+      const clampedIndex = Math.min(Math.max(index, 0), Math.max(list.length - 1, 0))
+      const selected = list[clampedIndex]
+      if (selected) {
+        startPlayFromWorld(selected)
       } else {
         setStep("input")
       }
