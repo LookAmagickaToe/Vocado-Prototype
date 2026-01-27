@@ -127,7 +127,7 @@ export default function WinningScreen({
                 scale: hasMergedAward ? 0.9 : 1,
               }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="rounded-full border border-[#9FB58E]/50 bg-[#9FB58E]/15 px-3 py-1 text-xs font-semibold text-[#9FB58E] shadow"
+              className="rounded-full border border-[rgb(var(--vocado-accent-rgb))]/50 bg-[rgb(var(--vocado-accent-rgb)/0.15)] px-3 py-1 text-xs font-semibold text-[rgb(var(--vocado-accent-rgb))] shadow"
             >
               +{awardSummary.payout} 🌱
             </motion.div>
@@ -303,7 +303,7 @@ export default function WinningScreen({
               {onNext && (
                 <Button
                   onClick={onNext}
-                  className="border border-[#9FB58E] bg-[#9FB58E] text-white hover:bg-[#8CA77D]"
+                  className="border border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb))] text-white hover:bg-[rgb(var(--vocado-accent-dark-rgb))]"
                 >
                   {nextLabel ?? nextLabelDefault}
                 </Button>

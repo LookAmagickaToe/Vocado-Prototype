@@ -1486,8 +1486,10 @@ export default function AppClient({
   )
 
   const currentWorld = useMemo(() => {
-    return visibleWorlds.find((w) => w.id === worldId) ?? visibleWorlds[0] ?? null
-  }, [visibleWorlds, worldId])
+    const exact = allWorlds.find((w) => w.id === worldId)
+    if (exact) return exact
+    return visibleWorlds[0] ?? null
+  }, [allWorlds, visibleWorlds, worldId])
 
   const isNewsWorld =
     !!currentWorld &&
@@ -3169,7 +3171,7 @@ export default function AppClient({
                   }}
                   className="text-xl font-semibold tracking-tight"
                 >
-                  Voc<span className="text-[#9FB58E]">ado</span>
+                  Voc<span className="text-[rgb(var(--vocado-accent-rgb))]">ado</span>
                 </button>
                 <div className="text-xs text-[#3A3A3A]/60 mt-1 truncate">
                   {worldTitle} — {levelLabel}
@@ -3193,7 +3195,7 @@ export default function AppClient({
                   }}
                   className="text-2xl font-semibold tracking-tight"
                 >
-                  Voc<span className="text-[#9FB58E]">ado</span>
+                  Voc<span className="text-[rgb(var(--vocado-accent-rgb))]">ado</span>
                 </button>
                 <div className="mt-1 text-sm text-[#3A3A3A]/60">
                   {worldTitle} — {levelLabel}

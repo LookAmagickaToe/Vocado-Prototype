@@ -22,7 +22,7 @@ import {
 const COLORS = {
   bg: "#F6F2EB",
   bgCard: "#FAF7F2",
-  accent: "#9FB58E",
+  accent: "rgb(var(--vocado-accent-rgb))",
   text: "#3A3A3A",
 }
 
@@ -570,7 +570,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                             .filter((entry): entry is ReviewEntry => Boolean(entry))
                           startMemoryReview(queue, ui.dueLabel)
                         }}
-                        className="justify-self-end rounded-full bg-[#9FB58E] px-4 py-2 text-sm font-medium text-white"
+                        className="justify-self-end rounded-full bg-[rgb(var(--vocado-accent-rgb))] px-4 py-2 text-sm font-medium text-white"
                       >
                         {ui.continueLabel}
                       </button>
@@ -730,7 +730,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 <button
                   onClick={handleReviewAll}
                   disabled={dueCount === 0}
-                  className="px-5 py-2.5 rounded-xl bg-[#9FB58E] text-white text-[14px] font-medium disabled:opacity-50 hover:bg-[#8CA77D] transition-colors"
+                  className="px-5 py-2.5 rounded-xl bg-[rgb(var(--vocado-accent-rgb))] text-white text-[14px] font-medium disabled:opacity-50 hover:bg-[rgb(var(--vocado-accent-dark-rgb))] transition-colors"
                 >
                   {ui.startReview}
                 </button>
@@ -779,7 +779,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
           {/* Info Section */}
           <div className="px-4 pt-6">
-            <div className="bg-[#E3EBC5]/30 rounded-2xl border border-[#9FB58E]/20 p-4">
+            <div className="bg-[#E3EBC5]/30 rounded-2xl border border-[rgb(var(--vocado-accent-rgb)/0.2)] p-4">
               <div className="text-[13px] font-medium text-[#3A3A3A] mb-1">💡 {ui.tipTitle}</div>
               <div className="text-[12px] text-[#3A3A3A]/70 leading-relaxed">
                 {ui.tipBody}

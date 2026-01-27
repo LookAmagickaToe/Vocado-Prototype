@@ -318,7 +318,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                                         className={[
                                             "h-10 w-10 rounded-full border overflow-hidden",
                                             (draft.avatarUrl || FALLBACK_AVATAR) === src
-                                                ? "border-[#9FB58E]"
+                                                ? "border-[rgb(var(--vocado-accent-rgb))]"
                                                 : "border-[#3A3A3A]/10",
                                         ].join(" ")}
                                     >
@@ -426,7 +426,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         type="button"
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="w-full rounded-xl bg-[#9FB58E] px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50 hover:bg-[#8CA77D] transition-colors"
+                        className="w-full rounded-xl bg-[rgb(var(--vocado-accent-rgb))] px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50 hover:bg-[rgb(var(--vocado-accent-dark-rgb))] transition-colors"
                     >
                         {ui.save}
                     </button>

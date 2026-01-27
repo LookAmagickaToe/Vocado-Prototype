@@ -96,7 +96,7 @@ function NavTab({ icon: Icon, label, active, onClick }: {
             onClick={onClick}
             className={clsx(
                 "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors",
-                active ? "text-[#9FB58E]" : "text-[#3A3A3A]/40 hover:text-[#3A3A3A]/60"
+                active ? "text-[rgb(var(--vocado-accent-rgb))]" : "text-[#3A3A3A]/40 hover:text-[#3A3A3A]/60"
             )}
         >
             <Icon className="w-5 h-5" />

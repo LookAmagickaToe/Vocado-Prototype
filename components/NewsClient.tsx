@@ -1072,7 +1072,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   className={[
                     "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
                     category === item.id
-                      ? "border-[#9FB58E] bg-[#9FB58E]/20 text-[#3A3A3A]"
+                      ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
                       : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
                   ].join(" ")}
                 >
@@ -1115,7 +1115,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                               if (!url) return
                               startPlayFromWorld(headline)
                             }}
-                            className="flex items-center gap-2 bg-[#9FB58E] hover:bg-[#8F9F7E] text-white px-4 py-2 rounded-full shadow-sm transition-all text-sm font-semibold disabled:opacity-50"
+                            className="flex items-center gap-2 bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-2 rounded-full shadow-sm transition-all text-sm font-semibold disabled:opacity-50"
                           >
                             {ui.readNow}
                           </button>

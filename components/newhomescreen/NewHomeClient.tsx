@@ -19,7 +19,7 @@ const COLORS = {
     bgDark: "#FAF7F2",   // Secondary (slightly lighter/different tone per spec, but spec said 'minimal dunkleres Beige' which usually means slightly more defined. Let's use F2EFE8 for inset areas if needed, or stick to spec hexes)
     // Actually spec says: Main: #F6F2EB / #FAF7F2. Secondary: minimal dark beige.
     // Let's interpret: Screen BG = #F6F2EB. Cards/Input = #FAF7F2 (or slightly distinct).
-    accent: "#9FB58E",   // Desaturated Avocado
+    accent: "rgb(var(--vocado-accent-rgb))",   // Desaturated Avocado
     text: "#3A3A3A",     // Warm Dark Grey
 }
 
@@ -1302,12 +1302,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 </header>
                 <div className="px-4 py-4 space-y-3">
                     {leaderboard.map((user, i) => (
-                        <div key={user.name} className={`flex items-center justify-between p-3 rounded-[16px] border ${user.isMe ? 'bg-[#E3EBC5]/30 border-[#9FB58E]/30' : 'bg-white border-[#3A3A3A]/5'} shadow-sm`}>
+                        <div key={user.name} className={`flex items-center justify-between p-3 rounded-[16px] border ${user.isMe ? 'bg-[#E3EBC5]/30 border-[rgb(var(--vocado-accent-rgb)/0.3)]' : 'bg-white border-[#3A3A3A]/5'} shadow-sm`}>
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 flex items-center justify-center font-bold text-[#3A3A3A]/40 text-xs">
                                     {i === 0 ? <Trophy className="w-4 h-4 text-yellow-500" /> : i + 1}
                                 </div>
-                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${user.isMe ? 'bg-[#9FB58E] text-white' : 'bg-[#EAE8E0] text-[#3A3A3A]/60'}`}>
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${user.isMe ? 'bg-[rgb(var(--vocado-accent-rgb))] text-white' : 'bg-[#EAE8E0] text-[#3A3A3A]/60'}`}>
                                     {user.avatar}
                                 </div>
                                 <span className={`text-[14px] font-medium ${user.isMe ? 'text-[#3A3A3A]' : 'text-[#3A3A3A]/80'}`}>{user.name}</span>
@@ -1336,7 +1336,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
                     <h1 className="text-[20px] font-semibold tracking-tight text-[#3A3A3A]">
-                        Voc<span className="text-[#9FB58E]">ado</span>
+                        Voc<span className="text-[rgb(var(--vocado-accent-rgb))]">ado</span>
                     </h1>
                 </div>
 
@@ -1373,7 +1373,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             className={clsx(
                                 "rounded-full border px-3 py-1 text-[10px] font-semibold shadow-sm transition-colors disabled:opacity-50",
                                 translateMode
-                                    ? "border-[#9FB58E] bg-[#9FB58E]/20 text-[#3A3A3A]"
+                                    ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
                                     : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70"
                             )}
                         >
@@ -1381,7 +1381,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         </button>
                     </div>
                     <div className="relative group mb-1">
-                        <div className="absolute inset-0 bg-[#EFEBE4] rounded-[20px] shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)] transition-all" />
+                        <div className="absolute inset-0 bg-[#EFEBE4] rounded-[20px] border border-[rgb(var(--vocado-accent-rgb))] shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)] transition-all" />
                         <div className="relative flex items-center gap-2 p-2.5">
                             <input
                                 type="text"
@@ -1437,7 +1437,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     )}
                                 </AnimatePresence>
                                 {isGenerating && !translateMode && (
-                                    <div className="h-5 w-5 rounded-full border-2 border-[#9FB58E] border-t-transparent animate-spin" />
+                                    <div className="h-5 w-5 rounded-full border-2 border-[rgb(var(--vocado-accent-rgb))] border-t-transparent animate-spin" />
                                 )}
                                 <button
                                     onClick={() => setShowAttachMenu((prev) => !prev)}
@@ -1571,7 +1571,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     onClick={() => {
                                         router.push(`/news?auto=1&category=${activeNewsTab}&index=${currentNewsIndex}`)
                                     }}
-                                    className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#9FB58E] hover:bg-[#8F9F7E] text-white px-3 py-1 rounded-full shadow-sm transition-all group scale-90"
+                                    className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 py-1 rounded-full shadow-sm transition-all group scale-90"
                                 >
                                     <Play className="w-3 h-3 fill-current" />
                                     <span className="text-[10px] font-bold tracking-wide uppercase">{ui.playNow}</span>
@@ -1622,7 +1622,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 router.push(`/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0}`)
                             }}
                             disabled={!lastPlayed}
-                            className="bg-[#9FB58E] text-white/95 px-3 py-1 rounded-[10px] text-[11px] font-semibold tracking-wide shadow-sm hover:bg-[#8F9F7E] transition-colors disabled:opacity-50"
+                            className="bg-[rgb(var(--vocado-accent-rgb))] text-white/95 px-3 py-1 rounded-[10px] text-[11px] font-semibold tracking-wide shadow-sm hover:bg-[rgb(var(--vocado-accent-dark-rgb))] transition-colors disabled:opacity-50"
                         >
                             {ui.resumeLabel}
                         </button>
@@ -1666,7 +1666,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     className={[
                                         "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
                                         leaderboardScope === tab.id
-                                            ? "border-[#9FB58E] bg-[#9FB58E]/20 text-[#3A3A3A]"
+                                            ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
                                             : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
                                     ].join(" ")}
                                 >
@@ -1738,10 +1738,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 initialWords={generatedWords}
                 initialTitle={generatedTitle}
             labels={overlayLabels}
-            existingWorlds={storedWorlds.map((world) => ({
-                id: world.id,
-                title: world.title,
-            }))}
+            existingWorlds={storedWorlds
+                .filter((world) => !world.news)
+                .map((world) => ({
+                    id: world.id,
+                    title: world.title,
+                }))}
             existingLists={storedLists}
             selectedListId={selectedOverlayListId}
             onSelectList={setSelectedOverlayListId}
@@ -1757,7 +1759,7 @@ function NavTab({ icon: Icon, label, active, onClick }: { icon: any; label: stri
             onClick={onClick}
             className={clsx(
                 "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors",
-                active ? "text-[#9FB58E]" : "text-[#3A3A3A]/40 hover:text-[#3A3A3A]/60"
+                active ? "text-[rgb(var(--vocado-accent-rgb))]" : "text-[#3A3A3A]/40 hover:text-[#3A3A3A]/60"
             )}
         >
             <Icon className="w-5 h-5" />

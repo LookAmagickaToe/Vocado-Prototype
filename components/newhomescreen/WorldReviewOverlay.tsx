@@ -8,7 +8,7 @@ import { X, Play } from "lucide-react"
 const COLORS = {
     bg: "#F6F2EB",
     bgCard: "#FAF7F2",
-    accent: "#9FB58E",
+    accent: "rgb(var(--vocado-accent-rgb))",
     text: "#3A3A3A",
     textMuted: "rgba(58, 58, 58, 0.5)",
     border: "rgba(58, 58, 58, 0.05)",

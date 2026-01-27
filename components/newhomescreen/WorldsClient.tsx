@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabase/client"
 const COLORS = {
     bg: "#F6F2EB",
     bgCard: "#FAF7F2",
-    accent: "#9FB58E",
+    accent: "rgb(var(--vocado-accent-rgb))",
     text: "#3A3A3A",
 }
 
@@ -428,7 +428,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={ui.searchPlaceholder}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
                     />
                 </div>
             </div>
@@ -457,7 +457,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 value={promptText}
                                 onChange={(e) => setPromptText(e.target.value)}
                                 placeholder={ui.newWorldPlaceholder}
-                                className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
+                                className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
                                 onKeyDown={(e) => e.key === "Enter" && handleCreateWorld()}
                             />
                             {promptError && (
@@ -466,7 +466,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                             <button
                                 onClick={handleCreateWorld}
                                 disabled={isGenerating || !promptText.trim()}
-                                className="mt-3 w-full py-2 rounded-xl bg-[#9FB58E] text-white text-[14px] font-medium disabled:opacity-50 transition-colors hover:bg-[#8CA77D]"
+                                className="mt-3 w-full py-2 rounded-xl bg-[rgb(var(--vocado-accent-rgb))] text-white text-[14px] font-medium disabled:opacity-50 transition-colors hover:bg-[rgb(var(--vocado-accent-dark-rgb))]"
                             >
                                 {isGenerating ? ui.newWorldLoading : ui.newWorldAction}
                             </button>
@@ -491,9 +491,9 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                             >
                                 <div className="w-10 h-10 rounded-xl bg-[#E3EBC5]/40 flex items-center justify-center">
                                     {expandedListId === list.id ? (
-                                        <ChevronDown className="w-5 h-5 text-[#9FB58E]" />
+                                        <ChevronDown className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
                                     ) : (
-                                        <ChevronRight className="w-5 h-5 text-[#9FB58E]" />
+                                        <ChevronRight className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
                                     )}
                                 </div>
                                 <div className="flex-1">
@@ -589,8 +589,8 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                         onClick={(e) => handleLevelClick(worldId, i, e)}
                                                                         className="w-full flex items-center gap-3 px-10 py-2.5 text-left hover:bg-[#E3EBC5]/20 transition-colors"
                                                                     >
-                                                                        <div className="w-6 h-6 rounded-full bg-[#9FB58E]/20 flex items-center justify-center">
-                                                                            <Play className="w-3 h-3 text-[#9FB58E]" />
+                                                                        <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb)/0.2)] flex items-center justify-center">
+                                                                            <Play className="w-3 h-3 text-[rgb(var(--vocado-accent-rgb))]" />
                                                                         </div>
                                                                         <span className="text-[13px] text-[#3A3A3A]/80">
                                                                             {formatTemplate(ui.levelItemLabel, { count: String(i + 1) })}
@@ -633,14 +633,14 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                     onClick={() => { setIsMenuOpen(false) }}
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
                                 >
-                                    <BookOpen className="w-4 h-4 text-[#9FB58E]" />
+                                    <BookOpen className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
                                     <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.libraryAction}</span>
                                 </button>
                                 <button
                                     onClick={handleUpload}
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
                                 >
-                                    <Upload className="w-4 h-4 text-[#9FB58E]" />
+                                    <Upload className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
                                     <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.uploadAction}</span>
                                 </button>
                             </motion.div>
@@ -651,7 +651,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                 <motion.button
                     onClick={() => setIsMenuOpen(prev => !prev)}
                     animate={{ rotate: isMenuOpen ? 45 : 0 }}
-                    className="w-14 h-14 rounded-full bg-[#9FB58E] shadow-lg flex items-center justify-center"
+                    className="w-14 h-14 rounded-full bg-[rgb(var(--vocado-accent-rgb))] shadow-lg flex items-center justify-center"
                 >
                     <Plus className="w-6 h-6 text-white" />
                 </motion.button>

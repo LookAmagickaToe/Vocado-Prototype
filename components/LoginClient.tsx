@@ -126,7 +126,7 @@ export default function LoginClient() {
             className="h-auto w-48 max-w-full object-contain"
           />
           <h1 className="mt-3 text-3xl font-semibold text-[#3A3A3A]">
-            Voc<span className="text-[#9FB58E]">ado</span>
+            Voc<span className="text-[rgb(var(--vocado-accent-rgb))]">ado</span>
           </h1>
         </div>
         <p className="mt-3 text-sm text-[#3A3A3A]/70 text-center">
@@ -139,7 +139,7 @@ export default function LoginClient() {
             value={emailOrUsername}
             onChange={(e) => setEmailOrUsername(e.target.value)}
             placeholder="Email or username"
-            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
           />
 
           {isSignUp && (
@@ -148,7 +148,7 @@ export default function LoginClient() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username"
-              className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
+              className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
             />
           )}
 
@@ -157,7 +157,7 @@ export default function LoginClient() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
           />
         </div>
 
@@ -168,7 +168,7 @@ export default function LoginClient() {
             type="button"
             onClick={handleAuth}
             disabled={isLoading}
-            className="w-full rounded-lg border border-[#9FB58E] bg-[#9FB58E] px-4 py-2 text-sm text-white font-medium hover:bg-[#8CA77D] disabled:opacity-50 transition-colors"
+            className="w-full rounded-lg border border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb))] px-4 py-2 text-sm text-white font-medium hover:bg-[rgb(var(--vocado-accent-dark-rgb))] disabled:opacity-50 transition-colors"
           >
             {isLoading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
           </button>
@@ -188,7 +188,7 @@ export default function LoginClient() {
           <button
             type="button"
             onClick={() => setIsSignUp((prev) => !prev)}
-            className="text-[#9FB58E] hover:text-[#8CA77D] font-medium"
+            className="text-[rgb(var(--vocado-accent-rgb))] hover:text-[rgb(var(--vocado-accent-dark-rgb))] font-medium"
           >
             {isSignUp ? "Sign in" : "Create one"}
           </button>
