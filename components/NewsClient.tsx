@@ -117,6 +117,16 @@ const buildReviewItemsFromAi = (items: any[]) =>
     } as ReviewItem
   })
 
+const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
+  (world.pool || []).map((pair) => ({
+    source: pair.es,
+    target: pair.de,
+    pos: pair.pos ?? "other",
+    emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
+    explanation: pair.explanation,
+    example: pair.example,
+  }))
+
 const buildWorldFromItems = (
   items: ReviewItem[],
   sourceLabel: string,
@@ -167,6 +177,9 @@ const buildWorldFromItems = (
 export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const autoPlay = searchParams.get("auto") === "1"
+  const autoCategory = searchParams.get("category")
+  const autoStartedRef = useRef(false)
   const [profileState, setProfileState] = useState(profile)
   const [seeds, setSeeds] = useState(0)
   const [newsUrl, setNewsUrl] = useState("")
@@ -174,7 +187,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [error, setError] = useState<string | null>(null)
   const [summary, setSummary] = useState<string[]>([])
   const [items, setItems] = useState<ReviewItem[]>([])
-  const [step, setStep] = useState<"input" | "play" | "summary">("input")
+  const [step, setStep] = useState<"input" | "loading" | "play" | "summary">("input")
   const [headlines, setHeadlines] = useState<NewsHeadline[]>([])
   const [isLoadingHeadlines, setIsLoadingHeadlines] = useState(false)
   const [category, setCategory] = useState(profile.newsCategory || "world")
@@ -199,6 +212,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!autoPlay || !autoCategory) return
+    if (autoCategory !== "world" && autoCategory !== "wirtschaft" && autoCategory !== "sport") return
+    setCategory(autoCategory)
+  }, [autoPlay, autoCategory])
+
 
   const sourceLabel = profileState.sourceLanguage || "Español"
   const targetLabel = profileState.targetLanguage || "Alemán"
@@ -222,6 +241,104 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       day: "2-digit",
       month: "long",
     }).format(date)
+  }
+
+  const todayKey = new Date().toISOString().slice(0, 10)
+  const isSameDay = (value?: string) => (value || "").slice(0, 10) === todayKey
+
+  const loadCachedDailyNews = async (categoryValue: string) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    if (!token) return null
+    const response = await fetch("/api/storage/worlds/list", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    const worlds = Array.isArray(data?.worlds) ? data.worlds : []
+    for (const entry of worlds) {
+      const json = entry?.json
+      if (!json || json.mode !== "vocab") continue
+      const news = json.news
+      if (!news?.summary?.length) continue
+      if (news?.category !== categoryValue) continue
+      if (!isSameDay(news?.date)) continue
+      return json as VocabWorld
+    }
+    return null
+  }
+
+  const ensureDailyNews = async (categoryValue: string) => {
+    const cachedWorld = await loadCachedDailyNews(categoryValue)
+    if (cachedWorld) {
+      setWorld(cachedWorld)
+      setSummary(Array.isArray(cachedWorld.news?.summary) ? cachedWorld.news!.summary : [])
+      setNewsUrl(cachedWorld.news?.sourceUrl ?? "")
+      setNewsTitle(cachedWorld.news?.title ?? cachedWorld.title)
+      setNewsDate(cachedWorld.news?.date ?? todayKey)
+      setItems(buildReviewItemsFromWorld(cachedWorld))
+      setStep("play")
+      return true
+    }
+
+    const response = await fetch(`/api/news/tagesschau?ressort=${categoryValue}`)
+    const data = await response.json()
+    const itemsList = Array.isArray(data?.items) ? data.items : []
+    const topHeadline = itemsList[0]
+    if (!topHeadline?.url) {
+      setStep("input")
+      setError("No se encontraron noticias.")
+      return false
+    }
+    try {
+      setIsLoading(true)
+      const result = await callAi({
+        task: "news",
+        url: topHeadline.url,
+        level: profileState.level || undefined,
+        sourceLabel,
+        targetLabel,
+      })
+      const nextSummary = Array.isArray(result?.summary) ? result.summary : []
+      const nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+      if (!nextItems.length) {
+        setError("No se encontraron palabras.")
+        setStep("input")
+        return false
+      }
+      const baseDate = topHeadline.date || new Date().toISOString()
+      const dateLabel = formatNewsDate(baseDate)
+      const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
+      const worldTitle = `Vocado Diario - ${topHeadline.title || "Noticia"}${dateSuffix}`
+      const newsWorld = {
+        ...buildWorldFromItems(nextItems, sourceLabel, targetLabel, ui),
+        title: worldTitle,
+        description: "Noticias del día.",
+        news: {
+          summary: nextSummary,
+          sourceUrl: topHeadline.url,
+          title: topHeadline.title || "Noticia",
+          category: categoryValue,
+          date: baseDate,
+        },
+      }
+      setSummary(nextSummary)
+      setItems(nextItems)
+      setWorld(newsWorld)
+      setNewsUrl(topHeadline.url)
+      setNewsTitle(topHeadline.title || "")
+      setNewsDate(baseDate)
+      try {
+        await saveNewsWorld(newsWorld)
+      } catch (saveError) {
+        setError((saveError as Error).message)
+      }
+      setStep("play")
+      return true
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const uiSettings = useMemo(
@@ -394,14 +511,29 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   useEffect(() => {
     const loadHeadlines = async () => {
       setIsLoadingHeadlines(true)
+      const cachedWorld = await loadCachedDailyNews(category)
+      if (cachedWorld) {
+        const summaryLine = cachedWorld.news?.summary?.[0] || ""
+        setHeadlines([
+          {
+            id: cachedWorld.id,
+            title: cachedWorld.news?.title ?? cachedWorld.title,
+            teaser: summaryLine,
+            date: cachedWorld.news?.date,
+            url: cachedWorld.news?.sourceUrl,
+          },
+        ])
+        setIsLoadingHeadlines(false)
+        return
+      }
       const today = new Date().toISOString().slice(0, 10)
       const cacheKey = `vocado-news-cache-${category}`
-      const cached = typeof window !== "undefined" ? window.localStorage.getItem(cacheKey) : null
-      if (cached) {
+      const cachedLocal = typeof window !== "undefined" ? window.localStorage.getItem(cacheKey) : null
+      if (cachedLocal) {
         try {
-          const parsed = JSON.parse(cached)
+          const parsed = JSON.parse(cachedLocal)
           if (parsed?.date === today && Array.isArray(parsed?.items)) {
-            setHeadlines(parsed.items.slice(0, 3))
+            setHeadlines(parsed.items.slice(0, 5))
             setIsLoadingHeadlines(false)
             return
           }
@@ -413,11 +545,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         const response = await fetch(`/api/news/tagesschau?ressort=${category}`)
         const data = await response.json()
         const items = Array.isArray(data?.items) ? data.items : []
-        setHeadlines(items.slice(0, 3))
+        setHeadlines(items.slice(0, 5))
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             cacheKey,
-            JSON.stringify({ date: today, items: items.slice(0, 3) })
+            JSON.stringify({ date: today, items: items.slice(0, 5) })
           )
         }
       } catch {
@@ -428,6 +560,14 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
     loadHeadlines()
   }, [category])
+
+  useEffect(() => {
+    if (!autoPlay || autoStartedRef.current) return
+    if (isLoadingHeadlines) return
+    autoStartedRef.current = true
+    setStep("loading")
+    ensureDailyNews(category)
+  }, [autoPlay, category, isLoadingHeadlines])
 
   const lastProfileCategoryRef = useRef<string | null>(null)
   useEffect(() => {
@@ -677,6 +817,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         ...buildWorldFromItems(nextItems, sourceLabel, targetLabel, ui),
         title: worldTitle,
         description: "Noticias del día.",
+        news: {
+          summary: nextSummary,
+          sourceUrl: finalUrl,
+          title: newsTitle || worldTitle,
+          category,
+          date: baseDate,
+        },
       }
       setWorld(newsWorld)
       try {
@@ -694,14 +841,24 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const currentItem = items[carouselIndex]
 
+  if (step === "loading") {
+    return (
+      <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
+        <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] px-6 py-4 text-sm text-[#3A3A3A]/60">
+          Lade das Tagesjournal…
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] p-4 sm:p-6">
       <div className="mx-auto w-full max-w-5xl space-y-6">
-        <header className="flex items-start justify-between gap-3">
+        <header className="flex items-start justify-between gap-3 bg-[#FAF7F2]/95 backdrop-blur-sm rounded-2xl px-3 py-2 border border-[#3A3A3A]/5">
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+            className="rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] px-3 py-2 text-sm text-[#3A3A3A]"
             aria-label="Volver"
           >
             ←
@@ -717,29 +874,29 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               onUpdateSettings={setProfileState}
               newsCategory={profileState.newsCategory}
             />
-            <div className="text-xs text-neutral-200">
+            <div className="text-xs text-[#3A3A3A]/70">
               <span className="font-semibold">{seeds}</span> 🌱
             </div>
           </div>
         </header>
 
         {step === "input" && (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5 space-y-4">
+          <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5 space-y-4 mt-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm text-neutral-300">{ui.categoryLabel}</label>
+              <label className="text-sm text-[#3A3A3A]/70">{ui.categoryLabel}</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+                className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A]"
               >
                 <option value="world">{ui.categoryOptions.world ?? "World"}</option>
                 <option value="wirtschaft">{ui.categoryOptions.wirtschaft ?? "Economy"}</option>
                 <option value="sport">{ui.categoryOptions.sport ?? "Sport"}</option>
               </select>
             </div>
-            <label className="text-sm text-neutral-300">{ui.linkLabel}</label>
+            <label className="text-sm text-[#3A3A3A]/70">{ui.linkLabel}</label>
             {isLoadingHeadlines ? (
-              <div className="text-sm text-neutral-400">Cargando noticias...</div>
+              <div className="text-sm text-[#3A3A3A]/60">Cargando noticias...</div>
             ) : (
               <div className="space-y-3">
                 {headlines.map((headline) => (
@@ -759,43 +916,43 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       handleGenerate(headline.url)
                     }}
                     className={[
-                      "w-full rounded-xl border p-4 text-left text-sm text-neutral-100 relative",
+                      "w-full rounded-xl border p-4 text-left text-sm text-[#3A3A3A] relative",
                       isLoading
-                        ? "border-neutral-900 bg-neutral-900/40 cursor-not-allowed"
-                        : "border-neutral-800 bg-neutral-900/60 hover:border-neutral-600",
+                        ? "border-[#3A3A3A]/10 bg-[#FAF7F2] cursor-not-allowed"
+                        : "border-[#3A3A3A]/10 bg-[#F6F2EB] hover:border-[#3A3A3A]/30",
                     ].join(" ")}
                   >
                     <div className="font-semibold">{headline.title}</div>
                     {headline.teaser && (
-                      <div className="mt-2 text-xs text-neutral-400">{headline.teaser}</div>
+                      <div className="mt-2 text-xs text-[#3A3A3A]/60">{headline.teaser}</div>
                     )}
                     {headline.date && (
-                      <div className="mt-2 text-[11px] text-neutral-500">{headline.date}</div>
+                      <div className="mt-2 text-[11px] text-[#3A3A3A]/40">{headline.date}</div>
                     )}
                     {headline.url && readNewsUrls.has(headline.url) && (
-                      <div className="absolute top-4 right-4 text-green-500">
+                      <div className="absolute top-4 right-4 text-[#9FB58E]">
                         ✓
                       </div>
                     )}
                   </button>
                 ))}
                 {headlines.length === 0 && (
-                  <div className="text-sm text-neutral-400">
+                  <div className="text-sm text-[#3A3A3A]/60">
                     No se encontraron noticias.
                   </div>
                 )}
               </div>
             )}
-            {error && <div className="text-sm text-red-300">{error}</div>}
+            {error && <div className="text-sm text-[#B45353]">{error}</div>}
             {isLoading && (
-              <div className="text-sm text-neutral-400">{ui.loading}</div>
+              <div className="text-sm text-[#3A3A3A]/60">{ui.loading}</div>
             )}
           </div>
         )}
 
         {step === "play" && world && (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 text-sm text-neutral-300">
+          <div className="space-y-4 mt-4">
+            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 text-sm text-[#3A3A3A]/60">
               {newsUrl}
             </div>
             <VocabMemoryGame
@@ -891,10 +1048,10 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         )}
 
         {step === "summary" && (
-          <div className="grid gap-6 md:grid-cols-[1.4fr,1fr]">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+          <div className="grid gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
+            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5">
               <div className="text-lg font-semibold">{ui.summaryTitle}</div>
-              <div className="mt-3 space-y-2 text-sm text-neutral-200">
+              <div className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70">
                 {summary.map((line, index) => (
                   <div key={`${line}-${index}`} className="leading-relaxed">
                     {line}
@@ -902,13 +1059,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 ))}
               </div>
               {newsUrl && (
-                <div className="mt-4 text-xs text-neutral-400">
+                <div className="mt-4 text-xs text-[#3A3A3A]/50">
                   {ui.sourceLabel}: {newsUrl}
                 </div>
               )}
             </div>
 
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5">
+            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5">
               <div className="text-lg font-semibold">{ui.vocabTitle}</div>
               {currentItem ? (
                 <div className="mt-4 space-y-4">
@@ -917,11 +1074,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       type="button"
                       onClick={() => setCarouselIndex((i) => Math.max(0, i - 1))}
                       disabled={carouselIndex === 0}
-                      className="rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       ←
                     </button>
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-xs text-[#3A3A3A]/50">
                       {carouselIndex + 1}/{items.length}
                     </div>
                     <button
@@ -930,27 +1087,27 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         setCarouselIndex((i) => Math.min(items.length - 1, i + 1))
                       }
                       disabled={carouselIndex >= items.length - 1}
-                      className="rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       →
                     </button>
                   </div>
-                  <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 text-center">
+                  <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center">
                     <div className="text-4xl">{currentItem.emoji ?? "📰"}</div>
                     <div className="mt-2 text-sm">
-                      <span className="text-neutral-400">{sourceLabel}:</span>{" "}
+                      <span className="text-[#3A3A3A]/50">{sourceLabel}:</span>{" "}
                       <span className="font-semibold">{currentItem.source}</span>
                     </div>
                     <div className="text-sm">
-                      <span className="text-neutral-400">{targetLabel}:</span>{" "}
+                      <span className="text-[#3A3A3A]/50">{targetLabel}:</span>{" "}
                       <span className="font-semibold">{currentItem.target}</span>
                     </div>
                   </div>
                   {currentItem.explanation && (
-                    <div className="text-xs text-neutral-300">{currentItem.explanation}</div>
+                    <div className="text-xs text-[#3A3A3A]/70">{currentItem.explanation}</div>
                   )}
                   {currentItem.example && (
-                    <div className="text-xs text-neutral-400">{currentItem.example}</div>
+                    <div className="text-xs text-[#3A3A3A]/60">{currentItem.example}</div>
                   )}
                 </div>
               ) : (

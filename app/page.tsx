@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import HomeClient from "@/components/HomeClient"
+import NewHomeClient from "@/components/newhomescreen/NewHomeClient"
 
 export default async function Page() {
   const cookieStore = await cookies()
@@ -12,8 +12,8 @@ export default async function Page() {
     {
       cookies: {
         get: (name) => cookieStore.get(name)?.value,
-        set: () => {},
-        remove: () => {},
+        set: () => { },
+        remove: () => { },
       },
     }
   )
@@ -32,7 +32,7 @@ export default async function Page() {
     .maybeSingle()
 
   return (
-    <HomeClient
+    <NewHomeClient
       profile={{
         level: profileRow?.level ?? "",
         sourceLanguage: profileRow?.source_language ?? "",

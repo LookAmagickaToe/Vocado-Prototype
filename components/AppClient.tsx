@@ -14,17 +14,18 @@ import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import UserMenu from "@/components/UserMenu"
+import NavFooter from "@/components/ui/NavFooter"
 import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
 import { callAi } from "@/lib/ai"
 
 const BASE_WORLDS: World[] = []
 
-const UPLOADED_WORLDS_STORAGE_KEY = "vocab-memory-uploaded-worlds"
-const WORLD_LISTS_STORAGE_KEY = "vocab-memory-world-lists"
+const UPLOADED_WORLDS_STORAGE_KEY = "vocado-uploaded-worlds"
+const WORLD_LISTS_STORAGE_KEY = "vocado-world-lists"
 const WORLD_TITLE_OVERRIDES_STORAGE_KEY = "vocado-world-title-overrides"
 const LAST_NEWS_FETCH_STORAGE_KEY = "vocado-last-news-fetch-date"
-const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocab-memory-world-list-collapsed"
-const HIDDEN_WORLDS_STORAGE_KEY = "vocab-memory-hidden-worlds"
+const WORLD_LIST_COLLAPSED_STORAGE_KEY = "vocado-world-list-collapsed"
+const HIDDEN_WORLDS_STORAGE_KEY = "vocado-hidden-worlds"
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
 const SEEDS_STORAGE_KEY = "vocado-seeds"
@@ -1482,6 +1483,28 @@ export default function AppClient({
     const k = currentWorld.chunking.itemsPerGame
     return Math.max(1, Math.ceil(currentWorld.pool.length / k))
   }, [currentWorld])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!currentWorld) return
+    const key = getLastPlayedKey(
+      profileSettings.sourceLanguage,
+      profileSettings.targetLanguage
+    )
+    const payload = {
+      id: currentWorld.id,
+      title: getWorldTitle(currentWorld.id, currentWorld.title),
+      levelIndex: Math.max(0, Math.min(levelIndex, levelsCount - 1)),
+    }
+    window.localStorage.setItem(key, JSON.stringify(payload))
+  }, [
+    currentWorld,
+    levelIndex,
+    levelsCount,
+    profileSettings.sourceLanguage,
+    profileSettings.targetLanguage,
+    worldTitleOverrides,
+  ])
 
   const worldTitle = currentWorld ? worldTitleOverrides[currentWorld.id] ?? currentWorld.title : ""
   const safeLevel = currentWorld ? Math.min(levelIndex, levelsCount - 1) + 1 : 0
@@ -3017,12 +3040,12 @@ export default function AppClient({
   const welcomeOverlay = null
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 p-3 sm:p-6">
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="grid grid-cols-12 gap-4 items-start md:grid-rows-[auto,1fr]">
-          {/* MOBILE TOP BAR */}
-          <div className="col-span-12 md:hidden relative z-40">
-            <div className="flex items-center justify-between gap-2">
+    <div className="min-h-screen overflow-x-hidden bg-[#F6F2EB] text-[#3A3A3A] px-3 sm:px-6 pb-24">
+      <div className="mx-auto w-full max-w-6xl">
+        <div className="grid grid-cols-12 gap-4 items-start">
+          {/* STICKY HEADER */}
+          <div className="col-span-12 sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-2 md:hidden">
               <div className="text-center flex-1 min-w-0">
                 <button
                   type="button"
@@ -3031,11 +3054,11 @@ export default function AppClient({
                       window.location.href = "/"
                     }
                   }}
-                  className="text-2xl font-semibold tracking-tight"
+                  className="text-xl font-semibold tracking-tight"
                 >
-                  voc<span className="text-green-500">ado</span>
+                  Voc<span className="text-[#9FB58E]">ado</span>
                 </button>
-                <div className="text-xs text-neutral-300 mt-1 truncate">
+                <div className="text-xs text-[#3A3A3A]/60 mt-1 truncate">
                   {worldTitle} — {levelLabel}
                 </div>
               </div>
@@ -3047,108 +3070,54 @@ export default function AppClient({
                   onUpdateSettings={handleProfileUpdate}
                   newsCategory={profileSettings.newsCategory}
                 />
-                <div className="text-xs text-neutral-200">
+                <div className="text-xs text-[#3A3A3A]/60">
                   <span className="font-semibold">{seeds}</span> 🌱
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* DESKTOP LEFT MENU */}
-          <aside className="hidden md:block md:col-span-2 md:row-span-2">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen((v) => !v)}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm"
-              >
-                ☰ {ui.menu.title}
-              </button>
-
-              {isMenuOpen && (
-                <div className="mt-3 space-y-2 text-sm text-neutral-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.location.href = "/"
-                      }
-                    }}
-                    className="block w-full text-left hover:text-white"
-                  >
-                    {ui.home?.title ?? "Inicio"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openWorlds}
-                    className="block w-full text-left hover:text-white"
-                  >
-                    {ui.menu.worlds}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openUpload}
-                    className="block w-full text-left hover:text-white"
-                  >
-                    {ui.menu.upload}
-                  </button>
-                  <button className="block w-full text-left hover:text-white">
-                    {ui.menu.manage}
-                  </button>
-                  <button className="block w-full text-left hover:text-white">
-                    {ui.menu.locked}
-                  </button>
+            <div className="hidden md:flex items-end justify-between gap-4">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.location.href = "/"
+                    }
+                  }}
+                  className="text-2xl font-semibold tracking-tight"
+                >
+                  Voc<span className="text-[#9FB58E]">ado</span>
+                </button>
+                <div className="mt-1 text-sm text-[#3A3A3A]/60">
+                  {worldTitle} — {levelLabel}
                 </div>
-              )}
-            </div>
-          </aside>
+                <p className="text-sm text-[#3A3A3A]/60 mt-1">
+                  {headerInstructions}
+                </p>
+              </div>
 
-          {/* CENTER HEADER */}
-          <div className="col-span-12 md:col-span-10 md:col-start-3 md:row-start-1">
-            <div className="w-full">
-              <div className="hidden md:flex items-end justify-between gap-4 mb-6">
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.location.href = "/"
-                      }
-                    }}
-                    className="text-3xl font-semibold tracking-tight"
-                  >
-                    voc<span className="text-green-500">ado</span>
-                  </button>
-                  <div className="mt-1 text-sm text-neutral-300">
-                    {worldTitle} — {levelLabel}
-                  </div>
-                  <p className="text-sm text-neutral-300 mt-1">
-                    {headerInstructions}
-                  </p>
+              <div className="flex items-center gap-3">
+                <Button onClick={restart} className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  {ui.menu.restart}
+                </Button>
+                <div className="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
+                  <span className="font-semibold">{seeds}</span> 🌱
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <Button onClick={restart} className="flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4" />
-                    {ui.menu.restart}
-                  </Button>
-                  <div className="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
-                    <span className="font-semibold">{seeds}</span> 🌱
-                  </div>
-                  <UserMenu
-                    level={profileSettings.level || "B1"}
-                    sourceLanguage={profileSettings.sourceLanguage}
-                    targetLanguage={profileSettings.targetLanguage}
-                    onUpdateSettings={handleProfileUpdate}
-                    newsCategory={profileSettings.newsCategory}
-                  />
-                </div>
+                <UserMenu
+                  level={profileSettings.level || "B1"}
+                  sourceLanguage={profileSettings.sourceLanguage}
+                  targetLanguage={profileSettings.targetLanguage}
+                  onUpdateSettings={handleProfileUpdate}
+                  newsCategory={profileSettings.newsCategory}
+                />
               </div>
             </div>
           </div>
 
           {/* GAME AREA */}
-          <div className="col-span-12 md:col-span-10 md:col-start-3 md:row-start-2 space-y-3">
+          <div className="col-span-12 space-y-3 mt-3">
             <div className="flex items-center justify-between md:hidden">
               <div className="text-xs text-neutral-300">{headerInstructions}</div>
               <Button onClick={restart} className="flex items-center gap-2 text-xs px-2 py-1">
@@ -3222,92 +3191,6 @@ export default function AppClient({
           </div>
         </div>
       </div>
-
-      {/* MOBILE MENU OVERLAY */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setIsMenuOpen(false)}
-          />
-          <div className="absolute left-0 top-0 h-full w-[72vw] max-w-[320px] bg-neutral-950 border-r border-neutral-800 p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">{ui.menu.title}</div>
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(false)}
-                className="rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-200"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="mt-4 space-y-3 text-sm text-neutral-200">
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/"
-                  }
-                  setIsMenuOpen(false)
-                }}
-                className="block w-full text-left hover:text-white"
-              >
-                {ui.home?.title ?? "Inicio"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  openWorlds()
-                  setIsMenuOpen(false)
-                }}
-                className="block w-full text-left hover:text-white"
-              >
-                {ui.menu.worlds}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  openUpload()
-                  setIsMenuOpen(false)
-                }}
-                className="block w-full text-left hover:text-white"
-              >
-                {ui.menu.upload}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/news"
-                  }
-                  setIsMenuOpen(false)
-                }}
-                className="block w-full text-left hover:text-white"
-              >
-                {ui.home?.newsAction ?? "Vocado Diario"}
-              </button>
-              <button className="block w-full text-left hover:text-white">
-                {ui.menu.manage}
-              </button>
-              <button className="block w-full text-left hover:text-white">
-                {ui.menu.locked}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MOBILE HAMBURGER ALWAYS VISIBLE */}
-      {!isMenuOpen && (
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen(true)}
-          className="fixed left-4 top-4 z-50 md:hidden h-10 w-10 rounded-full border border-neutral-800 bg-neutral-900/60 text-lg"
-          aria-label="Menú"
-        >
-          ☰
-        </button>
-      )}
 
       {/* WORLDS OVERLAY */}
       <AnimatePresence>
@@ -3534,7 +3417,10 @@ export default function AppClient({
           />
         )}
       </AnimatePresence>
-    </div>
+
+      {/* BOTTOM NAVIGATION */}
+      <NavFooter showOnGame={true} />
+    </div >
   )
 }
 

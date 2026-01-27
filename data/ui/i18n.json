@@ -224,6 +224,39 @@
       "newsNoLink": "No se encontró enlace para esta noticia.",
       "newsNoWords": "No se encontraron palabras.",
       "saveFailed": "Error al guardar."
+    },
+    "overlay": {
+      "close": "Cerrar",
+      "worldLabel": "Estas palabras pertenecen a:",
+      "newWorld": "Crear nuevo mundo",
+      "generateMore": "Generar más",
+      "save": "Guardar",
+      "playNow": "Jugar ahora",
+      "wordColumn": "Palabra",
+      "translationColumn": "Traducción",
+      "statusColumn": "Estado",
+      "statusNew": "nuevo",
+      "statusKnown": "conocido",
+      "statusUnsure": "inseguro"
+    },
+    "srs": {
+      "easy": "Fácil",
+      "medium": "Medio",
+      "difficult": "Difícil",
+      "bucketHard": "Difícil",
+      "bucketMedium": "Medio",
+      "bucketEasy": "Fácil",
+      "dueCount": "{count} palabras para repasar"
+    },
+    "worlds": {
+      "title": "Mundos",
+      "search": "Buscar mundos...",
+      "upload": "Subir",
+      "library": "Biblioteca"
+    },
+    "vocables": {
+      "title": "Vocabulario",
+      "startReview": "Empezar repaso"
     }
   },
   "en": {
@@ -451,6 +484,39 @@
       "newsNoLink": "No link found for this news.",
       "newsNoWords": "No words found.",
       "saveFailed": "Save failed."
+    },
+    "overlay": {
+      "close": "Close",
+      "worldLabel": "These words belong to:",
+      "newWorld": "Create new world",
+      "generateMore": "Generate more",
+      "save": "Save",
+      "playNow": "Play Now",
+      "wordColumn": "Word",
+      "translationColumn": "Translation",
+      "statusColumn": "Status",
+      "statusNew": "new",
+      "statusKnown": "known",
+      "statusUnsure": "unsure"
+    },
+    "srs": {
+      "easy": "Easy",
+      "medium": "Medium",
+      "difficult": "Difficult",
+      "bucketHard": "Hard",
+      "bucketMedium": "Medium",
+      "bucketEasy": "Easy",
+      "dueCount": "{count} words to review"
+    },
+    "worlds": {
+      "title": "Worlds",
+      "search": "Search worlds...",
+      "upload": "Upload",
+      "library": "Library"
+    },
+    "vocables": {
+      "title": "Vocabulary",
+      "startReview": "Start review"
     }
   },
   "de": {
@@ -678,6 +744,39 @@
       "newsNoLink": "Kein Link für diese Nachricht gefunden.",
       "newsNoWords": "Keine Wörter gefunden.",
       "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "overlay": {
+      "close": "Schließen",
+      "worldLabel": "Diese Wörter gehören zu:",
+      "newWorld": "Neue Welt erstellen",
+      "generateMore": "Mehr generieren",
+      "save": "Speichern",
+      "playNow": "Jetzt spielen",
+      "wordColumn": "Wort",
+      "translationColumn": "Übersetzung",
+      "statusColumn": "Status",
+      "statusNew": "neu",
+      "statusKnown": "bekannt",
+      "statusUnsure": "unsicher"
+    },
+    "srs": {
+      "easy": "Einfach",
+      "medium": "Mittel",
+      "difficult": "Schwierig",
+      "bucketHard": "Schwer",
+      "bucketMedium": "Mittel",
+      "bucketEasy": "Einfach",
+      "dueCount": "{count} Wörter zu wiederholen"
+    },
+    "worlds": {
+      "title": "Welten",
+      "search": "Welten suchen...",
+      "upload": "Hochladen",
+      "library": "Bibliothek"
+    },
+    "vocables": {
+      "title": "Vokabeln",
+      "startReview": "Wiederholung starten"
     }
   },
   "fr": {
@@ -898,6 +997,39 @@
       "newsNoLink": "Aucun lien trouvé pour cette actualité.",
       "newsNoWords": "Aucun mot trouvé.",
       "saveFailed": "Échec de l'enregistrement."
+    },
+    "overlay": {
+      "close": "Fermer",
+      "worldLabel": "Ces mots appartiennent à :",
+      "newWorld": "Créer un nouveau monde",
+      "generateMore": "Générer plus",
+      "save": "Enregistrer",
+      "playNow": "Jouer maintenant",
+      "wordColumn": "Mot",
+      "translationColumn": "Traduction",
+      "statusColumn": "Statut",
+      "statusNew": "nouveau",
+      "statusKnown": "connu",
+      "statusUnsure": "incertain"
+    },
+    "srs": {
+      "easy": "Facile",
+      "medium": "Moyen",
+      "difficult": "Difficile",
+      "bucketHard": "Difficile",
+      "bucketMedium": "Moyen",
+      "bucketEasy": "Facile",
+      "dueCount": "{count} mots à réviser"
+    },
+    "worlds": {
+      "title": "Mondes",
+      "search": "Rechercher des mondes...",
+      "upload": "Importer",
+      "library": "Bibliothèque"
+    },
+    "vocables": {
+      "title": "Vocabulaire",
+      "startReview": "Commencer la révision"
     }
   }
 }

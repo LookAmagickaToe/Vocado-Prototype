@@ -13,6 +13,16 @@ export type Conjugation = {
   sections: ConjugationSection[]
 }
 
+// -------- Spaced Repetition System types --------
+
+export type SRSBucket = "hard" | "medium" | "easy"
+
+export type VocabSRS = {
+  bucket: SRSBucket
+  lastReviewedAt: string | null
+  nextReviewAt: string | null
+}
+
 export type VocabPair = {
   id: string
   es: string
@@ -22,6 +32,7 @@ export type VocabPair = {
   example?: string
   pos?: "verb" | "noun" | "adj" | "other"
   conjugation?: Conjugation
+  srs?: VocabSRS
 }
 
 // -------- Grammar / Phrase mode types --------
@@ -53,6 +64,8 @@ export type WorldBase = {
     summary: string[]
     sourceUrl?: string
     title?: string
+    category?: string
+    date?: string
   }
 
   ui?: WorldUI

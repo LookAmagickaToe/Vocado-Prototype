@@ -11,18 +11,16 @@ function ParticleBurst() {
     const x = Math.cos(angle) * distance
     const y = Math.sin(angle) * distance
 
-    const glyphs = ["✨", "💥", "✦", "★", "◆", "✶"]
+    const glyphs = ["✦", "★", "✶", "✷", "✹", "✺"]
     const glyph = glyphs[i % glyphs.length]
 
     const colors = [
-      "text-yellow-300",
-      "text-amber-300",
-      "text-pink-300",
-      "text-fuchsia-300",
-      "text-purple-300",
-      "text-cyan-300",
+      "text-yellow-500",
+      "text-yellow-400",
+      "text-amber-400",
+      "text-sky-400",
+      "text-sky-300",
       "text-blue-300",
-      "text-lime-300",
     ]
     const color = colors[i % colors.length]
 
@@ -37,7 +35,7 @@ function ParticleBurst() {
           initial={{ x: 0, y: 0, opacity: 1, scale: 1.4 }}
           animate={{ x: p.x, y: p.y, opacity: 0, scale: 0.4 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
-          className={`absolute text-2xl ${p.color} mix-blend-screen`}
+          className={`absolute text-3xl ${p.color} opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]`}
         >
           {p.glyph}
         </motion.div>
@@ -64,13 +62,13 @@ export default function MemoryCard({
       type="button"
       onClick={onClick}
       disabled={cleared}
-      className="relative aspect-square rounded-xl border border-neutral-800 bg-neutral-950/40 shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-neutral-400/40 disabled:opacity-40 disabled:cursor-default touch-manipulation"
+      className="relative aspect-square rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40 disabled:opacity-40 disabled:cursor-default touch-manipulation"
     >
       {celebrate && <ParticleBurst />}
 
       {cleared ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-neutral-700 text-2xl">✓</div>
+          <div className="text-[#9FB58E] text-2xl">✓</div>
         </div>
       ) : (
         <motion.div

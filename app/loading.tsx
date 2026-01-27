@@ -1,13 +1,13 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-4">
         <img
-          src="card/card-back.png"
+          src="/card/card-back.png"
           alt="Loading"
-          className="h-20 w-20 object-contain opacity-90"
+          className="h-20 w-20 object-contain"
         />
-        <div className="text-sm text-neutral-300">Loading vocado…</div>
+        <div className="text-sm text-[#3A3A3A]/70">Loading Vocado…</div>
       </div>
     </div>
   )

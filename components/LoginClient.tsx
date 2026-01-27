@@ -117,19 +117,19 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 p-6 shadow-xl">
+    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-6 shadow-xl">
         <div className="flex flex-col items-center text-center">
           <img
             src="/card/card-back.png"
             alt="Vocado"
             className="h-auto w-48 max-w-full object-contain"
           />
-          <h1 className="mt-3 text-3xl font-semibold">
-            Voc<span className="text-green-500">ado</span>
+          <h1 className="mt-3 text-3xl font-semibold text-[#3A3A3A]">
+            Voc<span className="text-[#9FB58E]">ado</span>
           </h1>
         </div>
-        <p className="mt-3 text-sm text-neutral-300 text-center">
+        <p className="mt-3 text-sm text-[#3A3A3A]/70 text-center">
           {isSignUp ? "Create your account" : "Sign in to continue"}
         </p>
 
@@ -139,7 +139,7 @@ export default function LoginClient() {
             value={emailOrUsername}
             onChange={(e) => setEmailOrUsername(e.target.value)}
             placeholder="Email or username"
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
           />
 
           {isSignUp && (
@@ -148,7 +148,7 @@ export default function LoginClient() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+              className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
             />
           )}
 
@@ -157,18 +157,18 @@ export default function LoginClient() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-100"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[#9FB58E]/40"
           />
         </div>
 
-        {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
+        {error && <div className="mt-3 text-sm text-red-500">{error}</div>}
 
         <div className="mt-6 space-y-3">
           <button
             type="button"
             onClick={handleAuth}
             disabled={isLoading}
-            className="w-full rounded-lg border border-green-500/40 bg-green-600/20 px-4 py-2 text-sm text-green-100 hover:bg-green-600/30 disabled:opacity-50"
+            className="w-full rounded-lg border border-[#9FB58E] bg-[#9FB58E] px-4 py-2 text-sm text-white font-medium hover:bg-[#8CA77D] disabled:opacity-50 transition-colors"
           >
             {isLoading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
           </button>
@@ -177,18 +177,18 @@ export default function LoginClient() {
             type="button"
             onClick={handleGoogle}
             disabled={isLoading}
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm text-neutral-200 hover:text-white disabled:opacity-50"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-4 py-2 text-sm text-[#3A3A3A] hover:bg-[#EAE8E0] disabled:opacity-50 transition-colors"
           >
             Continue with Google
           </button>
         </div>
 
-        <div className="mt-6 text-sm text-neutral-300">
+        <div className="mt-6 text-sm text-[#3A3A3A]/70 text-center">
           {isSignUp ? "Already have an account?" : "New here?"}{" "}
           <button
             type="button"
             onClick={() => setIsSignUp((prev) => !prev)}
-            className="text-green-400 hover:text-green-300"
+            className="text-[#9FB58E] hover:text-[#8CA77D] font-medium"
           >
             {isSignUp ? "Sign in" : "Create one"}
           </button>
@@ -197,3 +197,4 @@ export default function LoginClient() {
     </div>
   )
 }
+

@@ -233,7 +233,7 @@ export default function UserMenu({
             onClick={signOut}
             className="mt-3 w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-left text-xs hover:text-white"
           >
-            Logout
+            Log out
           </button>
         </div>
       )}

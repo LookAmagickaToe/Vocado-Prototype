@@ -9,7 +9,7 @@ import basic_verbs from "@/data/worlds/basic_verbs.json"
 
 
 //CHange to change world order
-const WORLDS = [basic_verbs,family] as unknown as {
+const WORLDS = [basic_verbs, family] as unknown as {
   id: string
   title: string
   chunking: { pairsPerGame: number }
@@ -90,7 +90,7 @@ function shuffle<T>(arr: T[]) {
 }
 
 
-//VOCAB MEMORY
+//VOCADO
 export default function VocabMemory() {
   const [pendingResolution, setPendingResolution] = useState<{
     keys: [string, string]
@@ -103,7 +103,7 @@ export default function VocabMemory() {
 
   const [isWorldsOpen, setIsWorldsOpen] = useState(false)
   const [isLevelsOpen, setIsLevelsOpen] = useState(false)
-  
+
   const [pendingWorldId, setPendingWorldId] = useState<string | null>(null)
 
   const currentWorld = useMemo(() => {
@@ -115,8 +115,8 @@ export default function VocabMemory() {
     const start = levelIndex * k
     return currentWorld.pool.slice(start, start + k)
   }, [currentWorld, levelIndex])
-    
-  
+
+
 
   const baseDeck = useMemo(() => buildDeck(VOCAB), [VOCAB])
   const [cards, setCards] = useState<CardModel[]>([])
@@ -237,8 +237,8 @@ export default function VocabMemory() {
 
 
   const activePair = useMemo(() => {
-  if (!activePairId) return null
-  return VOCAB.find((v) => v.id === activePairId) ?? null
+    if (!activePairId) return null
+    return VOCAB.find((v) => v.id === activePairId) ?? null
   }, [activePairId, VOCAB])
 
   const carouselPair = useMemo(() => {
@@ -268,16 +268,16 @@ export default function VocabMemory() {
 
               {isMenuOpen && (
                 <div className="mt-3 space-y-2 text-sm text-neutral-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsWorldsOpen(true)   // open worlds overlay
-                    setIsMenuOpen(false)   // close hamburger menu
-                  }}
-                  className="block w-full text-left hover:text-white"
-                >
-                  Mundos
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWorldsOpen(true)   // open worlds overlay
+                      setIsMenuOpen(false)   // close hamburger menu
+                    }}
+                    className="block w-full text-left hover:text-white"
+                  >
+                    Mundos
+                  </button>
                   <button className="block w-full text-left hover:text-white">Gestion</button>
                   <button className="block w-full text-left hover:text-white">🔒 Locked</button>
                 </div>
@@ -316,7 +316,7 @@ export default function VocabMemory() {
             </div>
           </div>
 
-            {/* CENTER BOARD (row 2) */}
+          {/* CENTER BOARD (row 2) */}
           <div className="col-span-12 md:col-span-7 md:col-start-3 md:row-start-2">
             <div className="w-full max-w-3xl">
               <div
@@ -341,7 +341,7 @@ export default function VocabMemory() {
                     />
                   ))}
                 </div>
- 
+
 
                 <div className="mt-4 text-xs text-neutral-400">
                   Progreso: {matchedPairIds.size}/{VOCAB.length} parejas encontradas
@@ -375,17 +375,17 @@ export default function VocabMemory() {
                     </button>
 
                     <div className="flex-1 rounded-xl border border-neutral-800 bg-neutral-950/30 p-4 text-center">
-                    <div className="flex justify-center">
-                      {carouselPair.image.type === "emoji" ? (
-                        <div className="text-5xl">{carouselPair.image.value}</div>
-                      ) : (
-                        <img
-                          src={carouselPair.image.src}
-                          alt={carouselPair.image.alt ?? "vocab image"}
-                          className="h-20 w-20 object-contain"
-                        />
-                      )}
-                    </div>
+                      <div className="flex justify-center">
+                        {carouselPair.image.type === "emoji" ? (
+                          <div className="text-5xl">{carouselPair.image.value}</div>
+                        ) : (
+                          <img
+                            src={carouselPair.image.src}
+                            alt={carouselPair.image.alt ?? "vocab image"}
+                            className="h-20 w-20 object-contain"
+                          />
+                        )}
+                      </div>
 
                       <div className="mt-3 text-sm">
                         <span className="text-neutral-400">Español:</span>{" "}

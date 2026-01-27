@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Vocab Memory",
-  description: "Local vocab memory trainer",
+  title: "Vocado",
+  description: "Vocado - Gamified Language Learning",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
