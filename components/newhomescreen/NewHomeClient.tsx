@@ -1158,10 +1158,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden selection:bg-[#E3EBC5] selection:text-[#2C3E30]`}>
 
             {/* --- HEADER --- */}
-            <header className="px-5 h-[56px] flex items-center justify-end sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40">
+            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40">
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
-                    <h1 className="text-[18px] font-semibold tracking-tight text-[#3A3A3A]">
+                    <h1 className="text-[20px] font-semibold tracking-tight text-[#3A3A3A]">
                         Voc<span className="text-[#9FB58E]">ado</span>
                     </h1>
                 </div>
@@ -1184,8 +1184,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 </div>
             </header>
 
-
-            <main className="px-4 pt-4 max-w-md mx-auto space-y-6">
+            <main className="px-4 pt-20 max-w-md mx-auto space-y-6">
 
                 {/* --- 1. AI INPUT (Primary Focus) --- */}
                 <section className="relative">
@@ -1480,8 +1479,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
                         {ui.leaderboardTitle}
                     </h2>
-                    <div className="bg-[#FAF7F2] rounded-[24px] p-4 border border-[#3A3A3A]/5 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)]">
-                        <div className="flex items-center justify-center gap-2 mb-3">
+                    <div className="bg-[#FAF7F2] rounded-[24px] px-4 pt-2.5 pb-3 border border-[#3A3A3A]/5 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)]">
+                        <div className="flex items-center justify-center gap-2 mb-1.5">
                             {[
                                 { id: "weekly", label: ui.leaderboardWeekly },
                                 { id: "overall", label: ui.leaderboardOverall },
@@ -1502,7 +1501,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             ))}
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                             {leaderboardEntries.slice(0, 5).map((entry, index) => {
                                 const entryKey = `${entry.username}-${index}`
                                 const showImage =
@@ -1510,7 +1509,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 return (
                                     <div
                                         key={entryKey}
-                                        className="flex items-center justify-between px-1 py-1.5 text-[12px]"
+                                        className="flex items-center justify-between px-1 py-1 text-[12px]"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="h-6 w-6 rounded-full border border-[#E3EBC5]/80 overflow-hidden bg-[#FFF] flex items-center justify-center">
@@ -1533,9 +1532,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-[#3A3A3A]">{entry.username}</span>
+                                            <span className="text-[#3A3A3A] text-[13px]">{entry.username}</span>
                                         </div>
-                                        <span className="font-semibold text-[#3A3A3A]/70">{entry.score}</span>
+                                        <span className="font-semibold text-[#3A3A3A]/70">
+                                            {entry.score} 🌱
+                                        </span>
                                     </div>
                                 )
                             })}

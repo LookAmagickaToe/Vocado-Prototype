@@ -287,7 +287,7 @@ export default function WorldReviewOverlay({
                             style={{
                                 borderColor: COLORS.border,
                                 backgroundColor: "#FFFFFF",
-                                maxHeight: "320px",
+                                maxHeight: "256px",
                             }}
                         >
                             <div className="min-w-[860px]">
