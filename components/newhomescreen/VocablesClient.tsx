@@ -259,7 +259,27 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
       {/* Header */}
       <header className="px-5 py-4 sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
-        <h1 className="text-[18px] font-semibold text-center">Vokabeln</h1>
+        <div className="flex items-center justify-between">
+          {reviewQueue.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setReviewQueue([])
+                setReviewIndex(0)
+                setShowBack(false)
+                setActiveReviewLabel(null)
+              }}
+              className="h-9 w-9 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center"
+              aria-label="Zurück"
+            >
+              ←
+            </button>
+          ) : (
+            <div className="h-9 w-9" />
+          )}
+          <h1 className="text-[18px] font-semibold text-center flex-1">Vokabeln</h1>
+          <div className="h-9 w-9" />
+        </div>
       </header>
 
       {isLoading ? (
