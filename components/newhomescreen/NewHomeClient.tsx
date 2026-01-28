@@ -374,7 +374,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             targetLabel: uiSettings?.onboarding?.targetLabel ?? "Target",
             levelLabel: uiSettings?.onboarding?.levelLabel ?? "Level",
             noWordsError: uiSettings?.errors?.newsNoWords ?? "No words found.",
-            createWorldTitle: uiSettings?.home?.createWorldTitle ?? "Create your World with AI",
+            createWorldTitle: uiSettings?.home?.createWorldTitle ?? "What would you like to learn today?",
             createWorldPlaceholder: uiSettings?.home?.createWorldPlaceholder ?? "Create your world...",
             createWorldLoading: uiSettings?.home?.createWorldLoading ?? "Creating world...",
             promptHelp: uiSettings?.home?.promptHelp ?? "Paste text, write what you want to learn or drop a link, photo, or file",
@@ -1454,9 +1454,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 {/* --- 1. AI INPUT (Primary Focus) --- */}
                 <section className="relative">
                     <div className="mb-1.5 pl-1 flex items-center justify-between">
-                        <span className="text-[12px] font-medium text-[#3A3A3A]">
+                        <h2 className="font-serif text-[16px] text-[#3A3A3A] tracking-[0.02em]">
                             {ui.createWorldTitle}
-                        </span>
+                        </h2>
                         <button
                             type="button"
                             onClick={toggleTranslateMode}
@@ -1472,7 +1472,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         </button>
                     </div>
                     <div className="relative group mb-1">
-                        <div className="absolute inset-0 bg-[#EFEBE4] rounded-[20px] border border-[rgb(var(--vocado-accent-rgb))] shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)] transition-all" />
+                        <div
+                            className="absolute inset-0 rounded-[20px] border border-[rgb(var(--vocado-accent-rgb))] shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)] transition-all"
+                            style={{ backgroundColor: "rgb(var(--vocado-section-bg-rgb))" }}
+                        />
                         <div className="relative flex items-center gap-2 p-2.5">
                             <input
                                 type="text"
@@ -1701,61 +1704,62 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         {ui.continueLearningTitle}
                     </h2>
 
-                    {/* Continue Card */}
-                    <div className="bg-[#FAF7F2] rounded-[20px] p-2 flex items-center justify-between border border-[#3A3A3A]/5 shadow-[0_2px_10px_-4px_rgba(58,58,58,0.02)]">
-                        <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[14px] font-medium text-[#3A3A3A]">
-                                    {lastPlayed?.title ?? "—"}
-                                </span>
-                            </div>
-                            <div className="text-[10px] text-[#3A3A3A]/50">
-                                {lastPlayed
-                                    ? `${ui.levelLabel} ${Math.max(0, (lastPlayed.levelIndex ?? 0)) + 1}`
-                                    : ui.noRecentSession}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                if (!lastPlayed) return
-                                router.push(`/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0}`)
-                            }}
-                            disabled={!lastPlayed}
-                            className="bg-[rgb(var(--vocado-accent-rgb))] text-white/95 px-3 py-1 rounded-[10px] text-[11px] font-semibold tracking-wide shadow-sm hover:bg-[rgb(var(--vocado-accent-dark-rgb))] transition-colors disabled:opacity-50"
-                        >
-                            {ui.resumeLabel}
-                        </button>
-                    </div>
-
-                    {/* Review Card */}
-                    <button
-                        onClick={() =>
-                            router.push(
-                                reviewStats.bucket === "hard"
-                                    ? "/vocables?bucket=hard"
-                                    : reviewStats.bucket === "new"
-                                        ? "/vocables?bucket=new"
-                                        : "/vocables"
-                            )
-                        }
-                        className="w-full bg-[#FAF7F2] rounded-[20px] p-2 flex items-center justify-between border border-[#3A3A3A]/5 shadow-[0_2px_10px_-4px_rgba(58,58,58,0.02)] group hover:bg-[#EAE8E0]/30 transition-colors text-left"
-                    >
-                        <div className="flex items-center gap-2.5">
-                            {/* Icon could be here, but spec says "Sachliche Tabelle" style content inside. Card itself text based */}
+                    <div className="bg-[#FAF7F2] rounded-[20px] p-2 border border-[#3A3A3A]/5 shadow-[0_2px_10px_-4px_rgba(58,58,58,0.02)]">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">
-                                    {reviewStats.count > 0 ? ui.reviewTitle : "All Done! 🎉"}
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-[14px] font-medium text-[#3A3A3A]">
+                                        {lastPlayed?.title ?? "—"}
+                                    </span>
                                 </div>
                                 <div className="text-[10px] text-[#3A3A3A]/50">
-                                    {formatTemplate(ui.reviewSubtitle, { count: String(reviewStats.count) })}
+                                    {lastPlayed
+                                        ? `${ui.levelLabel} ${Math.max(0, (lastPlayed.levelIndex ?? 0)) + 1}`
+                                        : ui.noRecentSession}
                                 </div>
                             </div>
+
+                            <button
+                                onClick={() => {
+                                    if (!lastPlayed) return
+                                    router.push(`/play?world=${encodeURIComponent(lastPlayed.id)}&level=${lastPlayed.levelIndex ?? 0}`)
+                                }}
+                                disabled={!lastPlayed}
+                                className="bg-[rgb(var(--vocado-accent-rgb))] text-white/95 px-3 py-1 rounded-[10px] text-[11px] font-semibold tracking-wide shadow-sm hover:bg-[rgb(var(--vocado-accent-dark-rgb))] transition-colors disabled:opacity-50"
+                            >
+                                {ui.resumeLabel}
+                            </button>
                         </div>
-                        <div className="w-6 h-6 rounded-full bg-[#EAE8E0] flex items-center justify-center text-[#3A3A3A]/40 group-hover:bg-[#EAE8E0]/80">
-                            <ChevronRight className="w-3 h-3" />
-                        </div>
-                    </button>
+
+                        <div className="border-t border-[#3A3A3A]/10 my-2" />
+
+                        <button
+                            onClick={() =>
+                                router.push(
+                                    reviewStats.bucket === "hard"
+                                        ? "/vocables?bucket=hard"
+                                        : reviewStats.bucket === "new"
+                                            ? "/vocables?bucket=new"
+                                            : "/vocables"
+                                )
+                            }
+                            className="w-full flex items-center justify-between group transition-colors text-left"
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <div>
+                                    <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">
+                                        {reviewStats.count > 0 ? ui.reviewTitle : "All Done! 🎉"}
+                                    </div>
+                                    <div className="text-[10px] text-[#3A3A3A]/50">
+                                        {formatTemplate(ui.reviewSubtitle, { count: String(reviewStats.count) })}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="w-6 h-6 rounded-full bg-[#EAE8E0] flex items-center justify-center text-[#3A3A3A]/40 group-hover:bg-[#EAE8E0]/80">
+                                <ChevronRight className="w-3 h-3" />
+                            </div>
+                        </button>
+                    </div>
                 </section>
 
                 {/* --- 4. LEADERBOARD --- */}
