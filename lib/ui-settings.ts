@@ -7,6 +7,7 @@ const getLanguageKey = (sourceLanguage?: string): keyof typeof i18n => {
   if (value.includes("deutsch") || value.includes("german")) return "de"
   if (value.includes("english")) return "en"
   if (value.includes("français") || value.includes("french")) return "fr"
+  if (value.includes("português") || value.includes("portuguese") || value.includes("portugues")) return "pt"
   return "es"
 }
 

@@ -5,27 +5,30 @@
  */
 export function formatCardText(text: string, maxChars: number = 13): string {
     if (!text) return "";
-    if (text.length <= maxChars) return text;
+    if (text.length < maxChars) return text;
 
     // Split by whitespace or special characters (, / .), keeping the delimiters
-    // Regex captures: 
-    // - sequence of whitespace: \s+
-    // - sequence of special chars: [,/.]+
     const parts = text.split(/([\s,/\.]+)/).filter((p) => p !== "");
 
     let lines: string[] = [];
     let currentLine = "";
 
-    for (const part of parts) {
-        // If adding this part exceeds maxChars (and we already have text in currentLine), break.
-        if (currentLine.length + part.length > maxChars && currentLine.length > 0) {
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const nextPart = parts[i + 1] || "";
+
+        // If this part is a delimiter and adding it + the next word would exceed maxChars, break early
+        // This keeps delimiters like '/' or ' ' at the start of the next line or makes the break look more natural.
+        const isDelimiter = /^[\s,/\.]+$/.test(part);
+        const wouldExceedWithNext = currentLine.length + part.length + nextPart.length >= maxChars;
+
+        if (currentLine.length > 0 && isDelimiter && wouldExceedWithNext) {
             lines.push(currentLine.trim());
-            // If the part itself is a delimiter, we can either start the next line with it or omit it if it's just space.
-            if (/^\s+$/.test(part)) {
-                currentLine = "";
-            } else {
-                currentLine = part.trimStart();
-            }
+            // For whitespace, we start fresh. For other delimiters, they start the new line.
+            currentLine = part.trimStart();
+        } else if (currentLine.length + part.length >= maxChars && currentLine.length > 0) {
+            lines.push(currentLine.trim());
+            currentLine = part.trimStart();
         } else {
             currentLine += part;
         }

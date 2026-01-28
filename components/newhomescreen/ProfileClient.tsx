@@ -6,7 +6,7 @@ import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import { getUiSettings } from "@/lib/ui-settings"
 
-const LANGUAGES = ["Español", "Deutsch", "English", "Français"]
+const LANGUAGES = ["Español", "Deutsch", "English", "Français", "Português"]
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 const FALLBACK_AVATAR = "/profilepictures/happy_vocado.png"
 

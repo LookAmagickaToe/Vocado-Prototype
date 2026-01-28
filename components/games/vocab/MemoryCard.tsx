@@ -105,7 +105,7 @@ export default function MemoryCard({
                   maxPx={18}
                   minPx={5}
                   lineHeight={1.05}
-                  className="w-full font-semibold tracking-tight leading-tight"
+                  className="w-full text-center font-semibold tracking-tight leading-tight"
                 />
               </div>
             ) : (
@@ -128,7 +128,7 @@ export default function MemoryCard({
                     maxPx={14}
                     minPx={5}
                     lineHeight={1.05}
-                    className="w-full max-h-[35%] font-medium leading-tight"
+                    className="w-full max-h-[35%] text-center font-medium leading-tight"
                   />
                 ) : null}
               </div>

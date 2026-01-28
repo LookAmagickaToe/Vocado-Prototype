@@ -128,7 +128,7 @@ export default function TutorialOverlay({
                                 onChange={(e) => setSource(e.target.value)}
                                 className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
                             >
-                                {["Español", "Deutsch", "English", "Français"].map(l => <option key={l} value={l}>{l}</option>)}
+                                {["Español", "Deutsch", "English", "Français", "Português"].map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                         </div>
                         <div>
@@ -138,7 +138,7 @@ export default function TutorialOverlay({
                                 onChange={(e) => setTarget(e.target.value)}
                                 className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
                             >
-                                {["Español", "Deutsch", "English", "Français"].filter(l => l !== source).map(l => <option key={l} value={l}>{l}</option>)}
+                                {["Español", "Deutsch", "English", "Français", "Português"].filter(l => l !== source).map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                         </div>
                     </div>

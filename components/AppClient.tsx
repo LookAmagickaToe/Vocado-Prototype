@@ -16,7 +16,6 @@ import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import NavFooter from "@/components/ui/NavFooter"
 import TutorialOverlay, { TutorialStep } from "@/components/tutorial/TutorialOverlay"
-import { callAi } from "@/lib/ai"
 
 const BASE_WORLDS: World[] = []
 
@@ -38,7 +37,7 @@ const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
 const NEWS_STORAGE_KEY = "vocado-news-current"
 const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
 
-const LANGUAGE_OPTIONS = ["Español", "Deutsch", "English", "Français"]
+const LANGUAGE_OPTIONS = ["Español", "Deutsch", "English", "Français", "Português"]
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -230,6 +229,8 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
     reviewEmoji: uiSettings?.upload?.reviewEmoji ?? "Emoji",
     reviewPos: uiSettings?.upload?.reviewPos ?? "Tipo",
     reviewConjugate: uiSettings?.upload?.reviewConjugate ?? "Conjugación",
+    reviewExplanation: uiSettings?.upload?.reviewExplanation ?? "Explicación",
+    reviewExample: uiSettings?.upload?.reviewExample ?? "Ejemplo",
     reviewSyllables: uiSettings?.upload?.reviewSyllables ?? "Sílabas",
     posVerb: uiSettings?.upload?.posVerb ?? "verbo",
     posNoun: uiSettings?.upload?.posNoun ?? "sustantivo",
@@ -274,6 +275,7 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
     title: uiSettings?.home?.title ?? "Inicio",
   },
   news: {
+    title: uiSettings?.news?.title ?? "📰 Vocado Diário",
     readButton: uiSettings?.news?.readButton ?? "Leer periódico",
     categoryOptions: {
       world: uiSettings?.news?.categoryOptions?.world ?? "World",
@@ -451,7 +453,7 @@ const buildWorldFromItems = (
       id: `${id}-${index}`,
       es: item.source,
       de: item.target,
-      image: { type: "emoji", value: item.emoji?.trim() || "📰" },
+      image: { type: "emoji" as const, value: item.emoji?.trim() || "📰" },
       pos: item.pos,
       explanation: explanationWithSyllables,
       example,
@@ -583,6 +585,7 @@ export default function AppClient({
   const [autoNewsLoading, setAutoNewsLoading] = useState(false)
   const [themeText, setThemeText] = useState("")
   const [themeCount, setThemeCount] = useState(20)
+  const [themeLevel, setThemeLevel] = useState("B1")
   const [promptText, setPromptText] = useState("")
   const [promptError, setPromptError] = useState<string | null>(null)
   const [promptLoading, setPromptLoading] = useState(false)
@@ -789,7 +792,10 @@ export default function AppClient({
     targetLanguage: string
     newsCategory?: string
   }) => {
-    setProfileSettings(next)
+    setProfileSettings({
+      ...next,
+      newsCategory: next.newsCategory || ""
+    })
   }
 
   const syncStatsToServer = async (
@@ -3243,11 +3249,11 @@ export default function AppClient({
                       carouselItem ??
                       (fallbackPair
                         ? {
-                            id: fallbackPair.id,
-                            image: fallbackPair.image,
-                            primaryLabel: fallbackPair.es,
-                            secondaryLabel: fallbackPair.de,
-                          }
+                          id: fallbackPair.id,
+                          image: fallbackPair.image,
+                          primaryLabel: fallbackPair.es,
+                          secondaryLabel: fallbackPair.de,
+                        }
                         : null)
                     if (!effectiveItem) return null
                     const isAssigned = winAssignedIds.has(effectiveItem.id)
@@ -3269,7 +3275,7 @@ export default function AppClient({
                       const nextAssigned = new Set(winAssignedIds)
                       nextAssigned.add(effectiveItem.id)
                       setWinAssignedIds(nextAssigned)
-                      void persistWorldUpdate(updatedWorld).catch(() => {})
+                      void persistWorldUpdate(updatedWorld).catch(() => { })
                       if (matchedOrder.length > 1) {
                         let nextIndex = carouselIndex
                         for (let i = 1; i <= matchedOrder.length; i += 1) {
@@ -5356,8 +5362,8 @@ function WorldsOverlay({
                 {confirmingDelete.type === "world"
                   ? ui.worldsOverlay.deleteWorldConfirm
                   : formatTemplate(ui.worldsOverlay.deleteListConfirm, {
-                      count: confirmingDelete.count,
-                    })}
+                    count: confirmingDelete.count,
+                  })}
               </div>
               <div className="mt-4 flex justify-end gap-2">
                 <button
