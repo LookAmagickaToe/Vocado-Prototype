@@ -799,43 +799,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         return listId
     }
 
-    const loadCachedDailyNewsList = async (categoryValue: string) => {
-        try {
-            const session = await supabase.auth.getSession()
-            const token = session.data.session?.access_token
-            if (!token) return null
-            const response = await fetch("/api/storage/worlds/list", {
-                method: "GET",
-                headers: { Authorization: `Bearer ${token}` },
-            })
-            if (!response.ok) return null
-            const data = await response.json()
-            const worlds = Array.isArray(data?.worlds) ? data.worlds : []
-            const matched: VocabWorld[] = []
-            for (const entry of worlds) {
-                const json = entry?.json
-                if (!json || json.mode !== "vocab") continue
-                const news = json.news
-                if (!news?.summary?.length) continue
-                if (news?.category !== categoryValue) continue
-                if (!isSameDay(news?.date)) continue
-                matched.push(json as VocabWorld)
-            }
-            if (!matched.length) return null
-            matched.sort((a, b) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
-            const seen = new Set<string>()
-            const unique = matched.filter((world) => {
-                const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
-                if (!url) return true
-                if (seen.has(url)) return false
-                seen.add(url)
-                return true
-            })
-            return unique
-        } catch {
-            return null
-        }
-    }
+
 
     const loadLocalCachedNewsList = (categoryValue: string) => {
         if (typeof window === "undefined") return null
@@ -941,127 +905,60 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setIsNewsLoading(true)
             try {
                 const category = activeNewsTab
+                const level = profileSettings.level || "A1"
+                const source = profileSettings.sourceLanguage || "Español"
+                const target = profileSettings.targetLanguage || "Alemán"
+
+                // Check local cache first (optional, but good for navigation speed)
                 const localList = loadLocalCachedNewsList(category)
                 if (localList?.length) {
-                    const baseItems = localList.map((item) => ({
-                        title: item.news?.title || item.title,
-                        teaser: item.news?.summary?.[0] || "",
-                    }))
-                    setNewsWorlds(localList)
-                    setNewsItems(baseItems)
-                    setCurrentNewsIndex(0)
-                    setIsNewsLoading(false)
-                    return
-                }
-                const cachedList = (await loadCachedDailyNewsList(category)) ?? []
-                if (cachedList.length >= 5) {
-                    const baseItems = cachedList.slice(0, 5).map((item) => ({
-                        title: item.news?.title || item.title,
-                        teaser: item.news?.summary?.[0] || "",
-                    }))
-                    setNewsWorlds(cachedList.slice(0, 5))
-                    setNewsItems(baseItems)
-                    setCurrentNewsIndex(0)
-                    saveLocalNewsCache(category, cachedList.slice(0, 5))
-                    setIsNewsLoading(false)
-                    return
+                    // Check if cache is from today
+                    const isToday = localList.every(w => isSameDay(w?.news?.date))
+                    if (isToday) {
+                        const baseItems = localList.map((item) => ({
+                            title: item.news?.title || item.title,
+                            teaser: item.news?.summary?.[0] || "",
+                        }))
+                        setNewsWorlds(localList)
+                        setNewsItems(baseItems)
+                        setCurrentNewsIndex(0)
+                        setIsNewsLoading(false)
+                        return
+                    }
                 }
 
-                const res = await fetch(`/api/news/tagesschau?ressort=${category}`)
+                const res = await fetch(`/api/news/daily?category=${category}&level=${level}&source_language=${source}&target_language=${target}`)
+                if (!res.ok) throw new Error("Failed to fetch news")
+
                 const data = await res.json()
                 const list = Array.isArray(data?.items) ? data.items : []
+
                 if (!list.length) {
+                    // Fallback to empty state
                     setNewsItems([])
+                    setNewsWorlds([])
                     setIsNewsLoading(false)
                     return
                 }
 
-                const worldsToSave: VocabWorld[] = []
-                const usedUrls = new Set(
-                    cachedList
-                        .map((item) => item.news?.sourceUrl)
-                        .filter((value): value is string => Boolean(value))
-                        .map(normalizeNewsUrl)
-                )
-                for (let i = 0; i < list.length; i += 1) {
-                    if (cachedList.length + worldsToSave.length >= 5) break
-                    const headline = list[i]
-                    if (!headline?.url) continue
-                    const normalizedUrl = normalizeNewsUrl(headline.url)
-                    if (!normalizedUrl || usedUrls.has(normalizedUrl)) continue
-                    let nextSummary: string[] = []
-                    let nextItems = [] as NewsReviewItem[]
-                    try {
-                        const result = await callAi({
-                            task: "news",
-                            url: headline.url,
-                            level: profileSettings.level || undefined,
-                            sourceLabel: profileSettings.sourceLanguage || "Español",
-                            targetLabel: profileSettings.targetLanguage || "Alemán",
-                        })
-                        nextSummary = Array.isArray(result?.summary) ? result.summary : []
-                        nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
-                    } catch {
-                        const fallbackText = [headline.title, headline.teaser].filter(Boolean).join(". ")
-                        if (fallbackText) {
-                            try {
-                                const result = await callAi({
-                                    task: "news",
-                                    text: fallbackText,
-                                    level: profileSettings.level || undefined,
-                                    sourceLabel: profileSettings.sourceLanguage || "Español",
-                                    targetLabel: profileSettings.targetLanguage || "Alemán",
-                                })
-                                nextSummary = Array.isArray(result?.summary) ? result.summary : [fallbackText]
-                                nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
-                            } catch {
-                                nextSummary = [fallbackText]
-                                nextItems = []
-                            }
-                        }
+                // Process list into frontend format (it should be already in VocabWorld format)
+                const worlds: VocabWorld[] = list.map((item: any) => ({
+                    ...item,
+                    // Ensure local fields are safe
+                    news: {
+                        ...item.news,
+                        index: 0
                     }
-                    if (!nextItems.length) continue
-                    const newsWorld = {
-                        ...buildWorldFromItems(
-                            nextItems,
-                            profileSettings.sourceLanguage || "Español",
-                            profileSettings.targetLanguage || "Alemán",
-                            ui,
-                            normalizedUrl ? buildNewsWorldId(normalizedUrl) : undefined
-                        ),
-                        title: `Vocado Diario - ${headline.title || "Noticia"}`,
-                        description: "Noticias del día.",
-                        news: {
-                            summary: nextSummary,
-                            sourceUrl: normalizedUrl,
-                            title: headline.title || "Noticia",
-                            category,
-                            date: headline.date || new Date().toISOString(),
-                            index: cachedList.length + worldsToSave.length,
-                        },
-                    }
-                    if (!usedUrls.has(normalizedUrl)) {
-                        worldsToSave.push(newsWorld)
-                        usedUrls.add(normalizedUrl)
-                    }
-                }
+                }))
+                // Re-index
+                worlds.forEach((w: VocabWorld, i: number) => { if (w.news) w.news.index = i })
 
-                const merged = [...cachedList, ...worldsToSave]
-                const seenKeys = new Set<string>()
-                const finalList = merged.filter((world) => {
-                    const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
-                    const title = (world.news?.title || world.title || "").trim().toLowerCase()
-                    const key = url || title
-                    if (!key) return false
-                    if (seenKeys.has(key)) return false
-                    seenKeys.add(key)
-                    return true
-                }).slice(0, 5)
-
-                const baseItems = finalList.map((item) => ({
+                const baseItems = worlds.map((item: VocabWorld) => ({
                     title: item.news?.title || item.title,
                     teaser: item.news?.summary?.[0] || "",
                 }))
+
+                // Pad if needed or just show what we have
                 const padded = [
                     ...baseItems,
                     ...Array.from({ length: Math.max(0, 5 - baseItems.length) }, () => ({
@@ -1069,12 +966,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         teaser: "",
                     })),
                 ]
-                setNewsWorlds(finalList)
+
+                setNewsWorlds(worlds)
                 setNewsItems(padded)
                 setCurrentNewsIndex(0)
-                saveLocalNewsCache(category, finalList)
-            } catch {
-                // ignore network errors for cached news
+                saveLocalNewsCache(category, worlds)
+
+            } catch (err) {
+                console.error(err)
+                setNewsItems([])
+                setNewsWorlds([])
             } finally {
                 setIsNewsLoading(false)
             }
