@@ -1,8 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
+
+declare global {
+  interface Window {
+    google: any
+  }
+}
 
 export default function LoginClient() {
   const router = useRouter()
@@ -12,6 +18,15 @@ export default function LoginClient() {
   const [username, setUsername] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [googleClientIdMissing, setGoogleClientIdMissing] = useState(false)
+
+  // Initialize Google Sign-In
+  if (typeof window !== "undefined" && !window.google && !isLoading) {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) {
+      if (!googleClientIdMissing) setGoogleClientIdMissing(true)
+    }
+  }
 
 
   const resolveEmail = async (value: string) => {
@@ -82,39 +97,56 @@ export default function LoginClient() {
     }
   }
 
+  /* Legacy Redirect Flow
   const handleGoogle = async () => {
-    setError(null)
-    setIsLoading(true)
+    // ...
+  }
+  */
+
+  const handleGoogleNative = async (response: any) => {
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-        },
+      const { credential } = response
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: credential,
       })
-      if (process.env.NEXT_PUBLIC_DEBUG_AUTH === "true") {
-        console.log("[auth][client] oauth response", { data, oauthError, redirectTo })
-      }
-      if (oauthError) throw oauthError
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
-      const fallbackUrl =
-        baseUrl.length > 0
-          ? `${baseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`
-          : ""
-      const oauthUrl = data?.url ?? fallbackUrl
-      if (process.env.NEXT_PUBLIC_DEBUG_AUTH === "true") {
-        console.log("[auth][client] oauth redirect", { oauthUrl })
-      }
-      if (!oauthUrl) {
-        throw new Error("OAuth did not return a redirect URL.")
-      }
-      window.location.assign(oauthUrl)
+      if (error) throw error
+      router.push("/")
     } catch (err) {
       setError((err as Error).message)
-      setIsLoading(false)
     }
   }
+
+  // Effect to render button
+  const googleButtonRef = useState<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.google) return
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) {
+      console.warn("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID")
+      return
+    }
+
+    try {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleNative,
+        ux_mode: "popup",
+      })
+      const parent = document.getElementById("google-btn-container")
+      if (parent) {
+        window.google.accounts.id.renderButton(parent, {
+          theme: "outline",
+          size: "large",
+          width: "100%",
+          text: "continue_with",
+        })
+      }
+    } catch (e) {
+      console.error("Google Sign-In initialization failed", e)
+    }
+  }, [googleClientIdMissing])
 
   return (
     <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
@@ -173,6 +205,17 @@ export default function LoginClient() {
             {isLoading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
           </button>
 
+          {/* New Google Button Container */}
+          <div id="google-btn-container" className="w-full h-[40px] flex justify-center"></div>
+
+          {googleClientIdMissing && (
+            <p className="text-xs text-red-500 text-center">
+              Authentication unavailable: Missing Client ID
+            </p>
+          )}
+
+          {/* Legacy fallback if needed, but we replace it */}
+          {/*
           <button
             type="button"
             onClick={handleGoogle}
@@ -181,6 +224,7 @@ export default function LoginClient() {
           >
             Continue with Google
           </button>
+          */}
         </div>
 
         <div className="mt-6 text-sm text-[#3A3A3A]/70 text-center">
