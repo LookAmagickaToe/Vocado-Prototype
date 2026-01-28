@@ -12,6 +12,7 @@ import type { VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
 import { formatTemplate } from "@/lib/ui"
 import { calculateNextReview, initializeSRS } from "@/lib/srs"
+import TutorialOverlay, { type TutorialStep } from "@/components/tutorial/TutorialOverlay"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
@@ -341,7 +342,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         sourceLanguage: profile.sourceLanguage,
         targetLanguage: profile.targetLanguage,
         newsCategory: profile.newsCategory,
+        onboardingDone: profile.onboardingDone,
     })
+    const [showTutorial, setShowTutorial] = useState(!profile.onboardingDone)
+    const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome")
+    const [savingProfile, setSavingProfile] = useState(false)
+    const [profileError, setProfileError] = useState<string | null>(null)
 
     // Logic States
     const [newsItems, setNewsItems] = useState<Array<{ title: string, teaser?: string }>>([])
@@ -429,6 +435,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             nav: uiSettings?.nav ?? {},
             newsTabs: uiSettings?.news?.categoryOptions ?? {},
             overlay: uiSettings?.overlay ?? {},
+            tutorial: uiSettings?.tutorial ?? {},
+            news: uiSettings?.news ?? {},
         }),
         [uiSettings]
     )
@@ -1146,6 +1154,49 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     }, [showAttachMenu])
 
     // Handle Create World
+    const handleSaveOnboardingProfile = async (data: { source: string; target: string; level: string; news: string; name: string; avatarUrl: string }) => {
+        setSavingProfile(true)
+        setProfileError(null)
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) throw new Error("No session")
+
+            const nextProfile = {
+                level: data.level || "A2",
+                sourceLanguage: data.source,
+                targetLanguage: data.target,
+                newsCategory: data.news,
+                onboardingDone: true,
+                avatarUrl: data.avatarUrl,
+                name: data.name,
+            }
+
+            const res = await fetch("/api/auth/profile/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(nextProfile),
+            })
+
+            if (!res.ok) {
+                const resData = await res.json().catch(() => null)
+                throw new Error(resData?.error ?? "Save failed")
+            }
+
+            // Update local state
+            setProfileSettings(prev => ({ ...prev, ...nextProfile }))
+            setAvatarUrl(data.avatarUrl)
+
+            // Advance tutorial
+            setTutorialStep("tour_intro")
+        } catch (err) {
+            console.error(err)
+            setProfileError((err as Error).message)
+        } finally {
+            setSavingProfile(false)
+        }
+    }
+
     const handleCreateWorld = async () => {
         const theme = inputText.trim()
         if (!theme) return
@@ -2133,6 +2184,32 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 onSelectList={setSelectedOverlayListId}
                 onGenerateMore={handleGenerateMoreWords}
             />
+            {showTutorial && (
+                <TutorialOverlay
+                    step={tutorialStep}
+                    ui={ui}
+                    initialLevel={profileSettings.level}
+                    initialSource={profileSettings.sourceLanguage}
+                    initialTarget={profileSettings.targetLanguage}
+                    initialNews={profileSettings.newsCategory}
+                    initialAvatar={avatarUrl}
+                    onNext={() => {
+                        if (tutorialStep === "final") {
+                            setShowTutorial(false)
+                        } else {
+                            if (tutorialStep === "tour_intro") {
+                                setShowTutorial(false)
+                            } else {
+                                setTutorialStep("tour_intro")
+                            }
+                        }
+                    }}
+                    onTerminate={() => setShowTutorial(false)}
+                    onSaveProfile={handleSaveOnboardingProfile}
+                    savingProfile={savingProfile}
+                    profileError={profileError}
+                />
+            )}
         </div >
     )
 }

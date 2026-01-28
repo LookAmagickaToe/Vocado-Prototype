@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
@@ -89,6 +90,8 @@ export async function POST(req: Request) {
       saved.push({ worldId, path })
     }
 
+    revalidatePath("/play")
+    revalidatePath("/")
     return NextResponse.json({ saved })
   } catch (error) {
     return NextResponse.json(

@@ -226,6 +226,9 @@
     "tutorial": {
       "welcomeTitle": "Bienvenido a Vocado",
       "welcomeSubtitle": "Vamos a personalizar tu experiencia.",
+      "nameLabel": "NOMBRE",
+      "namePlaceholder": "Tu nombre",
+      "avatarLabel": "FOTO DE PERFIL",
       "sourceLabel": "IDIOMA DE ORIGEN",
       "targetLabel": "IDIOMA OBJETIVO",
       "levelLabel": "NIVEL DE COMPETENCIA",
@@ -582,6 +585,9 @@
     "tutorial": {
       "welcomeTitle": "Welcome to Vocado",
       "welcomeSubtitle": "Let's tailor the experience to your needs.",
+      "nameLabel": "NAME",
+      "namePlaceholder": "Your name",
+      "avatarLabel": "PROFILE PICTURE",
       "sourceLabel": "SOURCE LANGUAGE",
       "targetLabel": "TARGET LANGUAGE",
       "levelLabel": "PROFICIENCY LEVEL",
@@ -938,6 +944,9 @@
     "tutorial": {
       "welcomeTitle": "Willkommen bei Vocado",
       "welcomeSubtitle": "Lass uns deine Erfahrung personalisieren.",
+      "nameLabel": "NAME",
+      "namePlaceholder": "Dein Name",
+      "avatarLabel": "PROFILBILD",
       "sourceLabel": "AUSGANGSSPRACHE",
       "targetLabel": "ZIELSPRACHE",
       "levelLabel": "NIVEAU",
@@ -1294,6 +1303,9 @@
     "tutorial": {
       "welcomeTitle": "Bienvenue sur Vocado",
       "welcomeSubtitle": "Personnalisons ton expérience.",
+      "nameLabel": "NOM",
+      "namePlaceholder": "Votre nom",
+      "avatarLabel": "PHOTO DE PROFIL",
       "sourceLabel": "LANGUE SOURCE",
       "targetLabel": "LANGUE CIBLE",
       "levelLabel": "NIVEAU",
@@ -1650,6 +1662,9 @@
     "tutorial": {
       "welcomeTitle": "Bem-vindo ao Vocado",
       "welcomeSubtitle": "Vamos personalizar a sua experiência.",
+      "nameLabel": "NOME",
+      "namePlaceholder": "Seu nome",
+      "avatarLabel": "FOTO DE PERFIL",
       "sourceLabel": "IDIOMA DE ORIGEM",
       "targetLabel": "IDIOMA DE DESTINO",
       "levelLabel": "NÍVEL DE COMPETÊNCIA",

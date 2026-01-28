@@ -745,7 +745,7 @@ export default function AppClient({
     })
   }
 
-  const onTutorialSaveProfile = async (data: { source: string; target: string; level: string; news: string }) => {
+  const onTutorialSaveProfile = async (data: { source: string; target: string; level: string; news: string; name: string; avatarUrl: string }) => {
     // reuse saveWelcomeProfile logic essentially
     setWelcomeSaving(true)
     try {
@@ -761,7 +761,8 @@ export default function AppClient({
           targetLanguage: data.target,
           level: data.level,
           newsCategory: data.news,
-          // Do NOT set onboardingDone true yet
+          name: data.name,
+          avatarUrl: data.avatarUrl,
         }),
       })
 
@@ -772,7 +773,11 @@ export default function AppClient({
         targetLanguage: data.target,
         level: data.level,
         newsCategory: data.news || "",
+        avatarUrl: data.avatarUrl,
       }))
+
+      // Update name in metadata if possible or just rely on database
+      // For now we just update local state and DB.
 
       // Advance
       saveTutorialProgress("tour_intro")

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Check, ArrowRight, BookOpen, PartyPopper, Gamepad2, Plus, Newspaper } from "lucide-react"
+import { X, Check, ArrowRight, BookOpen, PartyPopper, Gamepad2, Plus, Newspaper, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export type TutorialStep =
@@ -20,15 +20,36 @@ interface TutorialOverlayProps {
     step: TutorialStep
     onNext: () => void
     onTerminate: () => void // Terminate tutorial completely
-    onSaveProfile: (data: { source: string; target: string; level: string; news: string }) => Promise<void>
+    onSaveProfile: (data: { source: string; target: string; level: string; news: string; name: string; avatarUrl: string }) => Promise<void>
     initialSource?: string
     initialTarget?: string
     initialLevel?: string
     initialNews?: string
+    initialName?: string
+    initialAvatar?: string
     savingProfile?: boolean
     profileError?: string | null
     ui: any
 }
+
+const AVATARS = [
+    "/profilepictures/happy_vocado.png",
+    "/profilepictures/maxime_vocado.png",
+    "/profilepictures/elviscado.png",
+    "/profilepictures/astronauta.png",
+    "/profilepictures/bavarian_vocado.png",
+    "/profilepictures/bavarian_capybara.png",
+    "/profilepictures/beachboy.png",
+    "/profilepictures/disco_pop.png",
+    "/profilepictures/he_bayern.png",
+    "/profilepictures/he_colombian_traveler.png",
+    "/profilepictures/he_motorrad.png",
+    "/profilepictures/hearts_vocado.jpeg",
+    "/profilepictures/princessa_russa.png",
+    "/profilepictures/she_bayernshirt.png",
+    "/profilepictures/she_capybara_head.png",
+    "/profilepictures/vocado_bodybuilder.png"
+]
 
 export default function TutorialOverlay({
     step,
@@ -39,14 +60,18 @@ export default function TutorialOverlay({
     initialTarget,
     initialLevel,
     initialNews,
+    initialName,
+    initialAvatar,
     savingProfile,
     profileError,
     ui,
 }: TutorialOverlayProps) {
     const [source, setSource] = useState(initialSource || "Español")
-    const [target, setTarget] = useState(initialTarget || "English") // Default to English for broader appeal if auto
+    const [target, setTarget] = useState(initialTarget || "English")
     const [level, setLevel] = useState(initialLevel || "A2")
     const [news, setNews] = useState(initialNews || "world")
+    const [name, setName] = useState(initialName || "")
+    const [avatarUrl, setAvatarUrl] = useState(initialAvatar || AVATARS[0])
 
     // Sync state if props change (e.g. from existing profile)
     useEffect(() => {
@@ -54,33 +79,35 @@ export default function TutorialOverlay({
         if (initialTarget) setTarget(initialTarget)
         if (initialLevel) setLevel(initialLevel)
         if (initialNews) setNews(initialNews)
-    }, [initialSource, initialTarget, initialLevel, initialNews])
+        if (initialName) setName(initialName)
+        if (initialAvatar) setAvatarUrl(initialAvatar)
+    }, [initialSource, initialTarget, initialLevel, initialNews, initialName, initialAvatar])
 
     const handleProfileSave = () => {
-        onSaveProfile({ source, target, level, news })
+        onSaveProfile({ source, target, level, news, name, avatarUrl })
     }
 
     // Common wrapper for modal style content
     const ModalWrapper = ({ children, title, subtitle }: { children: React.ReactNode, title: string, subtitle?: string }) => (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-950/95 p-6 shadow-2xl text-neutral-50 overflow-hidden"
+                className="relative w-full max-w-lg rounded-3xl border border-[rgb(var(--vocado-divider-rgb)/0.2)] bg-[#F6F2EB] p-8 shadow-2xl text-[#3A3A3A] overflow-hidden"
             >
-                <div className="absolute top-4 right-4">
-                    <button onClick={onTerminate} className="text-xs text-neutral-500 hover:text-neutral-300 flex items-center gap-1 transition-colors">
-                        <X size={14} /> Terminate Tutorial
+                <div className="absolute top-6 right-6">
+                    <button onClick={onTerminate} className="text-neutral-400 hover:text-neutral-600 transition-colors">
+                        <X size={20} />
                     </button>
                 </div>
 
-                <div className="mb-6">
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent mb-2">
+                <div className="mb-8">
+                    <h2 className="text-3xl font-bold tracking-tight text-[#3A3A3A] mb-2">
                         {title}
                     </h2>
                     {subtitle && (
-                        <p className="text-neutral-400 text-sm leading-relaxed">
+                        <p className="text-[#3A3A3A]/60 text-base leading-relaxed">
                             {subtitle}
                         </p>
                     )}
@@ -101,13 +128,13 @@ export default function TutorialOverlay({
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="pointer-events-auto max-w-md rounded-2xl border border-green-500/30 bg-neutral-950/90 p-5 shadow-2xl backdrop-blur text-neutral-50"
+                    className="pointer-events-auto max-w-md rounded-2xl border border-[rgb(var(--vocado-accent-rgb)/0.3)] bg-white/90 p-5 shadow-2xl backdrop-blur text-[#3A3A3A]"
                 >
                     <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                             {children}
                         </div>
-                        <button onClick={onTerminate} className="ml-4 text-neutral-600 hover:text-neutral-400">
+                        <button onClick={onTerminate} className="ml-4 text-neutral-400 hover:text-neutral-600">
                             <X size={16} />
                         </button>
                     </div>
@@ -119,24 +146,64 @@ export default function TutorialOverlay({
     if (step === "welcome") {
         return (
             <ModalWrapper title={ui.tutorial.welcomeTitle} subtitle={ui.tutorial.welcomeSubtitle}>
-                <div className="space-y-4">
+                <div className="space-y-6">
+                    {/* Avatar Picker */}
+                    <div>
+                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-3 block">
+                            {ui.tutorial.avatarLabel}
+                        </label>
+                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                            {AVATARS.map((url) => (
+                                <button
+                                    key={url}
+                                    onClick={() => setAvatarUrl(url)}
+                                    className={`relative shrink-0 w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url
+                                        ? "border-[rgb(var(--vocado-accent-rgb))] scale-110 shadow-lg"
+                                        : "border-transparent opacity-60 hover:opacity-100"
+                                        }`}
+                                >
+                                    <img src={url} alt="Avatar" className="w-full h-full object-cover" />
+                                    {avatarUrl === url && (
+                                        <div className="absolute inset-0 bg-[rgb(var(--vocado-accent-rgb))/0.2] flex items-center justify-center">
+                                            <Check size={20} className="text-[rgb(var(--vocado-accent-rgb))]" />
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Name Input */}
+                    <div>
+                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">
+                            {ui.tutorial.nameLabel}
+                        </label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder={ui.tutorial.namePlaceholder}
+                            className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5] transition-all"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.sourceLabel}</label>
+                            <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.sourceLabel}</label>
                             <select
                                 value={source}
                                 onChange={(e) => setSource(e.target.value)}
-                                className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5]"
                             >
                                 {["Español", "Deutsch", "English", "Français", "Português"].map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.targetLabel}</label>
+                            <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.targetLabel}</label>
                             <select
                                 value={target}
                                 onChange={(e) => setTarget(e.target.value)}
-                                className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5]"
                             >
                                 {["Español", "Deutsch", "English", "Français", "Português"].filter(l => l !== source).map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
@@ -144,15 +211,15 @@ export default function TutorialOverlay({
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.levelLabel}</label>
+                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.levelLabel}</label>
                         <div className="grid grid-cols-6 gap-2">
                             {["A1", "A2", "B1", "B2", "C1", "C2"].map((lvl) => (
                                 <button
                                     key={lvl}
                                     onClick={() => setLevel(lvl)}
-                                    className={`rounded-lg py-2 text-xs font-semibold transition-all ${level === lvl
-                                        ? "bg-green-600/20 text-green-400 border border-green-500/50"
-                                        : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:bg-neutral-800"
+                                    className={`rounded-xl py-2.5 text-xs font-bold transition-all ${level === lvl
+                                        ? "bg-[rgb(var(--vocado-accent-rgb))] text-white shadow-md"
+                                        : "bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] text-[#3A3A3A]/60 hover:border-[rgb(var(--vocado-accent-rgb))/0.4]"
                                         }`}
                                 >
                                     {lvl}
@@ -162,11 +229,11 @@ export default function TutorialOverlay({
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 block">{ui.tutorial.newsLabel}</label>
+                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.newsLabel}</label>
                         <select
                             value={news}
                             onChange={(e) => setNews(e.target.value)}
-                            className="w-full rounded-xl bg-neutral-900/50 border border-neutral-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                            className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5]"
                         >
                             <option value="world">{ui.news.categoryOptions.world}</option>
                             <option value="wirtschaft">{ui.news.categoryOptions.wirtschaft}</option>
@@ -175,14 +242,14 @@ export default function TutorialOverlay({
                     </div>
 
                     {profileError && (
-                        <p className="text-red-400 text-xs">{profileError}</p>
+                        <p className="text-red-500 text-sm font-medium">{profileError}</p>
                     )}
 
-                    <div className="pt-2 flex justify-end">
+                    <div className="pt-2">
                         <Button
                             onClick={handleProfileSave}
-                            disabled={savingProfile}
-                            className="bg-neutral-100 text-neutral-900 hover:bg-white font-semibold rounded-xl px-6"
+                            disabled={savingProfile || !name.trim()}
+                            className="w-full bg-[rgb(var(--vocado-accent-rgb))] text-white hover:opacity-90 font-bold rounded-2xl py-6 text-lg shadow-lg shadow-[rgb(var(--vocado-accent-rgb))/0.2] disabled:opacity-50"
                         >
                             {savingProfile ? ui.tutorial.saving : ui.tutorial.startJourney}
                         </Button>
