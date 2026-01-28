@@ -1016,7 +1016,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] pb-24">
       <div className="sticky top-0 z-40">
         <div className="relative">
-          <div className="absolute inset-x-0 top-0 h-[56px] bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[#3A3A3A]/5" />
+          <div className="absolute inset-x-0 top-0 h-[56px] bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]" />
           <div className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 h-[56px] flex items-center justify-between">
             <div className="h-9 w-9" />
             <div className="text-center flex-1 leading-tight">
@@ -1030,7 +1030,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             </div>
           </div>
         </div>
-        <div className="h-3 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)]" />
+        <div className="h-3 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)]" />
       </div>
 
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 space-y-6">
@@ -1091,7 +1091,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                           </p>
                           <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#EBE7DF] to-transparent" />
                         </div>
-                        <div className="relative flex items-center justify-center text-[#3A3A3A]/40 mt-auto">
+                        <div className="relative flex items-center justify-center text-[#3A3A3A]/40 mt-auto h-8">
                           <button
                             type="button"
                             disabled={isLoading || !url}
@@ -1100,7 +1100,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                               if (!url) return
                               startPlayFromWorld(headline)
                             }}
-                            className="flex items-center gap-2 bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-2 rounded-full shadow-sm transition-all text-sm font-semibold disabled:opacity-50"
+                            className="flex items-center gap-2 bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-[2px] rounded-full shadow-sm transition-all text-[12px] font-semibold disabled:opacity-50"
                           >
                             {ui.readNow}
                           </button>

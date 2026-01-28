@@ -50,7 +50,7 @@ export default function NavFooter({ showOnGame = false, labels }: NavFooterProps
     if (isGame && !showOnGame) return null
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-[56px] bg-[#FAF7F2]/95 backdrop-blur-md border-t border-[#3A3A3A]/5 flex items-center justify-around px-6 z-50">
+        <nav className="fixed bottom-0 left-0 right-0 h-[56px] bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-md border-t border-[rgb(var(--vocado-divider-rgb)/0.2)] flex items-center justify-around px-6 z-50">
             <NavTab
                 icon={Star}
                 label={effectiveLabels.home ?? "Home"}

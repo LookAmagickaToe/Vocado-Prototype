@@ -239,14 +239,6 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     setSeedsValue(Math.max(profile.seeds ?? 0, storedSeeds))
   }, [profile.seeds])
 
-  useEffect(() => {
-    if (!searchParams) return
-    const bucket = searchParams.get("bucket") as SRSBucket | null
-    if (bucket === "hard" || bucket === "new" || bucket === "medium" || bucket === "easy") {
-      handleBucketClick(bucket)
-    }
-  }, [searchParams, allPairs])
-
   const allPairs = useMemo(() => {
     const entries: ReviewEntry[] = []
     const seen = new Map<string, ReviewEntry>()
@@ -285,6 +277,14 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     seen.forEach((entry) => entries.push(entry))
     return entries
   }, [worlds])
+
+  useEffect(() => {
+    if (!searchParams) return
+    const bucket = searchParams.get("bucket") as SRSBucket | null
+    if (bucket === "hard" || bucket === "new" || bucket === "medium" || bucket === "easy") {
+      handleBucketClick(bucket)
+    }
+  }, [searchParams, allPairs])
 
   const entryByPair = useMemo(() => {
     return new Map(allPairs.map((entry) => [entry.pair, entry]))
@@ -525,7 +525,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   return (
     <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-      <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
+      <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)] h-[56px] flex items-center justify-between px-5">
         {reviewQueue.length > 0 || memoryWorld ? (
           <button
             type="button"

@@ -246,7 +246,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
 
     return (
         <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-            <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center px-5">
+            <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)] h-[56px] flex items-center px-5">
                 <div className="h-5 w-5" />
                 <h1 className="flex-1 text-center text-[18px] font-semibold text-[#3A3A3A]">
                     Profil

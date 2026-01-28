@@ -3119,7 +3119,7 @@ export default function AppClient({
       <div className="mx-auto w-full max-w-6xl">
         <div className="grid grid-cols-12 gap-4 items-start">
           {/* STICKY HEADER */}
-          <div className="col-span-12 sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm h-[56px] flex items-center">
+          <div className="col-span-12 sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm h-[56px] flex items-center border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]">
             <div className="flex items-center justify-between gap-2 md:hidden w-full">
               <div className="text-center flex-1 min-w-0">
                 <button

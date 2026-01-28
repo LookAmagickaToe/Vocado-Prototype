@@ -1387,7 +1387,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     if (activeTab === "Friends") {
         return (
             <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden`}>
-                <header className="px-5 h-[56px] flex items-center justify-between sticky top-0 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
+                <header className="px-5 h-[56px] flex items-center justify-between sticky top-0 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]">
                     <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.leaderboardTitle}</h1>
                     <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">{seeds} 🌱</span>
                 </header>
@@ -1423,7 +1423,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden selection:bg-[#E3EBC5] selection:text-[#2C3E30]`}>
 
             {/* --- HEADER --- */}
-            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm z-40">
+            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]">
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
                     <h1 className="text-[20px] font-semibold tracking-tight text-[#3A3A3A]">
