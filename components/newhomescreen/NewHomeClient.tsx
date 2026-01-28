@@ -344,7 +344,12 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         newsCategory: profile.newsCategory,
         onboardingDone: profile.onboardingDone,
     })
-    const [showTutorial, setShowTutorial] = useState(!profile.onboardingDone)
+    const [showTutorial, setShowTutorial] = useState(() => {
+        if (typeof window !== "undefined") {
+            return !profile.onboardingDone && !window.localStorage.getItem("vocado-onboarding-done")
+        }
+        return !profile.onboardingDone
+    })
     const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome")
     const [savingProfile, setSavingProfile] = useState(false)
     const [profileError, setProfileError] = useState<string | null>(null)
@@ -437,6 +442,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             overlay: uiSettings?.overlay ?? {},
             tutorial: uiSettings?.tutorial ?? {},
             news: uiSettings?.news ?? {},
+            allDone: uiSettings?.home?.allDone ?? "All Done! 🎉",
         }),
         [uiSettings]
     )
@@ -521,108 +527,66 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     )
     const unlistedListName = overlayLabels.listUnlisted?.trim() || "Without List"
 
-    useEffect(() => {
-        const loadAvatar = async () => {
-            const userRes = await supabase.auth.getUser()
-            const metadata = userRes.data.user?.user_metadata as Record<string, unknown> | undefined
-            const googleAvatar =
-                (typeof metadata?.avatar_url === "string" && metadata.avatar_url) ||
-                (typeof metadata?.picture === "string" && metadata.picture) ||
-                ""
-            if (typeof window !== "undefined") {
-                const raw = window.localStorage.getItem("vocado-profile-settings")
-                if (raw) {
-                    try {
-                        const parsed = JSON.parse(raw)
-                        if (typeof parsed?.avatarUrl === "string" && parsed.avatarUrl) {
-                            setAvatarUrl(parsed.avatarUrl)
-                            return
-                        }
-                        if (parsed && (parsed.sourceLanguage || parsed.targetLanguage || parsed.level || parsed.newsCategory)) {
-                            setProfileSettings((prev) => ({
-                                ...prev,
-                                sourceLanguage: parsed.sourceLanguage ?? prev.sourceLanguage,
-                                targetLanguage: parsed.targetLanguage ?? prev.targetLanguage,
-                                level: parsed.level ?? prev.level,
-                                newsCategory: parsed.newsCategory ?? prev.newsCategory,
-                            }))
-                        }
-                    } catch {
-                        // ignore
-                    }
-                }
-            }
-            if (profile.avatarUrl) {
-                setAvatarUrl(profile.avatarUrl)
-                return
-            }
-            if (googleAvatar) {
-                setAvatarUrl(googleAvatar)
-                return
-            }
-            try {
-                const response = await fetch("/profilepictures/index.json", { cache: "no-store" })
-                if (response.ok) {
-                    const data = await response.json()
-                    if (Array.isArray(data) && data.length > 0) {
-                        const fallback = data[Math.floor(Math.random() * data.length)] || FALLBACK_AVATAR
-                        setAvatarUrl(fallback)
-                        return
-                    }
-                }
-            } catch {
-                // ignore
-            }
-            setAvatarUrl(FALLBACK_AVATAR)
-        }
-        loadAvatar()
-    }, [])
+
 
     useEffect(() => {
-        const loadProfile = async () => {
+        const initProfile = async () => {
+            // 1. Get User Metadata
             const userRes = await supabase.auth.getUser()
             const userId = userRes.data.user?.id
-            if (!userId) return
-            const baseSelect = "level,source_language,target_language,news_category,seeds,username"
-            const withAvatar = await supabase
-                .from("profiles")
-                .select(`${baseSelect},avatar_url`)
-                .eq("id", userId)
-                .maybeSingle()
-            let row = withAvatar.data
-            if (withAvatar.error && typeof withAvatar.error.message === "string" && withAvatar.error.message.includes("avatar_url")) {
-                const fallback = await supabase
+            const metadata = userRes.data.user?.user_metadata as Record<string, unknown> | undefined
+
+            // 2. Fetch DB Profile
+            let dbRow: any = null
+            if (userId) {
+                const baseSelect = "level,source_language,target_language,news_category,seeds,username"
+                const withAvatar = await supabase
                     .from("profiles")
-                    .select(baseSelect)
+                    .select(`${baseSelect},avatar_url`)
                     .eq("id", userId)
                     .maybeSingle()
-                row = fallback.data as any
+
+                dbRow = withAvatar.data
+                if (withAvatar.error?.message?.includes("avatar_url")) {
+                    const fallback = await supabase.from("profiles").select(baseSelect).eq("id", userId).maybeSingle()
+                    dbRow = fallback.data
+                }
             }
-            if (!row) return
-            if (typeof row.seeds === "number") {
-                setSeeds(row.seeds)
+
+            // 3. Read LocalStorage (prioritized settings)
+            let localSettings: any = null
+            if (typeof window !== "undefined") {
+                try {
+                    const raw = window.localStorage.getItem("vocado-profile-settings")
+                    if (raw) localSettings = JSON.parse(raw)
+                } catch { }
             }
+
+            // 4. Update Seeds (Server wins for seeds typically, but we sync)
+            if (dbRow?.seeds && typeof dbRow.seeds === "number") {
+                setSeeds(dbRow.seeds)
+            }
+
+            // 5. Merge Settings (Local > DB > Prev)
             setProfileSettings((prev) => ({
                 ...prev,
-                level: row.level ?? prev.level,
-                sourceLanguage: row.source_language ?? prev.sourceLanguage,
-                targetLanguage: row.target_language ?? prev.targetLanguage,
-                newsCategory: row.news_category ?? prev.newsCategory,
+                level: localSettings?.level || dbRow?.level || prev.level,
+                sourceLanguage: localSettings?.sourceLanguage || dbRow?.source_language || prev.sourceLanguage,
+                targetLanguage: localSettings?.targetLanguage || dbRow?.target_language || prev.targetLanguage,
+                newsCategory: localSettings?.newsCategory || dbRow?.news_category || prev.newsCategory,
             }))
-            if (row.avatar_url) {
-                setAvatarUrl(row.avatar_url)
-                return
-            }
-            const metadata = userRes.data.user?.user_metadata as Record<string, unknown> | undefined
+
+            // 6. Handle Avatar (Local > DB > Google > Fallback)
             const googleAvatar =
                 (typeof metadata?.avatar_url === "string" && metadata.avatar_url) ||
                 (typeof metadata?.picture === "string" && metadata.picture) ||
                 ""
-            if (googleAvatar) {
-                setAvatarUrl(googleAvatar)
-            }
+
+            const finalAvatar = localSettings?.avatarUrl || dbRow?.avatar_url || googleAvatar || FALLBACK_AVATAR
+            setAvatarUrl(finalAvatar)
         }
-        loadProfile()
+
+        initProfile()
     }, [])
 
     useEffect(() => {
@@ -1186,6 +1150,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             // Update local state
             setProfileSettings(prev => ({ ...prev, ...nextProfile }))
             setAvatarUrl(data.avatarUrl)
+
+            // Persist locally
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem("vocado-onboarding-done", "true")
+            }
 
             // Advance tutorial
             setTutorialStep("tour_intro")
@@ -2069,7 +2038,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             <div className="flex items-center gap-2.5">
                                 <div>
                                     <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">
-                                        {reviewStats.count > 0 ? ui.reviewTitle : "All Done! 🎉"}
+                                        {reviewStats.count > 0 ? ui.reviewTitle : ui.allDone}
                                     </div>
                                     <div className="text-[10px] text-[#3A3A3A]/50">
                                         {formatTemplate(ui.reviewSubtitle, { count: String(reviewStats.count) })}

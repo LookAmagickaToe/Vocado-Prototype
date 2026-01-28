@@ -186,7 +186,8 @@
       "reviewSubtitle": "{count} palabras para repasar",
       "logout": "Cerrar sesión",
       "leaderboardWeekly": "Semanal",
-      "leaderboardOverall": "General"
+      "leaderboardOverall": "General",
+      "allDone": "¡Todo listo! 🎉"
     },
     "profile": {
       "save": "Guardar",
@@ -545,7 +546,8 @@
       "reviewSubtitle": "{count} words to review",
       "logout": "Log out",
       "leaderboardWeekly": "Weekly",
-      "leaderboardOverall": "Overall"
+      "leaderboardOverall": "Overall",
+      "allDone": "All Done! 🎉"
     },
     "profile": {
       "save": "Save",
@@ -904,7 +906,8 @@
       "reviewSubtitle": "{count} Wörter zum Wiederholen",
       "logout": "Abmelden",
       "leaderboardWeekly": "Wöchentlich",
-      "leaderboardOverall": "Gesamt"
+      "leaderboardOverall": "Gesamt",
+      "allDone": "Alles erledigt! 🎉"
     },
     "profile": {
       "save": "Speichern",
@@ -1263,7 +1266,8 @@
       "reviewSubtitle": "{count} mots à réviser",
       "logout": "Se déconnecter",
       "leaderboardWeekly": "Hebdomadaire",
-      "leaderboardOverall": "Global"
+      "leaderboardOverall": "Global",
+      "allDone": "Tout est fini ! 🎉"
     },
     "profile": {
       "save": "Enregistrer",
@@ -1622,7 +1626,8 @@
       "reviewSubtitle": "{count} palavras para revisar",
       "logout": "Sair",
       "leaderboardWeekly": "Semanal",
-      "leaderboardOverall": "Geral"
+      "leaderboardOverall": "Geral",
+      "allDone": "Tudo pronto! 🎉"
     },
     "profile": {
       "save": "Salvar",

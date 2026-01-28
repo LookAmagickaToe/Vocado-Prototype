@@ -473,7 +473,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const awardReviewSeed = (earned: number, setEarned: React.Dispatch<React.SetStateAction<number>>) => {
     if (typeof window === "undefined") return
-    if (earned >= 15) return
+    // if (earned >= 15) return // Limit removed per request
     const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     const currentSeeds = Math.max(storedSeeds, profile.seeds ?? 0)
     const nextSeeds = currentSeeds + 1
@@ -538,12 +538,12 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       setActiveReviewLabel(null)
       setReviewIndex(0)
       setShowBack(false)
-      void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => {})
+      void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => { })
       return
     }
     setReviewIndex(nextIndex)
     setShowBack(false)
-    void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => {})
+    void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => { })
   }
 
   return (
@@ -594,7 +594,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             key={memoryWorld.id}
             world={memoryWorld}
             levelIndex={0}
-            onWin={() => {}}
+            onWin={() => { }}
             onNextLevel={() => {
               if (!memoryEntries.length) {
                 setMemoryWorld(null)
@@ -635,7 +635,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 const nextAssigned = new Set(memoryAssigned)
                 nextAssigned.add(carouselItem.id)
                 setMemoryAssigned(nextAssigned)
-                void persistWorldByMeta(updatedWorld, entry.listId, entry.position).catch(() => {})
+                void persistWorldByMeta(updatedWorld, entry.listId, entry.position).catch(() => { })
                 if (matchedOrder.length > 1) {
                   let nextIndex = carouselIndex
                   for (let i = 1; i <= matchedOrder.length; i += 1) {

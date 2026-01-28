@@ -233,6 +233,41 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [isAddingSelection, setIsAddingSelection] = useState(false)
 
   useEffect(() => {
+    const loadProfile = async () => {
+      const userRes = await supabase.auth.getUser()
+      const userId = userRes.data.user?.id
+      if (!userId) return
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("seeds, level, source_language, target_language, news_category")
+        .eq("id", userId)
+        .maybeSingle()
+
+      if (data) {
+        if (typeof data.seeds === "number") {
+          setSeeds(data.seeds)
+          // Also update local storage to keep it overlapping
+          if (typeof window !== "undefined") {
+            const current = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0")
+            if (data.seeds > current) {
+              window.localStorage.setItem(SEEDS_STORAGE_KEY, String(data.seeds))
+            }
+          }
+        }
+        setProfileState((prev) => ({
+          ...prev,
+          level: data.level ?? prev.level,
+          sourceLanguage: data.source_language ?? prev.sourceLanguage,
+          targetLanguage: data.target_language ?? prev.targetLanguage,
+          newsCategory: data.news_category ?? prev.newsCategory,
+        }))
+      }
+    }
+    loadProfile()
+  }, [])
+
+  useEffect(() => {
     if (typeof window === "undefined") return
     try {
       const raw = window.localStorage.getItem(READ_NEWS_STORAGE_KEY)
@@ -318,15 +353,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const newsCacheKey = useMemo(() => {
     const levelKey = profileState.level || "A2"
-    return [
-      LOCAL_NEWS_CACHE_PREFIX,
-      todayKey,
-      category,
-      sourceLabel || "src",
-      targetLabel || "tgt",
-      levelKey,
-    ].join(":")
-  }, [category, profileState.level, sourceLabel, targetLabel, todayKey])
+    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}`
+    return `vocado-news-cache:${sessionKey}`
+  }, [category, profileState.level, sourceLabel, targetLabel])
 
   const loadLocalNewsCache = () => {
     if (typeof window === "undefined") return null
@@ -336,10 +365,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const parsed = JSON.parse(raw)
       const worlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
       if (!worlds.length) return null
-      const loginStamp = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0")
-      if (loginStamp && parsed?.lastLogin && parsed.lastLogin !== loginStamp) {
-        return null
-      }
+      // We trust the Home cache if it exists, assuming Home logic validates its freshness
       return worlds as VocabWorld[]
     } catch {
       return null
@@ -349,12 +375,10 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const saveLocalNewsCache = (worlds: VocabWorld[]) => {
     if (typeof window === "undefined") return
     try {
-      const loginStamp = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()
       window.localStorage.setItem(
         newsCacheKey,
         JSON.stringify({
-          lastLogin: loginStamp,
-          date: todayKey,
+          updatedAt: Date.now(),
           worlds,
         })
       )
@@ -1235,7 +1259,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const localCached = loadLocalNewsCache()
       if (localCached) {
         const next = localCached.map((w) => (w.id === world.id ? updatedWorld : w))
-        saveLocalNewsCache(category, next)
+        saveLocalNewsCache(next)
       }
 
       // Update newsWorlds state
@@ -1421,7 +1445,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
 
                                   // Background save (no await)
-                                  saveNewsWorld(worldToSave).catch(console.error)
+                                  saveNewsWorld(worldToSave)
                                   /*
                                   try {
                                     await saveNewsWorld(worldToSave)

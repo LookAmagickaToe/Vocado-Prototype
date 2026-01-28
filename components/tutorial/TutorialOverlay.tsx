@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Check, ArrowRight, BookOpen, PartyPopper, Gamepad2, Plus, Newspaper, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { getUiSettings } from "@/lib/ui-settings"
 
 export type TutorialStep =
     | "welcome"
@@ -29,7 +30,7 @@ interface TutorialOverlayProps {
     initialAvatar?: string
     savingProfile?: boolean
     profileError?: string | null
-    ui: any
+    ui?: any // Optional now as we derive it
 }
 
 const AVATARS = [
@@ -51,6 +52,62 @@ const AVATARS = [
     "/profilepictures/vocado_bodybuilder.png"
 ]
 
+// Common wrapper for modal style content
+const ModalWrapper = ({ children, title, subtitle, onTerminate }: { children: React.ReactNode, title: string, subtitle?: string, onTerminate: () => void }) => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative w-full max-w-lg rounded-3xl border border-[rgb(var(--vocado-divider-rgb)/0.2)] bg-[#F6F2EB] p-8 shadow-2xl text-[#3A3A3A] overflow-hidden"
+        >
+            <div className="absolute top-6 right-6">
+                <button onClick={onTerminate} className="text-neutral-400 hover:text-neutral-600 transition-colors">
+                    <X size={20} />
+                </button>
+            </div>
+
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold tracking-tight text-[#3A3A3A] mb-2">
+                    {title}
+                </h2>
+                {subtitle && (
+                    <p className="text-[#3A3A3A]/60 text-base leading-relaxed">
+                        {subtitle}
+                    </p>
+                )}
+            </div>
+
+            {children}
+        </motion.div>
+    </div>
+)
+
+// Floating tooltip style for "in-app" guidance steps
+const TooltipWrapper = ({ children, position = "center", onTerminate }: { children: React.ReactNode, position?: "center" | "bottom-right" | "top-right", onTerminate: () => void }) => {
+    const posClass = position === "center" ? "items-center justify-center" :
+        position === "bottom-right" ? "items-end justify-end pb-12 pr-12" : "items-start justify-end pt-24 pr-12"
+
+    return (
+        <div className={`fixed inset-0 z-[90] pointer-events-none flex ${posClass} p-6`}>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="pointer-events-auto max-w-md rounded-2xl border border-[rgb(var(--vocado-accent-rgb)/0.3)] bg-white/90 p-5 shadow-2xl backdrop-blur text-[#3A3A3A]"
+            >
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                        {children}
+                    </div>
+                    <button onClick={onTerminate} className="ml-4 text-neutral-400 hover:text-neutral-600">
+                        <X size={16} />
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    )
+}
+
 export default function TutorialOverlay({
     step,
     onNext,
@@ -64,7 +121,7 @@ export default function TutorialOverlay({
     initialAvatar,
     savingProfile,
     profileError,
-    ui,
+    ui: parentUi, // Removed fallback usage to ensure dynamic updates
 }: TutorialOverlayProps) {
     const [source, setSource] = useState(initialSource || "Español")
     const [target, setTarget] = useState(initialTarget || "English")
@@ -72,6 +129,9 @@ export default function TutorialOverlay({
     const [news, setNews] = useState(initialNews || "world")
     const [name, setName] = useState(initialName || "")
     const [avatarUrl, setAvatarUrl] = useState(initialAvatar || AVATARS[0])
+
+    const uiSettings = useMemo(() => getUiSettings(source), [source])
+    const tutorialUi = uiSettings.tutorial
 
     // Sync state if props change (e.g. from existing profile)
     useEffect(() => {
@@ -87,70 +147,14 @@ export default function TutorialOverlay({
         onSaveProfile({ source, target, level, news, name, avatarUrl })
     }
 
-    // Common wrapper for modal style content
-    const ModalWrapper = ({ children, title, subtitle }: { children: React.ReactNode, title: string, subtitle?: string }) => (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="relative w-full max-w-lg rounded-3xl border border-[rgb(var(--vocado-divider-rgb)/0.2)] bg-[#F6F2EB] p-8 shadow-2xl text-[#3A3A3A] overflow-hidden"
-            >
-                <div className="absolute top-6 right-6">
-                    <button onClick={onTerminate} className="text-neutral-400 hover:text-neutral-600 transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className="mb-8">
-                    <h2 className="text-3xl font-bold tracking-tight text-[#3A3A3A] mb-2">
-                        {title}
-                    </h2>
-                    {subtitle && (
-                        <p className="text-[#3A3A3A]/60 text-base leading-relaxed">
-                            {subtitle}
-                        </p>
-                    )}
-                </div>
-
-                {children}
-            </motion.div>
-        </div>
-    )
-
-    // Floating tooltip style for "in-app" guidance steps
-    const TooltipWrapper = ({ children, position = "center" }: { children: React.ReactNode, position?: "center" | "bottom-right" | "top-right" }) => {
-        const posClass = position === "center" ? "items-center justify-center" :
-            position === "bottom-right" ? "items-end justify-end pb-12 pr-12" : "items-start justify-end pt-24 pr-12"
-
-        return (
-            <div className={`fixed inset-0 z-[90] pointer-events-none flex ${posClass} p-6`}>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="pointer-events-auto max-w-md rounded-2xl border border-[rgb(var(--vocado-accent-rgb)/0.3)] bg-white/90 p-5 shadow-2xl backdrop-blur text-[#3A3A3A]"
-                >
-                    <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                            {children}
-                        </div>
-                        <button onClick={onTerminate} className="ml-4 text-neutral-400 hover:text-neutral-600">
-                            <X size={16} />
-                        </button>
-                    </div>
-                </motion.div>
-            </div>
-        )
-    }
-
     if (step === "welcome") {
         return (
-            <ModalWrapper title={ui.tutorial.welcomeTitle} subtitle={ui.tutorial.welcomeSubtitle}>
+            <ModalWrapper title={tutorialUi.welcomeTitle} subtitle={tutorialUi.welcomeSubtitle} onTerminate={onTerminate}>
                 <div className="space-y-6">
                     {/* Avatar Picker */}
                     <div>
-                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-3 block">
-                            {ui.tutorial.avatarLabel}
+                        <label className="text-xs font-bold text-[#3A3A3A] uppercase tracking-widest mb-3 block">
+                            {tutorialUi.avatarLabel}
                         </label>
                         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                             {AVATARS.map((url) => (
@@ -175,21 +179,21 @@ export default function TutorialOverlay({
 
                     {/* Name Input */}
                     <div>
-                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">
-                            {ui.tutorial.nameLabel}
+                        <label className="text-xs font-bold text-[#3A3A3A] uppercase tracking-widest mb-2 block">
+                            {tutorialUi.nameLabel}
                         </label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder={ui.tutorial.namePlaceholder}
+                            placeholder={tutorialUi.namePlaceholder}
                             className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5] transition-all"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.sourceLabel}</label>
+                            <label className="text-xs font-bold text-[#3A3A3A] uppercase tracking-widest mb-2 block">{tutorialUi.sourceLabel}</label>
                             <select
                                 value={source}
                                 onChange={(e) => setSource(e.target.value)}
@@ -199,7 +203,7 @@ export default function TutorialOverlay({
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.targetLabel}</label>
+                            <label className="text-xs font-bold text-[#3A3A3A] uppercase tracking-widest mb-2 block">{tutorialUi.targetLabel}</label>
                             <select
                                 value={target}
                                 onChange={(e) => setTarget(e.target.value)}
@@ -211,7 +215,7 @@ export default function TutorialOverlay({
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.levelLabel}</label>
+                        <label className="text-xs font-bold text-[#3A3A3A] uppercase tracking-widest mb-2 block">{tutorialUi.levelLabel}</label>
                         <div className="grid grid-cols-6 gap-2">
                             {["A1", "A2", "B1", "B2", "C1", "C2"].map((lvl) => (
                                 <button
@@ -228,19 +232,6 @@ export default function TutorialOverlay({
                         </div>
                     </div>
 
-                    <div>
-                        <label className="text-xs font-bold text-[#3A3A3A]/40 uppercase tracking-widest mb-2 block">{ui.tutorial.newsLabel}</label>
-                        <select
-                            value={news}
-                            onChange={(e) => setNews(e.target.value)}
-                            className="w-full rounded-2xl bg-white border border-[rgb(var(--vocado-divider-rgb)/0.2)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb))/0.5]"
-                        >
-                            <option value="world">{ui.news.categoryOptions.world}</option>
-                            <option value="wirtschaft">{ui.news.categoryOptions.wirtschaft}</option>
-                            <option value="sport">{ui.news.categoryOptions.sport}</option>
-                        </select>
-                    </div>
-
                     {profileError && (
                         <p className="text-red-500 text-sm font-medium">{profileError}</p>
                     )}
@@ -251,7 +242,7 @@ export default function TutorialOverlay({
                             disabled={savingProfile || !name.trim()}
                             className="w-full bg-[rgb(var(--vocado-accent-rgb))] text-white hover:opacity-90 font-bold rounded-2xl py-6 text-lg shadow-lg shadow-[rgb(var(--vocado-accent-rgb))/0.2] disabled:opacity-50"
                         >
-                            {savingProfile ? ui.tutorial.saving : ui.tutorial.startJourney}
+                            {savingProfile ? tutorialUi.saving : tutorialUi.startJourney}
                         </Button>
                     </div>
                 </div>
@@ -261,7 +252,7 @@ export default function TutorialOverlay({
 
     if (step === "tour_intro") {
         return (
-            <ModalWrapper title="Welcome Aboard! 🚀" subtitle="Vocado is not just a flashcard app. It's an immersive world-based learning experience.">
+            <ModalWrapper title={tutorialUi.tourTitle} subtitle={tutorialUi.tourSubtitle} onTerminate={onTerminate}>
                 <div className="space-y-6">
                     <div className="space-y-4 text-sm text-neutral-300">
                         <div className="flex gap-3">
@@ -269,8 +260,8 @@ export default function TutorialOverlay({
                                 <Gamepad2 size={20} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-neutral-100">Worlds</h3>
-                                <p className="text-neutral-400">Your vocabulary sets are "Worlds". Each world is a memory game that helps you master words through play.</p>
+                                <h3 className="font-semibold text-neutral-100">{tutorialUi.tourWorldsTitle}</h3>
+                                <p className="text-neutral-400">{tutorialUi.tourWorldsDesc}</p>
                             </div>
                         </div>
 
@@ -279,8 +270,8 @@ export default function TutorialOverlay({
                                 <Newspaper size={20} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-neutral-100">Smart Content</h3>
-                                <p className="text-neutral-400">Generate worlds from daily news, themes, or your own files using AI.</p>
+                                <h3 className="font-semibold text-neutral-100">{tutorialUi.tourSmartTitle}</h3>
+                                <p className="text-neutral-400">{tutorialUi.tourSmartDesc}</p>
                             </div>
                         </div>
                     </div>
@@ -290,7 +281,7 @@ export default function TutorialOverlay({
                             onClick={onNext}
                             className="bg-neutral-100 text-neutral-900 hover:bg-white font-semibold rounded-xl px-6 flex items-center gap-2"
                         >
-                            Let's Play <ArrowRight size={16} />
+                            {tutorialUi.letsPlay} <ArrowRight size={16} />
                         </Button>
                     </div>
                 </div>
@@ -301,9 +292,9 @@ export default function TutorialOverlay({
     // Steps that are overlaying the actual app
     if (step === "play_intro") {
         return (
-            <TooltipWrapper position="center">
-                <h3 className="text-lg font-bold text-green-400 mb-2">{ui.tutorial.playIntroTitle}</h3>
-                <p className="text-sm text-neutral-300 mb-4" dangerouslySetInnerHTML={{ __html: ui.tutorial.playIntroDesc.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+            <TooltipWrapper position="center" onTerminate={onTerminate}>
+                <h3 className="text-lg font-bold text-green-400 mb-2">{tutorialUi.playIntroTitle}</h3>
+                <p className="text-sm text-neutral-300 mb-4" dangerouslySetInnerHTML={{ __html: tutorialUi.playIntroDesc.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                 <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
                     <div className="h-full bg-green-500 w-1/4 animate-pulse" />
                 </div>
@@ -313,10 +304,10 @@ export default function TutorialOverlay({
 
     if (step === "playing_game") {
         return (
-            <TooltipWrapper position="bottom-right">
-                <h3 className="text-lg font-bold text-blue-400 mb-2">{ui.tutorial.playingTitle}</h3>
+            <TooltipWrapper position="bottom-right" onTerminate={onTerminate}>
+                <h3 className="text-lg font-bold text-blue-400 mb-2">{tutorialUi.playingTitle}</h3>
                 <p className="text-sm text-neutral-300">
-                    {ui.tutorial.playingDesc}
+                    {tutorialUi.playingDesc}
                 </p>
             </TooltipWrapper>
         )
@@ -324,24 +315,24 @@ export default function TutorialOverlay({
 
     if (step === "post_game") {
         return (
-            <ModalWrapper title={ui.tutorial.postGameTitle} subtitle={ui.tutorial.postGameSubtitle}>
+            <ModalWrapper title={tutorialUi.postGameTitle} subtitle={tutorialUi.postGameSubtitle} onTerminate={onTerminate}>
                 <div className="space-y-6">
                     <p className="text-neutral-300">
-                        {ui.tutorial.postGameDesc}
+                        {tutorialUi.postGameDesc}
                     </p>
 
                     <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-800">
                         <h4 className="font-medium text-neutral-200 mb-2 flex items-center gap-2">
-                            <Plus size={16} className="text-green-400" /> {ui.tutorial.createTitle}
+                            <Plus size={16} className="text-green-400" /> {tutorialUi.createTitle}
                         </h4>
                         <p className="text-xs text-neutral-400 whitespace-pre-line">
-                            {ui.tutorial.createExamples}
+                            {tutorialUi.createExamples}
                         </p>
                     </div>
 
                     <div className="flex justify-end">
                         <Button onClick={onNext} className="bg-neutral-100 text-neutral-900 hover:bg-white rounded-xl">
-                            {ui.tutorial.tryCreating}
+                            {tutorialUi.tryCreating}
                         </Button>
                     </div>
                 </div>
@@ -351,9 +342,9 @@ export default function TutorialOverlay({
 
     if (step === "create_instruction") {
         return (
-            <TooltipWrapper position="top-right">
-                <h3 className="font-semibold text-neutral-100 mb-1">{ui.tutorial.createInstructionTitle}</h3>
-                <p className="text-sm text-neutral-400" dangerouslySetInnerHTML={{ __html: ui.tutorial.createInstructionDesc }} />
+            <TooltipWrapper position="top-right" onTerminate={onTerminate}>
+                <h3 className="font-semibold text-neutral-100 mb-1">{tutorialUi.createInstructionTitle}</h3>
+                <p className="text-sm text-neutral-400" dangerouslySetInnerHTML={{ __html: tutorialUi.createInstructionDesc }} />
             </TooltipWrapper>
         )
     }
@@ -365,7 +356,7 @@ export default function TutorialOverlay({
 
     if (step === "final") {
         return (
-            <ModalWrapper title={ui.tutorial.finalTitle} subtitle={ui.tutorial.finalSubtitle}>
+            <ModalWrapper title={tutorialUi.finalTitle} subtitle={tutorialUi.finalSubtitle} onTerminate={onTerminate}>
                 <div className="text-center space-y-6 py-4">
                     <div className="mx-auto w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 mb-4">
                         <PartyPopper size={40} />
@@ -374,24 +365,24 @@ export default function TutorialOverlay({
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-3 bg-neutral-900/50 rounded-xl">
                             <div className="text-xl font-bold text-neutral-100">50</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.pointsAwarded}</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{tutorialUi.pointsAwarded}</div>
                         </div>
                         <div className="p-3 bg-neutral-900/50 rounded-xl opacity-50">
                             <div className="text-xl font-bold text-neutral-100">Daily</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.dailyChallenge}</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{tutorialUi.dailyChallenge}</div>
                         </div>
                         <div className="p-3 bg-neutral-900/50 rounded-xl opacity-50">
                             <div className="text-xl font-bold text-neutral-100">News</div>
-                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{ui.tutorial.newsReader}</div>
+                            <div className="text-[10px] uppercase font-bold text-neutral-500 mt-1">{tutorialUi.newsReader}</div>
                         </div>
                     </div>
 
                     <p className="text-lg text-neutral-200">
-                        {ui.tutorial.finalDesc}
+                        {tutorialUi.finalDesc}
                     </p>
 
                     <Button size="lg" onClick={onNext} className="w-full bg-green-600 hover:bg-green-500 text-white rounded-xl text-lg font-semibold h-12">
-                        {ui.tutorial.finish}
+                        {tutorialUi.finish}
                     </Button>
                 </div>
             </ModalWrapper>
