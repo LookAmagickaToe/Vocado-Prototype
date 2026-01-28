@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, MoreHorizontal } from "lucide-react"
+import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, MoreHorizontal, Trash2 } from "lucide-react"
 import NavFooter from "@/components/ui/NavFooter"
 import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
@@ -409,9 +409,33 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
         }
     }
 
+    const clearListWorlds = async (listId: string) => {
+        const list = cachedLists.find((item) => item.id === listId)
+        const worldIds = list?.worldIds ?? []
+        if (!worldIds.length) return
+        const confirmDelete = window.confirm("Delete all news worlds?")
+        if (!confirmDelete) return
+        setCachedWorlds((prev) => prev.filter((world) => !worldIds.includes(world.id)))
+        setCachedLists((prev) =>
+            prev.map((item) => (item.id === listId ? { ...item, worldIds: [] } : item))
+        )
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            await fetch("/api/storage/worlds/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ worldIds }),
+            })
+        } catch {
+            // ignore delete errors
+        }
+    }
+
     return (
         <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-            <div className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
+            <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
                 <div className="h-5 w-5" />
                 <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.title}</h1>
                 <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">
@@ -485,10 +509,21 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                     filteredLists.map(list => (
                         <div key={list.id} className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/5 shadow-sm overflow-hidden">
                             {/* List Header */}
-                            <button
+                            <div
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => handleListClick(list.id)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") handleListClick(list.id)
+                                }}
                                 className="w-full flex items-center gap-4 p-4 text-left hover:bg-[#F6F2EB] transition-colors"
                             >
+                                {(() => {
+                                    const isNewsList =
+                                        list.name === "Vocado Diario" ||
+                                        list.worldIds.some((id) => Boolean(worldMap.get(id)?.news))
+                                    return (
+                                        <>
                                 <div className="w-10 h-10 rounded-xl bg-[#E3EBC5]/40 flex items-center justify-center">
                                     {expandedListId === list.id ? (
                                         <ChevronDown className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
@@ -502,7 +537,22 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                         {formatTemplate(ui.listWorldCount, { count: String(list.worldIds.length) })}
                                     </div>
                                 </div>
-                            </button>
+                                {isNewsList && expandedListId === list.id && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            clearListWorlds(list.id)
+                                        }}
+                                        className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A]"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                                        </>
+                                    )
+                                })()}
+                            </div>
 
                             {/* Expanded Worlds inside List */}
                             <AnimatePresence>

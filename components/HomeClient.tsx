@@ -880,22 +880,6 @@ export default function HomeClient({ profile }: { profile: ProfileSettings }) {
       }
       if (!dailyUploadDone) {
         setDailyUploadDone(true)
-        const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-        const nextSeeds = currentSeeds + 10
-        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
-        setSeeds(nextSeeds)
-        const weekStart = getWeekStartIso()
-        const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-        const weeklyValue = Number(rawWeekly || "0") || 0
-        const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
-        if (storedSeedsWeekStart !== weekStart) {
-          window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
-          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
-        }
-        const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
-        let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
-        weeklySeeds += 10
-        syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart || new Date().toISOString())
       }
       setTranslateInput("")
       setTranslateResult(null)

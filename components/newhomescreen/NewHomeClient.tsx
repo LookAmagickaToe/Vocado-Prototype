@@ -1,6 +1,6 @@
 "use client"
 
-import { Leaf, Camera, ChevronLeft, ChevronRight, Check, Briefcase, User, BookOpen, Star, MoreHorizontal, Users, Trophy, Play, Plus, FileText } from "lucide-react"
+import { Leaf, Camera, ChevronLeft, ChevronRight, Check, Briefcase, User, BookOpen, Star, MoreHorizontal, Users, Trophy, Play, Plus, FileText, BookmarkPlus } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -317,6 +317,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
     // Logic States
     const [newsItems, setNewsItems] = useState<Array<{ title: string, teaser?: string }>>([])
+    const [newsWorlds, setNewsWorlds] = useState<VocabWorld[]>([])
     const [currentNewsIndex, setCurrentNewsIndex] = useState(0)
     const [isNewsLoading, setIsNewsLoading] = useState(true)
     const [inputText, setInputText] = useState("")
@@ -342,11 +343,21 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [storedLists, setStoredLists] = useState<Array<{ id: string; name: string }>>([])
     const [worldMetaMap, setWorldMetaMap] = useState<Record<string, { listId: string | null }>>({})
     const [selectedOverlayListId, setSelectedOverlayListId] = useState<string | null>(null)
+    const [reviewStats, setReviewStats] = useState<{ bucket: "hard" | "new" | null; count: number }>({
+        bucket: null,
+        count: 0,
+    })
 
     // Derived news values
     const currentNews = newsItems[currentNewsIndex] || null
     const currentNewsTeaser = currentNews?.teaser || ""
     const currentNewsBody = currentNewsTeaser || currentNews?.title || ""
+    const currentNewsWorld = newsWorlds[currentNewsIndex]
+    const currentNewsSource = currentNewsWorld?.news?.sourceUrl
+    const isCurrentNewsSaved = Boolean(
+        currentNewsWorld &&
+        storedWorlds.some((world) => world.news?.sourceUrl && world.news.sourceUrl === currentNewsSource)
+    )
 
     const uiSettings = useMemo(
         () => getUiSettings(profileSettings.sourceLanguage),
@@ -603,6 +614,22 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setStoredWorlds(list)
             setWorldMetaMap(meta)
             setStoredLists(lists)
+            const reviewEntries = list.flatMap((world) =>
+                (world.pool ?? []).map((pair) => ({ world, pair }))
+            )
+            const hardCount = reviewEntries.filter(
+                (entry) => (entry.pair.srs?.bucket ?? "new") === "hard"
+            ).length
+            const newCount = reviewEntries.filter(
+                (entry) => (entry.pair.srs?.bucket ?? "new") === "new"
+            ).length
+            if (hardCount > 0) {
+                setReviewStats({ bucket: "hard", count: hardCount })
+            } else if (newCount > 0) {
+                setReviewStats({ bucket: "new", count: newCount })
+            } else {
+                setReviewStats({ bucket: null, count: 0 })
+            }
         } catch {
             // ignore
         }
@@ -757,6 +784,43 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
     }
 
+    const loadLocalCachedNewsList = (categoryValue: string) => {
+        if (typeof window === "undefined") return null
+        try {
+            const sessionKey = `${categoryValue}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
+            const cacheKey = `vocado-news-cache:${sessionKey}`
+            const raw = window.localStorage.getItem(cacheKey)
+            if (!raw) return null
+            const parsed = JSON.parse(raw)
+            const cachedWorlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
+            if (!cachedWorlds.length) return null
+            const matched = cachedWorlds
+                .filter((world: VocabWorld) => {
+                    const news = world?.news
+                    if (!news?.summary?.length) return false
+                    if (news?.category !== categoryValue) return false
+                    if (!isSameDay(news?.date)) return false
+                    return true
+                })
+                .sort((a: VocabWorld, b: VocabWorld) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
+                .slice(0, 5)
+            return matched.length ? matched : null
+        } catch {
+            return null
+        }
+    }
+
+    const saveLocalNewsCache = (categoryValue: string, worlds: VocabWorld[]) => {
+        if (typeof window === "undefined") return
+        try {
+            const sessionKey = `${categoryValue}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
+            const cacheKey = `vocado-news-cache:${sessionKey}`
+            window.localStorage.setItem(cacheKey, JSON.stringify({ worlds, updatedAt: Date.now() }))
+        } catch {
+            // ignore
+        }
+    }
+
     // Fetch News (cached daily summary first)
     const newsDepsKey = useMemo(
         () =>
@@ -769,14 +833,26 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setIsNewsLoading(true)
             try {
                 const category = activeNewsTab
+                const localList = loadLocalCachedNewsList(category)
+                if (localList?.length) {
+                    const baseItems = localList.map((item) => ({
+                        title: item.news?.title || item.title,
+                        teaser: item.news?.summary?.[0] || "",
+                    }))
+                    setNewsWorlds(localList)
+                    setNewsItems(baseItems)
+                    setCurrentNewsIndex(0)
+                }
                 const cachedList = (await loadCachedDailyNewsList(category)) ?? []
                 if (cachedList.length >= 5) {
                     const baseItems = cachedList.slice(0, 5).map((item) => ({
                         title: item.news?.title || item.title,
                         teaser: item.news?.summary?.[0] || "",
                     }))
+                    setNewsWorlds(cachedList.slice(0, 5))
                     setNewsItems(baseItems)
                     setCurrentNewsIndex(0)
+                    saveLocalNewsCache(category, cachedList.slice(0, 5))
                     setIsNewsLoading(false)
                     return
                 }
@@ -855,25 +931,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 }
 
                 const merged = [...cachedList, ...worldsToSave].slice(0, 5)
-                if (worldsToSave.length) {
-                    const session = await supabase.auth.getSession()
-                    const token = session.data.session?.access_token
-                    if (token) {
-                        const listId = await ensureNewsListId(token)
-                        await fetch("/api/storage/worlds/save", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({
-                                worlds: worldsToSave,
-                                listId: listId || null,
-                                positions: worldsToSave.reduce<Record<string, number>>((acc, world, index) => {
-                                    acc[world.id] = cachedList.length + index
-                                    return acc
-                                }, {}),
-                            }),
-                        })
-                    }
-                }
 
                 const baseItems = merged.map((item) => ({
                     title: item.news?.title || item.title,
@@ -886,8 +943,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         teaser: "",
                     })),
                 ]
+                setNewsWorlds(merged)
                 setNewsItems(padded)
                 setCurrentNewsIndex(0)
+                saveLocalNewsCache(category, merged)
             } catch {
                 // ignore network errors for cached news
             } finally {
@@ -1237,6 +1296,38 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         return words
     }
 
+    const handleAddNewsToList = async () => {
+        if (!currentNewsWorld || isCurrentNewsSaved) return
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) throw new Error("Missing auth token")
+            const listId = await ensureNewsListId(token)
+            await fetch("/api/storage/worlds/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    worlds: [currentNewsWorld],
+                    listId: listId || null,
+                    positions: { [currentNewsWorld.id]: 0 },
+                }),
+            })
+            setStoredWorlds((prev) => {
+                if (prev.some((item) => item.id === currentNewsWorld.id)) return prev
+                return [...prev, currentNewsWorld]
+            })
+            if (listId) {
+                setWorldMetaMap((prev) => ({ ...prev, [currentNewsWorld.id]: { listId } }))
+                setStoredLists((prev) => {
+                    if (prev.some((list) => list.id === listId)) return prev
+                    return [...prev, { id: listId, name: "Vocado Diario" }]
+                })
+            }
+        } catch {
+            // ignore save errors for now
+        }
+    }
+
     const saveOverlayWorld = async (
         words: ReviewWord[],
         worldId: string | null,
@@ -1296,7 +1387,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     if (activeTab === "Friends") {
         return (
             <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden`}>
-                <header className="px-5 h-[56px] flex items-center justify-between sticky top-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
+                <header className="px-5 h-[56px] flex items-center justify-between sticky top-0 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[#3A3A3A]/5">
                     <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.leaderboardTitle}</h1>
                     <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">{seeds} 🌱</span>
                 </header>
@@ -1332,7 +1423,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden selection:bg-[#E3EBC5] selection:text-[#2C3E30]`}>
 
             {/* --- HEADER --- */}
-            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[#FAF7F2]/95 backdrop-blur-sm z-40">
+            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm z-40">
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
                     <h1 className="text-[20px] font-semibold tracking-tight text-[#3A3A3A]">
@@ -1513,7 +1604,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                 {/* --- 2. TODAY'S NEWS --- */}
                 <section className="space-y-2">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tighter">
                         {ui.todaysNewsTitle}
                     </h2>
 
@@ -1542,7 +1633,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                         {/* Content */}
                         <div className="p-2.5 pt-2 flex flex-col h-[180px]"> {/* Fixed height container */}
-                            <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center">
+                            <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center tracking-tighter">
                                 {isNewsLoading ? ui.newsLoading : (currentNews?.title || ui.noNewsAvailable)}
                             </h3>
 
@@ -1588,6 +1679,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     >
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddNewsToList}
+                                        disabled={!currentNewsWorld || isCurrentNewsSaved}
+                                        className="ml-1 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A] disabled:opacity-40"
+                                        aria-label={ui.overlay?.save ?? "Save"}
+                                    >
+                                        <BookmarkPlus className="w-4 h-4" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1597,7 +1697,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                 {/* --- 3. CONTINUE & REVIEW --- */}
                 <section className="space-y-2">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tighter">
                         {ui.continueLearningTitle}
                     </h2>
 
@@ -1630,15 +1730,25 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                     {/* Review Card */}
                     <button
-                        onClick={() => router.push("/vocables")}
+                        onClick={() =>
+                            router.push(
+                                reviewStats.bucket === "hard"
+                                    ? "/vocables?bucket=hard"
+                                    : reviewStats.bucket === "new"
+                                        ? "/vocables?bucket=new"
+                                        : "/vocables"
+                            )
+                        }
                         className="w-full bg-[#FAF7F2] rounded-[20px] p-2 flex items-center justify-between border border-[#3A3A3A]/5 shadow-[0_2px_10px_-4px_rgba(58,58,58,0.02)] group hover:bg-[#EAE8E0]/30 transition-colors text-left"
                     >
                         <div className="flex items-center gap-2.5">
                             {/* Icon could be here, but spec says "Sachliche Tabelle" style content inside. Card itself text based */}
                             <div>
-                                <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">{ui.reviewTitle}</div>
+                                <div className="text-[14px] font-medium text-[#3A3A3A] mb-0.5">
+                                    {reviewStats.count > 0 ? ui.reviewTitle : "All Done! 🎉"}
+                                </div>
                                 <div className="text-[10px] text-[#3A3A3A]/50">
-                                    {formatTemplate(ui.reviewSubtitle, { count: "14" })}
+                                    {formatTemplate(ui.reviewSubtitle, { count: String(reviewStats.count) })}
                                 </div>
                             </div>
                         </div>
@@ -1650,7 +1760,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                 {/* --- 4. LEADERBOARD --- */}
                 <section className="space-y-2">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tight">
+                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tighter">
                         {ui.leaderboardTitle}
                     </h2>
                     <div className="bg-[#FAF7F2] rounded-[24px] px-4 pt-2.5 pb-3 border border-[#3A3A3A]/5 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)]">

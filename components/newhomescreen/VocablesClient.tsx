@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
@@ -47,6 +48,20 @@ type ProfileSettings = {
   seeds?: number
 }
 
+const SEEDS_STORAGE_KEY = "vocado-seeds"
+const WEEKLY_SEEDS_STORAGE_KEY = "vocado-seeds-weekly"
+const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
+const WEEKLY_WORDS_STORAGE_KEY = "vocado-words-weekly"
+
+const getWeekStartIso = () => {
+  const date = new Date()
+  const day = date.getDay()
+  const diff = (day + 6) % 7
+  date.setDate(date.getDate() - diff)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
+
 type StoredWorld = {
   worldId: string
   title?: string
@@ -66,6 +81,7 @@ type ReviewEntry = {
 }
 
 export default function VocablesClient({ profile }: { profile: ProfileSettings }) {
+  const searchParams = useSearchParams()
   const [worlds, setWorlds] = useState<StoredWorld[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -75,6 +91,9 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
   const [showBack, setShowBack] = useState(false)
   const [activeReviewLabel, setActiveReviewLabel] = useState<string | null>(null)
   const [reviewMode, setReviewMode] = useState<"srs" | "memory">("srs")
+  const [seedsValue, setSeedsValue] = useState(profile.seeds ?? 0)
+  const [reviewSeedsEarned, setReviewSeedsEarned] = useState(0)
+  const [memorySeedsEarned, setMemorySeedsEarned] = useState(0)
   const [memoryWorld, setMemoryWorld] = useState<VocabWorld | null>(null)
   const [memoryEntries, setMemoryEntries] = useState<ReviewEntry[]>([])
   const [memoryPairMap, setMemoryPairMap] = useState<Map<string, ReviewEntry>>(new Map())
@@ -214,6 +233,20 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     }
   }, [cacheKey, isLoading, worlds])
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    setSeedsValue(Math.max(profile.seeds ?? 0, storedSeeds))
+  }, [profile.seeds])
+
+  useEffect(() => {
+    if (!searchParams) return
+    const bucket = searchParams.get("bucket") as SRSBucket | null
+    if (bucket === "hard" || bucket === "new" || bucket === "medium" || bucket === "easy") {
+      handleBucketClick(bucket)
+    }
+  }, [searchParams, allPairs])
+
   const allPairs = useMemo(() => {
     const entries: ReviewEntry[] = []
     const seen = new Map<string, ReviewEntry>()
@@ -288,6 +321,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     setMemoryEntries([])
     setMemoryPairMap(new Map())
     setMemoryAssigned(new Set())
+    setReviewSeedsEarned(0)
     setReviewQueue(entries)
     setReviewIndex(0)
     setShowBack(false)
@@ -330,6 +364,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     })
     setMemoryPairMap(map)
     setMemoryAssigned(new Set())
+    setMemorySeedsEarned(0)
     setActiveReviewLabel(label)
   }
 
@@ -387,6 +422,56 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const currentEntry = reviewQueue[reviewIndex]
 
+  const syncStatsToServer = async (
+    nextSeeds: number,
+    nextWeeklySeeds: number,
+    nextWeeklyWords: number,
+    weekStart: string
+  ) => {
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      await fetch("/api/auth/profile/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          seeds: nextSeeds,
+          weeklySeeds: nextWeeklySeeds,
+          weeklySeedsWeekStart: weekStart,
+          weeklyWords: nextWeeklyWords,
+          weekStart,
+        }),
+      })
+    } catch {
+      // ignore sync errors
+    }
+  }
+
+  const awardReviewSeed = (earned: number, setEarned: React.Dispatch<React.SetStateAction<number>>) => {
+    if (typeof window === "undefined") return
+    if (earned >= 15) return
+    const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
+    const currentSeeds = Math.max(storedSeeds, profile.seeds ?? 0)
+    const nextSeeds = currentSeeds + 1
+    window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
+    setSeedsValue(nextSeeds)
+
+    const weekStart = getWeekStartIso()
+    const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
+    if (storedSeedsWeekStart !== weekStart) {
+      window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
+      window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
+    }
+    const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
+    let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
+    weeklySeeds += 1
+    window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+    const weeklyWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
+    void syncStatsToServer(nextSeeds, weeklySeeds, weeklyWords, weekStart)
+    setEarned((prev) => prev + 1)
+  }
+
   const persistWorld = async (entry: ReviewEntry) => {
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
@@ -422,6 +507,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
         world.worldId === currentEntry.worldId ? { ...world, json: updatedWorld } : world
       )
     )
+    awardReviewSeed(reviewSeedsEarned, setReviewSeedsEarned)
 
     const nextIndex = reviewIndex + 1
     if (nextIndex >= reviewQueue.length) {
@@ -439,7 +525,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   return (
     <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
-      <div className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
+      <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[#3A3A3A]/5 h-[56px] flex items-center justify-between px-5">
         {reviewQueue.length > 0 || memoryWorld ? (
           <button
             type="button"
@@ -460,7 +546,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           <div className="h-9 w-9" />
         )}
         <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">
-          {profile.seeds ?? 0} 🌱
+          {seedsValue} 🌱
         </span>
       </div>
 
@@ -522,6 +608,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                     stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
                   )
                 )
+                awardReviewSeed(memorySeedsEarned, setMemorySeedsEarned)
                 const nextAssigned = new Set(memoryAssigned)
                 nextAssigned.add(carouselItem.id)
                 setMemoryAssigned(nextAssigned)

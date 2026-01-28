@@ -55,7 +55,7 @@ export default function AutoFitText({
   }, [text, maxPx, minPx, lineHeight])
 
   return (
-    <div ref={ref} className={`break-words ${className}`}>
+    <div ref={ref} className={`break-words whitespace-nowrap ${className}`}>
       {text}
     </div>
   )

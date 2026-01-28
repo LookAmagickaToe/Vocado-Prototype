@@ -866,16 +866,15 @@ export default function AppClient({
     pairsCount: number
   ) => {
     if (typeof window === "undefined") return
-    const baseScore = Number(pointsConfig?.baseScore ?? 100)
     const minMovesFactor = Number(pointsConfig?.minMovesFactor ?? 1.5)
-    const firstMultiplier = Number(pointsConfig?.firstMultiplier ?? 1.2)
-    const perfectMultiplier = Number(pointsConfig?.perfectMultiplier ?? 1)
-    const exponent = Number(pointsConfig?.exponent ?? 2)
+    const firstMultiplier = 1.1
+    const greatMultiplier = 1.3
     const pairs = Math.max(1, pairsCount || 1)
     const n = Math.max(1, moves)
     const minMoves = Math.max(1, Math.floor(pairs * minMovesFactor))
-    const baseValue = baseScore * Math.pow(pairs / n, exponent)
-    const perfectBonus = n <= minMoves ? Math.ceil(pairs * perfectMultiplier) : 0
+    const baseValue = Math.round(15 * (minMoves / n))
+    const baseScore = Math.min(15, Math.max(1, baseValue))
+    const greatScore = n <= minMoves
 
     const rawBestStore = window.localStorage.getItem(BEST_SCORE_STORAGE_KEY)
     let bestMap: Record<string, number> = {}
@@ -889,22 +888,10 @@ export default function AppClient({
     const key = `${worldIdValue}:${levelIdx}`
     const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
     const isNew = sBest === 0
-    const scoreBaseRounded = Math.round(baseValue)
-    // The previous line `const perfectBonus = n <= minMoves ? Math.ceil(pairs * perfectMultiplier) : 0` was duplicated.
-    // Removed the duplicate and kept the first one.
+    const multiplier = (isNew ? firstMultiplier : 1) * (greatScore ? greatMultiplier : 1)
+    const payout = Math.round(baseScore * multiplier)
 
-    // Calculate total score for THIS run
-    const runScore = scoreBaseRounded + perfectBonus
-    const scoreWithMultiplier = Math.round(runScore * (isNew ? firstMultiplier : 1))
-
-    // Practice bonus for replays
-    const practiceBonus = isNew ? 0 : Math.ceil(baseScore * 0.1)
-
-    // Payout is the total score for this run + practice bonus (cumulative)
-    // We update the best score for the UI, but we don't deduct it from payout anymore.
-    const payout = scoreWithMultiplier + practiceBonus
-
-    const newBest = Math.max(runScore, sBest)
+    const newBest = Math.max(baseScore, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
     setBestScores(bestMap)
@@ -942,16 +929,6 @@ export default function AppClient({
       }
     }
     dailyState.games = Math.min(3, dailyState.games + 1)
-    if (dailyState.games === 3) {
-      const dailyRewardKey = `${today}-games`
-      const rewarded = window.localStorage.getItem(dailyRewardKey) === "1"
-      if (!rewarded) {
-        const bonusSeeds =
-          Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-        window.localStorage.setItem(SEEDS_STORAGE_KEY, String(bonusSeeds + 45))
-        window.localStorage.setItem(dailyRewardKey, "1")
-      }
-    }
     window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
 
     const weekStart = getWeekStartIso()
@@ -2011,7 +1988,7 @@ export default function AppClient({
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (token) {
-        fetchDailyNews(today, token, worldTitleOverrides)
+        // News should not be autosaved to worlds anymore.
       }
     }
     checkNews()
@@ -3059,24 +3036,7 @@ export default function AppClient({
         }
         if (!dailyState.upload) {
           dailyState.upload = true
-          const currentSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
-          const nextSeeds = currentSeeds + 10
-          window.localStorage.setItem(SEEDS_STORAGE_KEY, String(nextSeeds))
-          setSeeds(nextSeeds)
           window.localStorage.setItem(DAILY_STATE_STORAGE_KEY, JSON.stringify(dailyState))
-          const weekStart = getWeekStartIso()
-          const rawWeekly = window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY)
-          const weeklyValue = Number(rawWeekly || "0") || 0
-          const storedSeedsWeekStart = window.localStorage.getItem(WEEKLY_SEEDS_START_STORAGE_KEY)
-          if (storedSeedsWeekStart !== weekStart) {
-            window.localStorage.setItem(WEEKLY_SEEDS_START_STORAGE_KEY, weekStart)
-            window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, "0")
-          }
-          const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
-          let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
-          weeklySeeds += 10
-          window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
-          syncStatsToServer(nextSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
         }
       }
       setIsUploadOpen(false)
@@ -3159,7 +3119,7 @@ export default function AppClient({
       <div className="mx-auto w-full max-w-6xl">
         <div className="grid grid-cols-12 gap-4 items-start">
           {/* STICKY HEADER */}
-          <div className="col-span-12 sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-sm h-[56px] flex items-center">
+          <div className="col-span-12 sticky top-0 z-40 bg-[rgb(var(--vocado-header-bg-rgb)/0.95)] backdrop-blur-sm h-[56px] flex items-center">
             <div className="flex items-center justify-between gap-2 md:hidden w-full">
               <div className="text-center flex-1 min-w-0">
                 <button
