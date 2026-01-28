@@ -28,7 +28,7 @@ export async function middleware(req: NextRequest) {
       },
     }
   )
-  const { data } = await supabase.auth.getSession()
+  const { data } = await supabase.auth.getUser()
   if (debug) {
     const sbCookies = req.cookies
       .getAll()
@@ -36,7 +36,7 @@ export async function middleware(req: NextRequest) {
       .filter((name) => name.startsWith("sb-"))
     console.log("[auth][middleware]", {
       pathname,
-      hasSession: Boolean(data.session),
+      hasUser: Boolean(data.user),
       sbCookies,
     })
   }
@@ -44,8 +44,12 @@ export async function middleware(req: NextRequest) {
   const isLogin = pathname.startsWith("/login")
   const isAuthCallback = pathname.startsWith("/auth/callback")
   const isApi = pathname.startsWith("/api")
+  const isPrefetch =
+    req.headers.get("x-middleware-prefetch") === "1" ||
+    req.headers.get("next-router-prefetch") === "1" ||
+    req.headers.get("purpose") === "prefetch"
 
-  if (!data.session && !isLogin && !isAuthCallback && !isApi) {
+  if (!data.user && !isLogin && !isAuthCallback && !isApi) {
     if (debug) {
       console.log("[auth][middleware] redirect -> /login", { pathname })
     }
@@ -55,7 +59,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (data.session && isLogin) {
+  if (data.user && isLogin && !isPrefetch) {
     if (debug) {
       console.log("[auth][middleware] redirect -> /", { pathname })
     }

@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, MoreHorizontal, Trash2 } from "lucide-react"
+import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, MoreHorizontal } from "lucide-react"
 import NavFooter from "@/components/ui/NavFooter"
 import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
@@ -47,6 +47,15 @@ type WorldsClientProps = {
     worlds?: World[]
 }
 
+type PendingWorldEntry = {
+    world?: World
+    listId?: string
+    remove?: boolean
+}
+
+const PENDING_WORLDS_KEY = "vocado-pending-worlds"
+const NEWS_LIST_NAME = "Vocado Diario"
+
 export default function WorldsClient({ profile, lists = [], worlds = [] }: WorldsClientProps) {
     const router = useRouter()
     const [searchQuery, setSearchQuery] = useState("")
@@ -58,11 +67,21 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     const [cachedLists, setCachedLists] = useState<WorldList[]>(lists)
     const [cachedWorlds, setCachedWorlds] = useState<World[]>(worlds)
     const [cacheKey, setCacheKey] = useState("vocado-worlds-cache")
+    const cachedListsRef = useRef<WorldList[]>(lists)
+    const cachedWorldsRef = useRef<World[]>(worlds)
 
     // Expanded state tracking
     const [expandedListId, setExpandedListId] = useState<string | null>(null)
     const [expandedWorldId, setExpandedWorldId] = useState<string | null>(null)
     const [openWorldMenuId, setOpenWorldMenuId] = useState<string | null>(null)
+    const [openListMenuId, setOpenListMenuId] = useState<string | null>(null)
+    const [confirmListAction, setConfirmListAction] = useState<{
+        type: "empty" | "delete"
+        listId: string
+    } | null>(null)
+    const [renameListId, setRenameListId] = useState<string | null>(null)
+    const [renameValue, setRenameValue] = useState("")
+    const [isLoadingRemote, setIsLoadingRemote] = useState(false)
 
     const uiSettings = useMemo(
         () => getUiSettings(profile.sourceLanguage),
@@ -84,6 +103,19 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             libraryAction: uiSettings?.worlds?.libraryAction ?? "Library",
             uploadAction: uiSettings?.worlds?.uploadAction ?? "Upload",
             deleteLabel: uiSettings?.worldsOverlay?.deleteLabel ?? "Delete",
+            loadingLabel: uiSettings?.worlds?.loading ?? "Loading...",
+            listMenuRename: uiSettings?.worlds?.listMenuRename ?? "Rename list",
+            listMenuEmpty: uiSettings?.worlds?.listMenuEmpty ?? "Empty list",
+            listMenuDelete: uiSettings?.worlds?.listMenuDelete ?? "Remove list",
+            listMenuRenamePlaceholder: uiSettings?.worlds?.listMenuRenamePlaceholder ?? "List name",
+            listMenuConfirmEmpty:
+                uiSettings?.worlds?.listMenuConfirmEmpty ??
+                "Empty this list? {count} worlds will be removed.",
+            listMenuConfirmDelete:
+                uiSettings?.worlds?.listMenuConfirmDelete ??
+                "Remove this list? {count} worlds will be removed.",
+            listMenuConfirmYes: uiSettings?.worlds?.listMenuConfirmYes ?? "Yes",
+            listMenuConfirmCancel: uiSettings?.worlds?.listMenuConfirmCancel ?? "Cancel",
             nav: uiSettings?.nav ?? {},
         }),
         [uiSettings]
@@ -106,13 +138,13 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                 if (listMatches) {
                     return list
                 }
-                const matchingWorldIds = list.worldIds.filter(wId => {
+                const matchingWorldIds = (list.worldIds ?? []).filter(wId => {
                     const w = worldMap.get(wId)
                     return w?.title.toLowerCase().includes(q)
                 })
                 return { ...list, worldIds: matchingWorldIds }
             })
-            .filter(list => list.worldIds.length > 0 || list.name.toLowerCase().includes(q))
+            .filter(list => (list.worldIds ?? []).length > 0 || list.name.toLowerCase().includes(q))
     }, [cachedLists, searchQuery, worldMap])
 
     useEffect(() => {
@@ -125,13 +157,89 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     }, [lists, worlds])
 
     useEffect(() => {
+        cachedListsRef.current = cachedLists
+    }, [cachedLists])
+
+    useEffect(() => {
+        cachedWorldsRef.current = cachedWorlds
+    }, [cachedWorlds])
+
+    const applyPendingWorlds = useCallback(() => {
+        if (typeof window === "undefined") return
+        const raw = window.localStorage.getItem(PENDING_WORLDS_KEY)
+        if (!raw) return
+        let pending: PendingWorldEntry[] = []
+        try {
+            const parsed = JSON.parse(raw)
+            pending = Array.isArray(parsed) ? parsed : []
+        } catch {
+            pending = []
+        }
+        if (!pending.length) {
+            window.localStorage.removeItem(PENDING_WORLDS_KEY)
+            return
+        }
+        setCachedWorlds((prev) => {
+            let next = [...prev]
+            pending.forEach((entry) => {
+                const world = entry.world
+                if (!world?.id) return
+                if (entry.remove) {
+                    next = next.filter((item) => item.id !== world.id)
+                } else if (!next.some((item) => item.id === world.id)) {
+                    next = [...next, world]
+                }
+            })
+            return next
+        })
+        setCachedLists((prev) => {
+            let nextLists = [...prev]
+            pending.forEach((entry) => {
+                const world = entry.world
+                if (!world?.id) return
+                const targetListId =
+                    entry.listId ||
+                    nextLists.find((list) => list.name.toLowerCase() === NEWS_LIST_NAME.toLowerCase())?.id ||
+                    ""
+                if (entry.remove) {
+                    nextLists = nextLists.map((list) => ({
+                        ...list,
+                        worldIds: (list.worldIds ?? []).filter((id) => id !== world.id),
+                    }))
+                    return
+                }
+                if (!targetListId) return
+                if (nextLists.some((list) => list.id === targetListId)) {
+                    nextLists = nextLists.map((list) =>
+                        list.id === targetListId
+                            ? {
+                                  ...list,
+                                  worldIds: list.worldIds?.includes(world.id)
+                                      ? list.worldIds
+                                      : [...(list.worldIds ?? []), world.id],
+                              }
+                            : list
+                    )
+                    return
+                }
+                nextLists = [...nextLists, { id: targetListId, name: NEWS_LIST_NAME, worldIds: [world.id] }]
+            })
+            return nextLists
+        })
+        window.localStorage.removeItem(PENDING_WORLDS_KEY)
+    }, [])
+
+    useEffect(() => {
         const hydrateCache = async () => {
             const session = await supabase.auth.getSession()
-            const userId = session.data.session?.user?.id
-            const key = `vocado-worlds-cache:${userId || "anon"}`
+            const storedUserId =
+                typeof window !== "undefined" ? window.localStorage.getItem("vocado-user-id") : null
+            const userId = session.data.session?.user?.id || storedUserId || "anon"
+            const key = `vocado-worlds-cache:${userId}`
+            const fallbackKey = "vocado-worlds-cache"
             setCacheKey(key)
             if (typeof window === "undefined") return
-            const raw = window.localStorage.getItem(key)
+            const raw = window.localStorage.getItem(key) ?? window.localStorage.getItem(fallbackKey)
             if (!raw) return
             try {
                 const parsed = JSON.parse(raw)
@@ -149,68 +257,175 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     }, [])
 
     useEffect(() => {
-        if (typeof window === "undefined") return
-        if (!cacheKey) return
-        window.localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-                lists: cachedLists,
-                worlds: cachedWorlds,
-                updatedAt: Date.now(),
-            })
-        )
-    }, [cacheKey, cachedLists, cachedWorlds])
+        applyPendingWorlds()
+    }, [applyPendingWorlds])
 
     useEffect(() => {
-        const fetchLatest = async () => {
-            const session = await supabase.auth.getSession()
-            const token = session.data.session?.access_token
-            if (!token) return
-            try {
-                const response = await fetch("/api/storage/worlds/list", {
-                    method: "GET",
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                if (!response.ok) return
-                const data = await response.json()
-                const listRows = Array.isArray(data?.lists) ? data.lists : []
-                const worldRows = Array.isArray(data?.worlds) ? data.worlds : []
-                if (listRows.length === 0 && worldRows.length === 0) return
+        if (typeof window === "undefined") return
+        if (!cacheKey) return
+        const payload = JSON.stringify({
+            lists: cachedLists,
+            worlds: cachedWorlds,
+            updatedAt: Date.now(),
+        })
+        window.localStorage.setItem(cacheKey, payload)
+        window.localStorage.setItem("vocado-worlds-cache", payload)
+    }, [cacheKey, cachedLists, cachedWorlds])
 
-                const listsById = new Map<string, WorldList>()
-                listRows.forEach((row: any) => {
-                    if (row?.id && row?.name) {
-                        listsById.set(row.id, { id: row.id, name: row.name, worldIds: [] })
+    const fetchLatest = useCallback(async () => {
+        const perfEnabled =
+            typeof window !== "undefined" &&
+            window.localStorage.getItem("vocado-debug-perf") === "1"
+        const perfStart = perfEnabled ? performance.now() : 0
+        const logPerf = (label: string, extra?: Record<string, unknown>) => {
+            if (!perfEnabled) return
+            const elapsed = Math.round(performance.now() - perfStart)
+            console.log(`[perf][worlds] ${label} (${elapsed}ms)`, extra || "")
+        }
+        setIsLoadingRemote(true)
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token
+        const storedUserId =
+            typeof window !== "undefined" ? window.localStorage.getItem("vocado-user-id") : null
+        const userId = session.data.session?.user?.id || storedUserId || "anon"
+        setCacheKey(`vocado-worlds-cache:${userId}`)
+        if (!token) {
+            setIsLoadingRemote(false)
+            return
+        }
+        try {
+            logPerf("session", { hasToken: Boolean(token) })
+            const response = await fetch("/api/storage/worlds/list", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!response.ok) return
+            const data = await response.json()
+            logPerf("response", {
+                lists: Array.isArray(data?.lists) ? data.lists.length : 0,
+                worlds: Array.isArray(data?.worlds) ? data.worlds.length : 0,
+            })
+            const listRows = Array.isArray(data?.lists) ? data.lists : []
+            const worldRows = Array.isArray(data?.worlds) ? data.worlds : []
+            if (listRows.length === 0 && worldRows.length === 0) return
+
+            const listsById = new Map<string, WorldList>()
+            listRows.forEach((row: any) => {
+                if (row?.id && row?.name) {
+                    listsById.set(row.id, { id: row.id, name: row.name, worldIds: [] })
+                }
+            })
+
+            const listWorldsMap = new Map<string, Array<{ id: string; position: number }>>()
+            worldRows.forEach((row: any) => {
+                if (row?.listId && listsById.has(row.listId)) {
+                    const arr = listWorldsMap.get(row.listId) ?? []
+                    arr.push({ id: row.worldId, position: row.position ?? 0 })
+                    listWorldsMap.set(row.listId, arr)
+                }
+            })
+
+            listsById.forEach((list, id) => {
+                const entries = listWorldsMap.get(id) ?? []
+                entries.sort((a, b) => a.position - b.position)
+                list.worldIds = entries.map((entry) => entry.id)
+            })
+
+            const nextWorlds = worldRows
+                .map((row: any) => row?.json)
+                .filter((json: any) => json && typeof json.id === "string") as World[]
+
+            const localWorlds = cachedWorldsRef.current
+            const localLists = cachedListsRef.current
+            const mergedWorldsMap = new Map<string, World>()
+            nextWorlds.forEach((world) => mergedWorldsMap.set(world.id, world))
+            localWorlds.forEach((world) => {
+                if (!mergedWorldsMap.has(world.id)) {
+                    mergedWorldsMap.set(world.id, world)
+                }
+            })
+            const mergedWorlds = Array.from(mergedWorldsMap.values())
+            const mergedWorldIds = new Set(mergedWorlds.map((world) => world.id))
+
+            const mergedListsById = new Map<string, WorldList>()
+            const mergeListInto = (list: WorldList) => {
+                if (mergedListsById.has(list.id)) {
+                    const existing = mergedListsById.get(list.id)!
+                    const combined = new Set([...(existing.worldIds ?? []), ...(list.worldIds ?? [])])
+                    mergedListsById.set(list.id, { ...existing, worldIds: Array.from(combined) })
+                    return
+                }
+                mergedListsById.set(list.id, { ...list, worldIds: list.worldIds ?? [] })
+            }
+
+            Array.from(listsById.values()).forEach(mergeListInto)
+            localLists.forEach((list) => {
+                const matchByName = Array.from(mergedListsById.values()).find(
+                    (item) => item.name.toLowerCase() === list.name.toLowerCase()
+                )
+                if (matchByName) {
+                    const combined = new Set([...(matchByName.worldIds ?? []), ...(list.worldIds ?? [])])
+                    mergedListsById.set(matchByName.id, { ...matchByName, worldIds: Array.from(combined) })
+                    return
+                }
+                mergeListInto({ ...list, worldIds: list.worldIds ?? [] })
+            })
+
+            const mergedLists = Array.from(mergedListsById.values()).map((list) => ({
+                ...list,
+                worldIds: (list.worldIds ?? []).filter((id) => mergedWorldIds.has(id)),
+            }))
+
+            setCachedLists(mergedLists)
+            setCachedWorlds(mergedWorlds)
+            logPerf("cached", { lists: mergedLists.length, worlds: mergedWorlds.length })
+        } catch {
+            // ignore network errors
+        } finally {
+            setIsLoadingRemote(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        fetchLatest()
+    }, [fetchLatest])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const flag = window.localStorage.getItem("vocado-refresh-worlds")
+        if (flag) {
+            window.localStorage.removeItem("vocado-refresh-worlds")
+            fetchLatest()
+        }
+    }, [fetchLatest])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const handleStorage = (event: StorageEvent) => {
+            if (!event.key) return
+            if (event.key.startsWith("vocado-worlds-cache:") || event.key === "vocado-worlds-cache") {
+                try {
+                    const parsed = event.newValue ? JSON.parse(event.newValue) : null
+                    if (Array.isArray(parsed?.lists)) {
+                        setCachedLists(parsed.lists)
                     }
-                })
-
-                const listWorldsMap = new Map<string, Array<{ id: string; position: number }>>()
-                worldRows.forEach((row: any) => {
-                    if (row?.listId && listsById.has(row.listId)) {
-                        const arr = listWorldsMap.get(row.listId) ?? []
-                        arr.push({ id: row.worldId, position: row.position ?? 0 })
-                        listWorldsMap.set(row.listId, arr)
+                    if (Array.isArray(parsed?.worlds)) {
+                        setCachedWorlds(parsed.worlds)
                     }
-                })
-
-                listsById.forEach((list, id) => {
-                    const entries = listWorldsMap.get(id) ?? []
-                    entries.sort((a, b) => a.position - b.position)
-                    list.worldIds = entries.map((entry) => entry.id)
-                })
-
-                const nextWorlds = worldRows
-                    .map((row: any) => row?.json)
-                    .filter((json: any) => json && typeof json.id === "string") as World[]
-
-                setCachedLists(Array.from(listsById.values()))
-                setCachedWorlds(nextWorlds)
-            } catch {
-                // ignore network errors
+                } catch {
+                    // ignore
+                }
+            }
+            if (event.key === PENDING_WORLDS_KEY) {
+                applyPendingWorlds()
+            }
+            if (event.key === "vocado-refresh-worlds") {
+                fetchLatest()
             }
         }
-        fetchLatest()
-    }, [])
+        window.addEventListener("storage", handleStorage)
+        return () => window.removeEventListener("storage", handleStorage)
+    }, [fetchLatest])
 
     const deleteWorld = async (worldId: string) => {
         setCachedWorlds((prev) => prev.filter((world) => world.id !== worldId))
@@ -413,8 +628,6 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
         const list = cachedLists.find((item) => item.id === listId)
         const worldIds = list?.worldIds ?? []
         if (!worldIds.length) return
-        const confirmDelete = window.confirm("Delete all news worlds?")
-        if (!confirmDelete) return
         setCachedWorlds((prev) => prev.filter((world) => !worldIds.includes(world.id)))
         setCachedLists((prev) =>
             prev.map((item) => (item.id === listId ? { ...item, worldIds: [] } : item))
@@ -427,6 +640,63 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ worldIds }),
+            })
+        } catch {
+            // ignore delete errors
+        }
+    }
+
+    const handleRenameList = async () => {
+        if (!renameListId) return
+        const nextName = renameValue.trim()
+        if (!nextName) return
+        const listIndex = cachedLists.findIndex((list) => list.id === renameListId)
+        if (listIndex < 0) return
+        setCachedLists((prev) =>
+            prev.map((list) =>
+                list.id === renameListId ? { ...list, name: nextName } : list
+            )
+        )
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            await fetch("/api/storage/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    lists: [
+                        {
+                            id: renameListId,
+                            name: nextName,
+                            position: listIndex,
+                        },
+                    ],
+                }),
+            })
+        } catch {
+            // ignore rename errors
+        } finally {
+            setRenameListId(null)
+        }
+    }
+
+    const handleDeleteList = async (listId: string) => {
+        const list = cachedLists.find((item) => item.id === listId)
+        if (!list) return
+        const worldIds = list.worldIds
+        setCachedLists((prev) => prev.filter((item) => item.id !== listId))
+        if (worldIds.length) {
+            setCachedWorlds((prev) => prev.filter((world) => !worldIds.includes(world.id)))
+        }
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            await fetch("/api/storage/lists/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ listId }),
             })
         } catch {
             // ignore delete errors
@@ -501,13 +771,18 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
 
             {/* Lists Section */}
             <div className="px-4 pt-4 space-y-3">
+                {isLoadingRemote && (
+                    <div className="text-[12px] text-[#3A3A3A]/50 px-1">
+                        {ui.loadingLabel}
+                    </div>
+                )}
                 {filteredLists.length === 0 ? (
                     <div className="text-center py-12 text-[#3A3A3A]/50 text-[14px]">
                         {searchQuery ? ui.emptySearch : ui.emptyDefault}
                     </div>
                 ) : (
                     filteredLists.map(list => (
-                        <div key={list.id} className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/5 shadow-sm overflow-hidden">
+                        <div key={list.id} className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/5 shadow-sm overflow-visible">
                             {/* List Header */}
                             <div
                                 role="button"
@@ -518,12 +793,6 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 }}
                                 className="w-full flex items-center gap-4 p-4 text-left hover:bg-[#F6F2EB] transition-colors"
                             >
-                                {(() => {
-                                    const isNewsList =
-                                        list.name === "Vocado Diario" ||
-                                        list.worldIds.some((id) => Boolean(worldMap.get(id)?.news))
-                                    return (
-                                        <>
                                 <div className="w-10 h-10 rounded-xl bg-[#E3EBC5]/40 flex items-center justify-center">
                                     {expandedListId === list.id ? (
                                         <ChevronDown className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
@@ -534,24 +803,61 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 <div className="flex-1">
                                     <div className="text-[15px] font-medium text-[#3A3A3A]">{list.name}</div>
                                     <div className="text-[12px] text-[#3A3A3A]/50">
-                                        {formatTemplate(ui.listWorldCount, { count: String(list.worldIds.length) })}
+                                        {formatTemplate(ui.listWorldCount, {
+                                            count: String((list.worldIds ?? []).length),
+                                        })}
                                     </div>
                                 </div>
-                                {isNewsList && expandedListId === list.id && (
+                                <div className="relative">
                                     <button
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation()
-                                            clearListWorlds(list.id)
+                                            setOpenListMenuId((prev) => (prev === list.id ? null : list.id))
                                         }}
                                         className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A]"
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        <MoreHorizontal className="w-4 h-4" />
                                     </button>
-                                )}
-                                        </>
-                                    )
-                                })()}
+                                    {openListMenuId === list.id && (
+                                        <div className="absolute right-0 mt-2 w-36 rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] shadow-sm overflow-hidden z-30">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setRenameListId(list.id)
+                                                    setRenameValue(list.name)
+                                                    setOpenListMenuId(null)
+                                                }}
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                            >
+                                                {ui.listMenuRename}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setConfirmListAction({ type: "empty", listId: list.id })
+                                                    setOpenListMenuId(null)
+                                                }}
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                            >
+                                                {ui.listMenuEmpty}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setConfirmListAction({ type: "delete", listId: list.id })
+                                                    setOpenListMenuId(null)
+                                                }}
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F6F2EB]"
+                                            >
+                                                {ui.listMenuDelete}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Expanded Worlds inside List */}
@@ -709,6 +1015,105 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
 
             {/* Navigation Footer */}
             <NavFooter labels={ui.nav} />
+
+            <AnimatePresence>
+                {confirmListAction && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-sm rounded-2xl bg-[#FAF7F2] border border-[#3A3A3A]/10 p-4 space-y-3"
+                        >
+                            {(() => {
+                                const list = cachedLists.find((item) => item.id === confirmListAction.listId)
+                                const count = list?.worldIds.length ?? 0
+                                const message =
+                                    confirmListAction.type === "empty"
+                                        ? formatTemplate(ui.listMenuConfirmEmpty, { count: String(count) })
+                                        : formatTemplate(ui.listMenuConfirmDelete, { count: String(count) })
+                                return (
+                                    <>
+                                        <div className="text-[14px] text-[#3A3A3A]">{message}</div>
+                                        <div className="flex items-center gap-2 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => setConfirmListAction(null)}
+                                                className="px-3 py-1.5 text-[12px] rounded-full border border-[#3A3A3A]/10 text-[#3A3A3A]/70"
+                                            >
+                                                {ui.listMenuConfirmCancel}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const listId = confirmListAction.listId
+                                                    if (confirmListAction.type === "empty") {
+                                                        await clearListWorlds(listId)
+                                                    } else {
+                                                        await handleDeleteList(listId)
+                                                    }
+                                                    setConfirmListAction(null)
+                                                }}
+                                                className="px-3 py-1.5 text-[12px] rounded-full bg-[#B45353] text-white"
+                                            >
+                                                {ui.listMenuConfirmYes}
+                                            </button>
+                                        </div>
+                                    </>
+                                )
+                            })()}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {renameListId && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-sm rounded-2xl bg-[#FAF7F2] border border-[#3A3A3A]/10 p-4 space-y-3"
+                        >
+                            <div className="text-[13px] text-[#3A3A3A]/70">{ui.listMenuRename}</div>
+                            <input
+                                type="text"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+                                placeholder={ui.listMenuRenamePlaceholder}
+                            />
+                            <div className="flex items-center gap-2 justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setRenameListId(null)}
+                                    className="px-3 py-1.5 text-[12px] rounded-full border border-[#3A3A3A]/10 text-[#3A3A3A]/70"
+                                >
+                                    {ui.listMenuConfirmCancel}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleRenameList}
+                                    className="px-3 py-1.5 text-[12px] rounded-full bg-[rgb(var(--vocado-accent-rgb))] text-white"
+                                >
+                                    {ui.listMenuConfirmYes}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

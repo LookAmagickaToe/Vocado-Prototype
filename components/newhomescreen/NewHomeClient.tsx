@@ -25,6 +25,7 @@ const COLORS = {
 
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const FALLBACK_AVATAR = "/profilepictures/happy_vocado.png"
+const PENDING_WORLDS_KEY = "vocado-pending-worlds"
 
 const getLastPlayedKey = (source?: string, target?: string) => {
     const src = source?.trim() || "auto"
@@ -87,6 +88,32 @@ const normalizeEmoji = (value: unknown, fallback = "📰") => {
     return trimmed.length > 0 ? trimmed : fallback
 }
 
+const hashString = (value: string) => {
+    let hash = 5381
+    for (let i = 0; i < value.length; i += 1) {
+        hash = (hash * 33) ^ value.charCodeAt(i)
+    }
+    return (hash >>> 0).toString(36)
+}
+
+const normalizeNewsUrl = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+    try {
+        const url = new URL(trimmed)
+        const params = url.searchParams
+            ;["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((key) =>
+                params.delete(key)
+            )
+        url.search = params.toString()
+        return url.toString()
+    } catch {
+        return trimmed
+    }
+}
+
+const buildNewsWorldId = (url: string) => `news-${hashString(normalizeNewsUrl(url))}`
+
 const buildReviewItemsFromAi = (items: any[]) =>
     items.map((item) => ({
         source: normalizeText(item?.source),
@@ -117,9 +144,10 @@ const buildWorldFromItems = (
     items: NewsReviewItem[],
     sourceLabel: string,
     targetLabel: string,
-    ui: any
+    ui: any,
+    worldId?: string
 ): VocabWorld => {
-    const id = `news-${Date.now()}`
+    const id = worldId || `news-${Date.now()}`
     const pool = items.map((item, index) => {
         const explanation =
             item.explanation?.trim() || `Meaning of ${item.source}.`
@@ -340,8 +368,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [generatedTitle, setGeneratedTitle] = useState("")
     const [lastPromptTheme, setLastPromptTheme] = useState("")
     const [storedWorlds, setStoredWorlds] = useState<VocabWorld[]>([])
-    const [storedLists, setStoredLists] = useState<Array<{ id: string; name: string }>>([])
+    const [storedLists, setStoredLists] = useState<Array<{ id: string; name: string; worldIds?: string[] }>>([])
     const [worldMetaMap, setWorldMetaMap] = useState<Record<string, { listId: string | null }>>({})
+    const [savedNewsUrls, setSavedNewsUrls] = useState<Set<string>>(new Set())
     const [selectedOverlayListId, setSelectedOverlayListId] = useState<string | null>(null)
     const [reviewStats, setReviewStats] = useState<{ bucket: "hard" | "new" | null; count: number }>({
         bucket: null,
@@ -354,9 +383,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const currentNewsBody = currentNewsTeaser || currentNews?.title || ""
     const currentNewsWorld = newsWorlds[currentNewsIndex]
     const currentNewsSource = currentNewsWorld?.news?.sourceUrl
+    const normalizedNewsSource = currentNewsSource ? normalizeNewsUrl(currentNewsSource) : ""
     const isCurrentNewsSaved = Boolean(
         currentNewsWorld &&
-        storedWorlds.some((world) => world.news?.sourceUrl && world.news.sourceUrl === currentNewsSource)
+        (savedNewsUrls.has(normalizedNewsSource) ||
+            storedWorlds.some(
+                (world) =>
+                    world.news?.sourceUrl &&
+                    normalizeNewsUrl(world.news.sourceUrl) === normalizedNewsSource
+            ))
     )
 
     const uiSettings = useMemo(
@@ -593,49 +628,49 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 if (!response.ok) return
                 const data = await response.json()
                 const entries = Array.isArray(data?.worlds) ? data.worlds : []
-            const list: VocabWorld[] = []
-            const meta: Record<string, { listId: string | null }> = {}
-            const lists = Array.isArray(data?.lists)
-                ? data.lists.map((entry: any) => ({
-                    id: entry.id,
-                    name: entry.name,
-                }))
-                : []
-            entries.forEach((entry: any) => {
-                const json = entry?.json
-                if (!json) return
-                const id = entry?.worldId || json.id
-                if (!id) return
+                const list: VocabWorld[] = []
+                const meta: Record<string, { listId: string | null }> = {}
+                const lists = Array.isArray(data?.lists)
+                    ? data.lists.map((entry: any) => ({
+                        id: entry.id,
+                        name: entry.name,
+                    }))
+                    : []
+                entries.forEach((entry: any) => {
+                    const json = entry?.json
+                    if (!json) return
+                    const id = entry?.worldId || json.id
+                    if (!id) return
                     json.id = id
                     if (entry?.title) json.title = entry.title
                     list.push(json as VocabWorld)
-                meta[id] = { listId: entry?.listId ?? null }
-            })
-            setStoredWorlds(list)
-            setWorldMetaMap(meta)
-            setStoredLists(lists)
-            const reviewEntries = list.flatMap((world) =>
-                (world.pool ?? []).map((pair) => ({ world, pair }))
-            )
-            const hardCount = reviewEntries.filter(
-                (entry) => (entry.pair.srs?.bucket ?? "new") === "hard"
-            ).length
-            const newCount = reviewEntries.filter(
-                (entry) => (entry.pair.srs?.bucket ?? "new") === "new"
-            ).length
-            if (hardCount > 0) {
-                setReviewStats({ bucket: "hard", count: hardCount })
-            } else if (newCount > 0) {
-                setReviewStats({ bucket: "new", count: newCount })
-            } else {
-                setReviewStats({ bucket: null, count: 0 })
+                    meta[id] = { listId: entry?.listId ?? null }
+                })
+                setStoredWorlds(list)
+                setWorldMetaMap(meta)
+                setStoredLists(lists)
+                const reviewEntries = list.flatMap((world) =>
+                    (world.pool ?? []).map((pair) => ({ world, pair }))
+                )
+                const hardCount = reviewEntries.filter(
+                    (entry) => (entry.pair.srs?.bucket ?? "new") === "hard"
+                ).length
+                const newCount = reviewEntries.filter(
+                    (entry) => (entry.pair.srs?.bucket ?? "new") === "new"
+                ).length
+                if (hardCount > 0) {
+                    setReviewStats({ bucket: "hard", count: hardCount })
+                } else if (newCount > 0) {
+                    setReviewStats({ bucket: "new", count: newCount })
+                } else {
+                    setReviewStats({ bucket: null, count: 0 })
+                }
+            } catch {
+                // ignore
             }
-        } catch {
-            // ignore
         }
-    }
-    loadWorlds()
-}, [])
+        loadWorlds()
+    }, [])
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -707,20 +742,30 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             method: "GET",
             headers: { Authorization: `Bearer ${token}` },
         })
-        if (!response.ok) return ""
+        if (!response.ok) {
+            const fallbackId = generateUuid()
+            const created = await fetch("/api/storage/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    lists: [{ id: fallbackId, name: "Vocado Diario", position: 0 }],
+                }),
+            })
+            return created.ok ? fallbackId : ""
+        }
         const data = await response.json()
         const lists = Array.isArray(data?.lists) ? data.lists : []
         const existing = lists.find((list: any) => list?.name === "Vocado Diario")
         if (existing?.id) return existing.id
         const listId = generateUuid()
-        await fetch("/api/storage/state", {
+        const created = await fetch("/api/storage/state", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 lists: [{ id: listId, name: "Vocado Diario", position: 0 }],
             }),
         })
-        return listId
+        return created.ok ? listId : ""
     }
 
     const ensureUnlistedListId = async (token: string) => {
@@ -778,7 +823,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             }
             if (!matched.length) return null
             matched.sort((a, b) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
-            return matched
+            const seen = new Set<string>()
+            const unique = matched.filter((world) => {
+                const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+                if (!url) return true
+                if (seen.has(url)) return false
+                seen.add(url)
+                return true
+            })
+            return unique
         } catch {
             return null
         }
@@ -803,8 +856,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     return true
                 })
                 .sort((a: VocabWorld, b: VocabWorld) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
+            const seen = new Set<string>()
+            const unique = matched.filter((world: VocabWorld) => {
+                const url = world?.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+                if (!url) return true
+                if (seen.has(url)) return false
+                seen.add(url)
+                return true
+            })
                 .slice(0, 5)
-            return matched.length ? matched : null
+            return unique.length ? unique : null
         } catch {
             return null
         }
@@ -818,6 +879,53 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             window.localStorage.setItem(cacheKey, JSON.stringify({ worlds, updatedAt: Date.now() }))
         } catch {
             // ignore
+        }
+    }
+
+    const hasNewsWorldInStorage = async (url: string) => {
+        if (!url) return false
+        if (savedNewsUrls.has(url)) return true
+        if (storedWorlds.some((world) => world.news?.sourceUrl === url)) return true
+        if (typeof window !== "undefined") {
+            const sessionKey = `${activeNewsTab}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
+            const cacheKey = `vocado-news-cache:${sessionKey}`
+            const raw = window.localStorage.getItem(cacheKey)
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw)
+                    const cachedWorlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
+                    if (
+                        cachedWorlds.some(
+                            (world: VocabWorld) =>
+                                world?.news?.sourceUrl &&
+                                normalizeNewsUrl(world.news.sourceUrl) === normalizeNewsUrl(url)
+                        )
+                    ) {
+                        return true
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+        }
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return false
+            const response = await fetch("/api/storage/worlds/list", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!response.ok) return false
+            const data = await response.json()
+            const worldRows = Array.isArray(data?.worlds) ? data.worlds : []
+            return worldRows.some(
+                (row: any) =>
+                    row?.json?.news?.sourceUrl &&
+                    normalizeNewsUrl(row.json.news.sourceUrl) === normalizeNewsUrl(url)
+            )
+        } catch {
+            return false
         }
     }
 
@@ -842,6 +950,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     setNewsWorlds(localList)
                     setNewsItems(baseItems)
                     setCurrentNewsIndex(0)
+                    setIsNewsLoading(false)
+                    return
                 }
                 const cachedList = (await loadCachedDailyNewsList(category)) ?? []
                 if (cachedList.length >= 5) {
@@ -871,11 +981,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     cachedList
                         .map((item) => item.news?.sourceUrl)
                         .filter((value): value is string => Boolean(value))
+                        .map(normalizeNewsUrl)
                 )
                 for (let i = 0; i < list.length; i += 1) {
                     if (cachedList.length + worldsToSave.length >= 5) break
                     const headline = list[i]
-                    if (!headline?.url || usedUrls.has(headline.url)) continue
+                    if (!headline?.url) continue
+                    const normalizedUrl = normalizeNewsUrl(headline.url)
+                    if (!normalizedUrl || usedUrls.has(normalizedUrl)) continue
                     let nextSummary: string[] = []
                     let nextItems = [] as NewsReviewItem[]
                     try {
@@ -913,26 +1026,39 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             nextItems,
                             profileSettings.sourceLanguage || "Español",
                             profileSettings.targetLanguage || "Alemán",
-                            ui
+                            ui,
+                            normalizedUrl ? buildNewsWorldId(normalizedUrl) : undefined
                         ),
                         title: `Vocado Diario - ${headline.title || "Noticia"}`,
                         description: "Noticias del día.",
                         news: {
                             summary: nextSummary,
-                            sourceUrl: headline.url,
+                            sourceUrl: normalizedUrl,
                             title: headline.title || "Noticia",
                             category,
                             date: headline.date || new Date().toISOString(),
                             index: cachedList.length + worldsToSave.length,
                         },
                     }
-                    worldsToSave.push(newsWorld)
-                    usedUrls.add(headline.url)
+                    if (!usedUrls.has(normalizedUrl)) {
+                        worldsToSave.push(newsWorld)
+                        usedUrls.add(normalizedUrl)
+                    }
                 }
 
-                const merged = [...cachedList, ...worldsToSave].slice(0, 5)
+                const merged = [...cachedList, ...worldsToSave]
+                const seenKeys = new Set<string>()
+                const finalList = merged.filter((world) => {
+                    const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+                    const title = (world.news?.title || world.title || "").trim().toLowerCase()
+                    const key = url || title
+                    if (!key) return false
+                    if (seenKeys.has(key)) return false
+                    seenKeys.add(key)
+                    return true
+                }).slice(0, 5)
 
-                const baseItems = merged.map((item) => ({
+                const baseItems = finalList.map((item) => ({
                     title: item.news?.title || item.title,
                     teaser: item.news?.summary?.[0] || "",
                 }))
@@ -943,10 +1069,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         teaser: "",
                     })),
                 ]
-                setNewsWorlds(merged)
+                setNewsWorlds(finalList)
                 setNewsItems(padded)
                 setCurrentNewsIndex(0)
-                saveLocalNewsCache(category, merged)
+                saveLocalNewsCache(category, finalList)
             } catch {
                 // ignore network errors for cached news
             } finally {
@@ -984,6 +1110,26 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setLastPlayed(null)
         }
     }, [profileSettings.sourceLanguage, profileSettings.targetLanguage])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const raw = window.localStorage.getItem("vocado-saved-news")
+        if (!raw) return
+        try {
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) {
+                setSavedNewsUrls(
+                    new Set(
+                        parsed
+                            .filter((item) => typeof item === "string")
+                            .map((item) => normalizeNewsUrl(item))
+                    )
+                )
+            }
+        } catch {
+            // ignore
+        }
+    }, [])
 
     useEffect(() => {
         if (!showAttachMenu) return
@@ -1296,35 +1442,151 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         return words
     }
 
+    const updateLocalWorldsCache = (
+        userId: string,
+        nextWorlds: VocabWorld[],
+        nextLists: Array<{ id: string; name: string; worldIds?: string[] }>
+    ) => {
+        if (typeof window === "undefined") return
+        const storedUserId = window.localStorage.getItem("vocado-user-id")
+        const resolvedUserId = userId || storedUserId || "anon"
+        const key = `vocado-worlds-cache:${resolvedUserId}`
+        const fallbackKey = "vocado-worlds-cache"
+        try {
+            const payload = JSON.stringify({
+                lists: nextLists,
+                worlds: nextWorlds,
+                updatedAt: Date.now(),
+            })
+            window.localStorage.setItem(key, payload)
+            window.localStorage.setItem(fallbackKey, payload)
+        } catch {
+            // ignore cache write errors
+        }
+    }
+
+    const queuePendingWorld = (world: VocabWorld, listId: string, remove = false) => {
+        if (typeof window === "undefined") return
+        try {
+            const raw = window.localStorage.getItem(PENDING_WORLDS_KEY)
+            const parsed = raw ? JSON.parse(raw) : []
+            const next = Array.isArray(parsed) ? parsed : []
+            next.push({ world, listId, remove })
+            window.localStorage.setItem(PENDING_WORLDS_KEY, JSON.stringify(next))
+        } catch {
+            // ignore
+        }
+    }
+
     const handleAddNewsToList = async () => {
-        if (!currentNewsWorld || isCurrentNewsSaved) return
+        if (!currentNewsWorld || !currentNewsSource) return
+        const normalizedSource = normalizeNewsUrl(currentNewsSource)
+        const worldToSave = { ...currentNewsWorld, id: buildNewsWorldId(currentNewsSource) }
+
         try {
             const session = await supabase.auth.getSession()
             const token = session.data.session?.access_token
-            if (!token) throw new Error("Missing auth token")
-            const listId = await ensureNewsListId(token)
-            await fetch("/api/storage/worlds/save", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                    worlds: [currentNewsWorld],
-                    listId: listId || null,
-                    positions: { [currentNewsWorld.id]: 0 },
-                }),
-            })
-            setStoredWorlds((prev) => {
-                if (prev.some((item) => item.id === currentNewsWorld.id)) return prev
-                return [...prev, currentNewsWorld]
-            })
-            if (listId) {
-                setWorldMetaMap((prev) => ({ ...prev, [currentNewsWorld.id]: { listId } }))
+            const userId = session.data.session?.user?.id ?? ""
+            if (!token) return
+
+            if (typeof window !== "undefined" && userId) {
+                window.localStorage.setItem("vocado-user-id", userId)
+            }
+
+            if (isCurrentNewsSaved) {
+                // UNSAVE
+                setSavedNewsUrls((prev) => {
+                    const next = new Set(prev)
+                    next.delete(normalizedSource)
+                    if (typeof window !== "undefined") {
+                        window.localStorage.setItem("vocado-saved-news", JSON.stringify(Array.from(next)))
+                        window.localStorage.setItem("vocado-refresh-worlds", "1")
+                    }
+                    return next
+                })
+
+                // Remove from storedWorlds and storedLists locally
+                setStoredWorlds((prev) => prev.filter((world) => world.id !== worldToSave.id))
+                setStoredLists((prev) =>
+                    prev.map((list) =>
+                        list.worldIds?.includes(worldToSave.id)
+                            ? { ...list, worldIds: list.worldIds.filter((id) => id !== worldToSave.id) }
+                            : list
+                    )
+                )
+
+                queuePendingWorld(worldToSave, "", true)
+                updateLocalWorldsCache(
+                    userId,
+                    storedWorlds.filter((world) => world.id !== worldToSave.id),
+                    storedLists.map((list) =>
+                        list.worldIds?.includes(worldToSave.id)
+                            ? { ...list, worldIds: list.worldIds.filter((id) => id !== worldToSave.id) }
+                            : list
+                    )
+                )
+
+                await fetch("/api/storage/worlds/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ worldIds: [worldToSave.id] }),
+                }).catch(() => { })
+
+            } else {
+                // SAVE
+                setSavedNewsUrls((prev) => {
+                    const next = new Set(prev)
+                    next.add(normalizedSource)
+                    if (typeof window !== "undefined") {
+                        window.localStorage.setItem("vocado-saved-news", JSON.stringify(Array.from(next)))
+                        window.localStorage.setItem("vocado-refresh-worlds", "1")
+                    }
+                    return next
+                })
+
+                const listId = await ensureNewsListId(token)
+                queuePendingWorld(worldToSave, listId, false)
+
+                // Optimistic local insert
+                setStoredWorlds((prev) => {
+                    if (prev.some((item) => item.id === worldToSave.id)) return prev
+                    return [...prev, worldToSave]
+                })
                 setStoredLists((prev) => {
-                    if (prev.some((list) => list.id === listId)) return prev
-                    return [...prev, { id: listId, name: "Vocado Diario" }]
+                    if (!listId) return prev
+                    if (prev.some((list) => list.id === listId)) {
+                        return prev.map((list) =>
+                            list.id === listId
+                                ? {
+                                    ...list,
+                                    worldIds: list.worldIds
+                                        ? list.worldIds.includes(worldToSave.id)
+                                            ? list.worldIds
+                                            : [...list.worldIds, worldToSave.id]
+                                        : [worldToSave.id],
+                                }
+                                : list
+                        )
+                    }
+                    return [...prev, { id: listId, name: "Vocado Diario", worldIds: [worldToSave.id] }]
+                })
+
+                if (listId) {
+                    setWorldMetaMap((prev) => ({ ...prev, [worldToSave.id]: { listId } }))
+                }
+
+                await fetch("/api/storage/worlds/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        worlds: [worldToSave],
+                        listId: listId || null,
+                        positions: { [worldToSave.id]: 0 },
+                    }),
                 })
             }
         } catch {
-            // ignore save errors for now
+            // ignore
         }
     }
 
@@ -1636,9 +1898,24 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
                         {/* Content */}
                         <div className="p-2.5 pt-2 flex flex-col h-[180px]"> {/* Fixed height container */}
-                            <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center tracking-tighter">
-                                {isNewsLoading ? ui.newsLoading : (currentNews?.title || ui.noNewsAvailable)}
-                            </h3>
+                            <div className="relative mb-4 h-[40px] flex items-center justify-center">
+                                <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] text-center px-6 line-clamp-2 tracking-tighter">
+                                    {isNewsLoading ? ui.newsLoading : (currentNews?.title || ui.noNewsAvailable)}
+                                </h3>
+                                <button
+                                    type="button"
+                                    onClick={handleAddNewsToList}
+                                    disabled={!currentNewsWorld}
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A] disabled:opacity-60"
+                                    aria-label={ui.overlay?.save ?? "Save"}
+                                >
+                                    {isCurrentNewsSaved ? (
+                                        <Check className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
+                                    ) : (
+                                        <BookmarkPlus className="w-4 h-4" />
+                                    )}
+                                </button>
+                            </div>
 
                             {/* Text Preview in Placeholder */}
                             <div className="relative flex-1 overflow-hidden bg-[#EBE7DF] rounded-[12px] px-3 py-2 mb-2">
@@ -1681,15 +1958,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                         className="hover:text-[#3A3A3A]/70 transition-colors p-1 -mr-1"
                                     >
                                         <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleAddNewsToList}
-                                        disabled={!currentNewsWorld || isCurrentNewsSaved}
-                                        className="ml-1 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A] disabled:opacity-40"
-                                        aria-label={ui.overlay?.save ?? "Save"}
-                                    >
-                                        <BookmarkPlus className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
@@ -1851,18 +2119,18 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 onPlayNow={handleOverlayPlayNow}
                 initialWords={generatedWords}
                 initialTitle={generatedTitle}
-            labels={overlayLabels}
-            existingWorlds={storedWorlds
-                .filter((world) => !world.news)
-                .map((world) => ({
-                    id: world.id,
-                    title: world.title,
-                }))}
-            existingLists={storedLists}
-            selectedListId={selectedOverlayListId}
-            onSelectList={setSelectedOverlayListId}
-            onGenerateMore={handleGenerateMoreWords}
-        />
+                labels={overlayLabels}
+                existingWorlds={storedWorlds
+                    .filter((world) => !world.news)
+                    .map((world) => ({
+                        id: world.id,
+                        title: world.title,
+                    }))}
+                existingLists={storedLists}
+                selectedListId={selectedOverlayListId}
+                onSelectList={setSelectedOverlayListId}
+                onGenerateMore={handleGenerateMoreWords}
+            />
         </div>
     )
 }

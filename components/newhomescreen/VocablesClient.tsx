@@ -142,6 +142,15 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   useEffect(() => {
     const load = async () => {
+      const perfEnabled =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("vocado-debug-perf") === "1"
+      const perfStart = perfEnabled ? performance.now() : 0
+      const logPerf = (label: string, extra?: Record<string, unknown>) => {
+        if (!perfEnabled) return
+        const elapsed = Math.round(performance.now() - perfStart)
+        console.log(`[perf][vocables] ${label} (${elapsed}ms)`, extra || "")
+      }
       setIsLoading(true)
       setLoadError(null)
       if (typeof window !== "undefined") {
@@ -154,6 +163,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             if (cachedWorlds.length && (!lastLogin || parsed?.lastLogin === lastLogin)) {
               setWorlds(cachedWorlds)
               setIsLoading(false)
+              logPerf("cache hit", { worlds: cachedWorlds.length })
               return
             }
           }
@@ -162,7 +172,11 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
         }
       }
       try {
+        const sessionStart = perfEnabled ? performance.now() : 0
         const session = await supabase.auth.getSession()
+        if (perfEnabled) {
+          console.log("[perf][vocables] session", Math.round(performance.now() - sessionStart) + "ms")
+        }
         const token = session.data.session?.access_token
         if (!token) {
           setLoadError("Missing session.")
@@ -170,15 +184,23 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           return
         }
 
+        const fetchStart = perfEnabled ? performance.now() : 0
         const response = await fetch("/api/storage/worlds/list", {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
         })
+        if (perfEnabled) {
+          console.log("[perf][vocables] fetch /worlds/list", Math.round(performance.now() - fetchStart) + "ms")
+        }
         if (!response.ok) {
           const data = await response.json().catch(() => null)
           throw new Error(data?.error ?? "Load failed")
         }
+        const parseStart = perfEnabled ? performance.now() : 0
         const data = await response.json()
+        if (perfEnabled) {
+          console.log("[perf][vocables] parse json", Math.round(performance.now() - parseStart) + "ms")
+        }
         const loaded: StoredWorld[] = (data?.worlds || [])
           .map((item: any) => {
             const json = item?.json
@@ -202,6 +224,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           })
           .filter(Boolean)
         setWorlds(loaded)
+        logPerf("loaded", { worlds: loaded.length })
         if (typeof window !== "undefined") {
           try {
             const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()

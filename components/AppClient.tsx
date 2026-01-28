@@ -164,6 +164,9 @@ const buildUi = (uiSettings: ReturnType<typeof getUiSettings>) => ({
       uiSettings?.levelsOverlay?.defaultDescription ??
       "Choose a subworld (chunk of {itemsPerGame} items).",
   },
+  difficultyHard: uiSettings?.vocables?.difficultyHard ?? "Hard",
+  difficultyMedium: uiSettings?.vocables?.difficultyMedium ?? "Medium",
+  difficultyEasy: uiSettings?.vocables?.difficultyEasy ?? "Easy",
   upload: {
     title: uiSettings?.upload?.title ?? "Subir lista",
     description:
@@ -1826,10 +1829,20 @@ export default function AppClient({
   }
 
   const loadSupabaseState = async () => {
+    const perfEnabled =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("vocado-debug-perf") === "1"
+    const perfStart = perfEnabled ? performance.now() : 0
+    const logPerf = (label: string, extra?: Record<string, unknown>) => {
+      if (!perfEnabled) return
+      const elapsed = Math.round(performance.now() - perfStart)
+      console.log(`[perf][app] ${label} (${elapsed}ms)`, extra || "")
+    }
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return
 
+    logPerf("session", { hasToken: true })
     const response = await fetch("/api/storage/worlds/list", {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
@@ -1838,6 +1851,10 @@ export default function AppClient({
       return
     }
     const data = await response.json()
+    logPerf("response", {
+      lists: Array.isArray(data?.lists) ? data.lists.length : 0,
+      worlds: Array.isArray(data?.worlds) ? data.worlds.length : 0,
+    })
     const lists = Array.isArray(data?.lists) ? data.lists : []
     const worlds = Array.isArray(data?.worlds) ? data.worlds : []
 
@@ -1871,6 +1888,7 @@ export default function AppClient({
     if (worlds.length > 0) {
       const loadedWorlds = worlds.map((world) => world.json).filter(Boolean)
       setUploadedWorlds(loadedWorlds)
+      logPerf("loaded worlds", { worlds: loadedWorlds.length })
 
       const overrides: Record<string, string> = {}
       worlds.forEach((world) => {
@@ -3217,11 +3235,25 @@ export default function AppClient({
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
                   renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem }) => {
                     if (!currentWorld || currentWorld.submode === "conjugation") return null
-                    if (!matchedOrder?.length || !carouselItem) return null
+                    if (!matchedOrder?.length) return null
                     if (typeof carouselIndex !== "number" || !setCarouselIndex) return null
-                    const isAssigned = winAssignedIds.has(carouselItem.id)
+                    const fallbackPairId = matchedOrder[carouselIndex] ?? matchedOrder[0]
+                    const fallbackPair = currentWorld.pool.find((pair) => pair.id === fallbackPairId)
+                    const effectiveItem =
+                      carouselItem ??
+                      (fallbackPair
+                        ? {
+                            id: fallbackPair.id,
+                            image: fallbackPair.image,
+                            primaryLabel: fallbackPair.es,
+                            secondaryLabel: fallbackPair.de,
+                          }
+                        : null)
+                    if (!effectiveItem) return null
+                    const isAssigned = winAssignedIds.has(effectiveItem.id)
+                    const allAssigned = matchedOrder.every((id) => winAssignedIds.has(id))
                     const handleAssign = (rating: "easy" | "medium" | "difficult") => {
-                      const pairIndex = currentWorld.pool.findIndex((pair) => pair.id === carouselItem.id)
+                      const pairIndex = currentWorld.pool.findIndex((pair) => pair.id === effectiveItem.id)
                       if (pairIndex < 0) return
                       const pair = currentWorld.pool[pairIndex]
                       const nextSrs = calculateNextReview(pair.srs, rating)
@@ -3235,7 +3267,7 @@ export default function AppClient({
                         prev.map((stored) => (stored.id === updatedWorld.id ? updatedWorld : stored))
                       )
                       const nextAssigned = new Set(winAssignedIds)
-                      nextAssigned.add(carouselItem.id)
+                      nextAssigned.add(effectiveItem.id)
                       setWinAssignedIds(nextAssigned)
                       void persistWorldUpdate(updatedWorld).catch(() => {})
                       if (matchedOrder.length > 1) {
@@ -3250,13 +3282,36 @@ export default function AppClient({
                         setCarouselIndex(nextIndex)
                       }
                     }
+                    if (allAssigned) {
+                      return (
+                        <div className="flex items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={closeWin}
+                            className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] px-4 py-3 text-[13px] font-medium text-[#3A3A3A]/70"
+                          >
+                            {uiSettings?.vocables?.menuLabel ?? "Menu"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              closeWin()
+                              nextLevel()
+                            }}
+                            className="flex-1 rounded-full bg-[rgb(var(--vocado-accent-rgb))] px-4 py-3 text-[13px] font-medium text-white"
+                          >
+                            {uiSettings?.vocables?.continueLabel ?? "Continue"}
+                          </button>
+                        </div>
+                      )
+                    }
                     return (
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-3">
                         <button
                           type="button"
                           onClick={() => handleAssign("difficult")}
                           disabled={isAssigned}
-                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F4E6E3] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F4E6E3] px-4 py-3 text-[13px] font-medium text-[#3A3A3A] disabled:opacity-50"
                         >
                           {ui.difficultyHard}
                         </button>
@@ -3264,7 +3319,7 @@ export default function AppClient({
                           type="button"
                           onClick={() => handleAssign("medium")}
                           disabled={isAssigned}
-                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F6F0E1] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#F6F0E1] px-4 py-3 text-[13px] font-medium text-[#3A3A3A] disabled:opacity-50"
                         >
                           {ui.difficultyMedium}
                         </button>
@@ -3272,7 +3327,7 @@ export default function AppClient({
                           type="button"
                           onClick={() => handleAssign("easy")}
                           disabled={isAssigned}
-                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#E9F2E7] px-3 py-2 text-xs text-[#3A3A3A] disabled:opacity-50"
+                          className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#E9F2E7] px-4 py-3 text-[13px] font-medium text-[#3A3A3A] disabled:opacity-50"
                         >
                           {ui.difficultyEasy}
                         </button>

@@ -315,7 +315,16 @@
       "worldMeta": "{levels} niveles • {words} palabras",
       "levelItemLabel": "Nivel {count}",
       "libraryAction": "Biblioteca",
-      "uploadAction": "Subir"
+      "uploadAction": "Subir",
+      "loading": "Cargando...",
+      "listMenuRename": "Renombrar lista",
+      "listMenuRenamePlaceholder": "Nombre de la lista",
+      "listMenuEmpty": "Vaciar lista",
+      "listMenuDelete": "Eliminar lista",
+      "listMenuConfirmEmpty": "¿Vaciar esta lista? Se eliminarán {count} mundos.",
+      "listMenuConfirmDelete": "¿Eliminar esta lista? Se eliminarán {count} mundos.",
+      "listMenuConfirmYes": "Sí",
+      "listMenuConfirmCancel": "Cancelar"
     },
     "vocables": {
       "title": "Vocabulario",
@@ -657,7 +666,16 @@
       "worldMeta": "{levels} levels • {words} words",
       "levelItemLabel": "Level {count}",
       "libraryAction": "Library",
-      "uploadAction": "Upload"
+      "uploadAction": "Upload",
+      "loading": "Loading...",
+      "listMenuRename": "Rename list",
+      "listMenuRenamePlaceholder": "List name",
+      "listMenuEmpty": "Empty list",
+      "listMenuDelete": "Remove list",
+      "listMenuConfirmEmpty": "Empty this list? {count} worlds will be removed.",
+      "listMenuConfirmDelete": "Remove this list? {count} worlds will be removed.",
+      "listMenuConfirmYes": "Yes",
+      "listMenuConfirmCancel": "Cancel"
     },
     "vocables": {
       "title": "Vocables",
@@ -999,7 +1017,16 @@
       "worldMeta": "{levels} Level • {words} Wörter",
       "levelItemLabel": "Level {count}",
       "libraryAction": "Bibliothek",
-      "uploadAction": "Hochladen"
+      "uploadAction": "Hochladen",
+      "loading": "Lädt...",
+      "listMenuRename": "Liste umbenennen",
+      "listMenuRenamePlaceholder": "Listenname",
+      "listMenuEmpty": "Liste leeren",
+      "listMenuDelete": "Liste entfernen",
+      "listMenuConfirmEmpty": "Liste leeren? {count} Welten werden entfernt.",
+      "listMenuConfirmDelete": "Liste entfernen? {count} Welten werden entfernt.",
+      "listMenuConfirmYes": "Ja",
+      "listMenuConfirmCancel": "Abbrechen"
     },
     "vocables": {
       "title": "Vokabeln",
@@ -1334,7 +1361,16 @@
       "worldMeta": "{levels} niveaux • {words} mots",
       "levelItemLabel": "Niveau {count}",
       "libraryAction": "Bibliothèque",
-      "uploadAction": "Importer"
+      "uploadAction": "Importer",
+      "loading": "Chargement...",
+      "listMenuRename": "Renommer la liste",
+      "listMenuRenamePlaceholder": "Nom de la liste",
+      "listMenuEmpty": "Vider la liste",
+      "listMenuDelete": "Supprimer la liste",
+      "listMenuConfirmEmpty": "Vider cette liste ? {count} mondes seront supprimés.",
+      "listMenuConfirmDelete": "Supprimer cette liste ? {count} mondes seront supprimés.",
+      "listMenuConfirmYes": "Oui",
+      "listMenuConfirmCancel": "Annuler"
     },
     "vocables": {
       "title": "Vocabulaire",

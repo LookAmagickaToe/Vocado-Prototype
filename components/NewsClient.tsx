@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { BookmarkPlus, Check } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
@@ -22,10 +23,37 @@ const WEEKLY_SEEDS_START_STORAGE_KEY = "vocado-seeds-week-start"
 const READ_NEWS_STORAGE_KEY = "vocado-read-news"
 const LAST_LOGIN_STORAGE_KEY = "vocado-last-login"
 const LOCAL_NEWS_CACHE_PREFIX = "vocado-news-cache"
+const SAVED_NEWS_STORAGE_KEY = "vocado-saved-news"
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const isUuid = (value: string) => UUID_REGEX.test(value)
+
+const hashString = (value: string) => {
+  let hash = 5381
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+const normalizeNewsUrl = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+  try {
+    const url = new URL(trimmed)
+    const params = url.searchParams
+      ;["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((key) =>
+        params.delete(key)
+      )
+    url.search = params.toString()
+    return url.toString()
+  } catch {
+    return trimmed
+  }
+}
+
+const buildNewsWorldId = (url: string) => `news-${hashString(normalizeNewsUrl(url))}`
 
 const generateUuid = () => {
   if (typeof crypto !== "undefined") {
@@ -188,6 +216,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [items, setItems] = useState<ReviewItem[]>([])
   const [step, setStep] = useState<"input" | "loading" | "play" | "summary">("input")
   const [newsWorlds, setNewsWorlds] = useState<VocabWorld[]>([])
+  const [savedNewsUrls, setSavedNewsUrls] = useState<Set<string>>(new Set())
   const [isLoadingHeadlines, setIsLoadingHeadlines] = useState(false)
   const [category, setCategory] = useState(profile.newsCategory || "world")
   const [newsTitle, setNewsTitle] = useState("")
@@ -204,6 +233,23 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed)) {
           setReadNewsUrls(new Set(parsed))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = window.localStorage.getItem(SAVED_NEWS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          setSavedNewsUrls(
+            new Set(parsed.filter((item) => typeof item === "string").map(normalizeNewsUrl))
+          )
         }
       }
     } catch {
@@ -334,7 +380,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }
       if (!matched.length) return null
       matched.sort((a, b) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
-      return matched
+      const seen = new Set<string>()
+      const unique = matched.filter((world) => {
+        const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+        if (!url) return true
+        if (seen.has(url)) return false
+        seen.add(url)
+        return true
+      })
+      return unique
     } catch {
       return null
     }
@@ -360,12 +414,16 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   }
 
   const findExistingNewsWorldByUrl = async (url: string): Promise<VocabWorld | null> => {
-    const normalized = url.trim()
+    const normalized = normalizeNewsUrl(url)
     if (!normalized) return null
-    const fromState = newsWorlds.find((world) => world.news?.sourceUrl === normalized)
+    const fromState = newsWorlds.find(
+      (world) => world.news?.sourceUrl && normalizeNewsUrl(world.news.sourceUrl) === normalized
+    )
     if (fromState) return fromState
     const localCached = loadLocalNewsCache()
-    const fromLocal = localCached?.find((world) => world.news?.sourceUrl === normalized)
+    const fromLocal = localCached?.find(
+      (world) => world.news?.sourceUrl && normalizeNewsUrl(world.news.sourceUrl) === normalized
+    )
     if (fromLocal) return fromLocal
     const token = await getAuthToken()
     if (!token) return null
@@ -379,7 +437,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     for (const entry of entries) {
       const json = entry?.json
       if (!json?.news?.sourceUrl) continue
-      if (json.news.sourceUrl !== normalized) continue
+      if (normalizeNewsUrl(json.news.sourceUrl) !== normalized) continue
       const id = entry?.worldId || json.id
       if (id) json.id = id
       if (entry?.title) json.title = entry.title
@@ -403,15 +461,19 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     setNewsDate(patchedWorld.news?.date ?? todayKey)
     setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("play")
-    if (needsSave) {
-      void saveNewsWorld(patchedWorld).catch(() => {})
-    }
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
     const localCached = loadLocalNewsCache()
     if (localCached && localCached.length >= 5) {
-      const finalLocal = localCached.slice(0, 5)
+      const seen = new Set<string>()
+      const finalLocal = localCached.filter((world) => {
+        const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+        if (!url) return true
+        if (seen.has(url)) return false
+        seen.add(url)
+        return true
+      }).slice(0, 5)
       setNewsWorlds(finalLocal)
       return finalLocal
     }
@@ -440,11 +502,14 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         cachedList
           .map((world) => world.news?.sourceUrl)
           .filter((value): value is string => Boolean(value))
+          .map(normalizeNewsUrl)
       )
       for (let i = 0; i < itemsList.length; i += 1) {
         if (cachedList.length + worldsToSave.length >= 5) break
         const headline = itemsList[i]
-        if (!headline?.url || existing.has(headline.url)) continue
+        if (!headline?.url) continue
+        const normalizedUrl = normalizeNewsUrl(headline.url)
+        if (!normalizedUrl || existing.has(normalizedUrl)) continue
         const baseDate = headline.date || new Date().toISOString()
         const dateLabel = formatNewsDate(baseDate)
         const dateSuffix = dateLabel ? ` - ${dateLabel}` : ""
@@ -483,11 +548,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         if (!nextItems.length) continue
         const newsWorld = {
           ...buildWorldFromItems(nextItems, sourceLabel, targetLabel, ui),
+          id: buildNewsWorldId(normalizedUrl),
           title: worldTitle,
           description: "Noticias del día.",
           news: {
             summary: nextSummary.length ? nextSummary : [headline.teaser || headline.title || ""].filter(Boolean),
-            sourceUrl: headline.url,
+            sourceUrl: normalizedUrl,
             title: headline.title || "Noticia",
             category: categoryValue,
             date: baseDate,
@@ -495,18 +561,27 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           },
         }
         worldsToSave.push(newsWorld)
-        existing.add(headline.url)
+        existing.add(normalizedUrl)
       }
-      if (worldsToSave.length) {
-        await saveNewsWorlds(worldsToSave)
-      }
-      const merged = [...cachedList, ...worldsToSave].slice(0, 5)
-      setNewsWorlds(merged)
-      saveLocalNewsCache(merged)
-      if (!merged.length) {
+      const merged = [...cachedList, ...worldsToSave]
+      const seenUrls = new Set<string>()
+      const finalList = merged
+        .filter((world) => {
+          const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
+          const titleKey = world.news?.title || world.title || ""
+          const key = url || (titleKey ? `title:${titleKey.toLowerCase()}` : "")
+          if (!key) return true
+          if (seenUrls.has(key)) return false
+          seenUrls.add(key)
+          return true
+        })
+        .slice(0, 5)
+      setNewsWorlds(finalList)
+      saveLocalNewsCache(finalList)
+      if (!finalList.length) {
         setError(ui.noNews)
       }
-      return merged
+      return finalList
     } finally {
       setIsLoading(false)
     }
@@ -688,6 +763,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const loadNewsWorlds = async () => {
       setIsLoadingHeadlines(true)
       setError(null)
+      const localCached = loadLocalNewsCache()
+      if (localCached && localCached.length) {
+        setNewsWorlds(localCached.slice(0, 5))
+        if (localCached[0]?.news?.date) {
+          setNewsDate(localCached[0].news!.date)
+        }
+        setIsLoadingHeadlines(false)
+        return
+      }
       setNewsWorlds([])
       try {
         const list = await ensureDailyNewsList(category)
@@ -708,7 +792,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (isLoadingHeadlines) return
     autoStartedRef.current = true
     setStep("loading")
-    ensureDailyNewsList(category).then((list) => {
+    const existing = newsWorlds.length ? newsWorlds : null
+    const useList = existing ? Promise.resolve(existing) : ensureDailyNewsList(category)
+    useList.then((list) => {
       const index = autoIndexRef.current ?? 0
       const clampedIndex = Math.min(Math.max(index, 0), Math.max(list.length - 1, 0))
       const selected = list[clampedIndex]
@@ -718,7 +804,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         setStep("input")
       }
     })
-  }, [autoPlay, category, isLoadingHeadlines])
+  }, [autoPlay, category, isLoadingHeadlines, newsWorlds])
 
   const lastProfileCategoryRef = useRef<string | null>(null)
   useEffect(() => {
@@ -764,7 +850,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!response.ok) {
-      throw new Error("No se pudo cargar las listas")
+      const fallbackId = generateUuid()
+      const created = await fetch("/api/storage/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          lists: [{ id: fallbackId, name: "Vocado Diario", position: 0 }],
+        }),
+      })
+      if (!created.ok) {
+        throw new Error("No se pudo crear la lista de noticias")
+      }
+      return fallbackId
     }
     const data = await response.json()
     const lists = Array.isArray(data?.lists) ? data.lists : []
@@ -808,6 +905,80 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
     if (typeof window !== "undefined") {
       window.localStorage.setItem("vocado-refresh-worlds", "1")
+    }
+  }
+
+  const queuePendingWorld = (world: VocabWorld, listId: string, remove = false) => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = window.localStorage.getItem("vocado-pending-worlds")
+      const parsed = raw ? JSON.parse(raw) : []
+      const next = Array.isArray(parsed) ? parsed : []
+      next.push({ world, listId, remove })
+      window.localStorage.setItem("vocado-pending-worlds", JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+  }
+
+  const updateLocalWorldsCache = async (worldToSave: VocabWorld, listId: string, remove = false) => {
+    if (typeof window === "undefined") return
+    const session = await supabase.auth.getSession()
+    const storedUserId = window.localStorage.getItem("vocado-user-id")
+    const userId = session.data.session?.user?.id || storedUserId || "anon"
+    if (userId && userId !== "anon") {
+      window.localStorage.setItem("vocado-user-id", userId)
+    }
+    const key = `vocado-worlds-cache:${userId}`
+    const fallbackKey = "vocado-worlds-cache"
+    try {
+      const raw = window.localStorage.getItem(key) ?? window.localStorage.getItem(fallbackKey)
+      const parsed = raw ? JSON.parse(raw) : {}
+      const nextWorlds: VocabWorld[] = Array.isArray(parsed?.worlds) ? parsed.worlds : []
+      const nextLists: Array<{ id: string; name: string; worldIds?: string[] }> = Array.isArray(parsed?.lists)
+        ? parsed.lists
+        : []
+      const worldExists = nextWorlds.some((w) => w.id === worldToSave.id)
+      const resolvedListId =
+        listId || nextLists.find((list) => list.name === "Vocado Diario")?.id || ""
+      const updatedWorlds = remove
+        ? nextWorlds.filter((w) => w.id !== worldToSave.id)
+        : worldExists
+          ? nextWorlds
+          : [...nextWorlds, worldToSave]
+      const updatedLists = nextLists.some((list) => list.id === resolvedListId)
+        ? nextLists.map((list) => {
+          const ids = list.worldIds ?? []
+          if (remove) {
+            if (!resolvedListId) {
+              return { ...list, worldIds: ids.filter((id) => id !== worldToSave.id) }
+            }
+            if (list.id !== resolvedListId) return list
+            return { ...list, worldIds: ids.filter((id) => id !== worldToSave.id) }
+          }
+          if (list.id !== resolvedListId) return list
+          return {
+            ...list,
+            worldIds: ids.includes(worldToSave.id) ? ids : [...ids, worldToSave.id],
+          }
+        })
+        : remove
+          ? nextLists.map((list) => ({
+            ...list,
+            worldIds: (list.worldIds ?? []).filter((id) => id !== worldToSave.id),
+          }))
+          : resolvedListId
+            ? [...nextLists, { id: resolvedListId, name: "Vocado Diario", worldIds: [worldToSave.id] }]
+            : nextLists
+      const payload = JSON.stringify({
+        lists: updatedLists,
+        worlds: updatedWorlds,
+        updatedAt: Date.now(),
+      })
+      window.localStorage.setItem(key, payload)
+      window.localStorage.setItem(fallbackKey, payload)
+    } catch {
+      // ignore cache failures
     }
   }
 
@@ -940,9 +1111,6 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
       setNewsDate(patchedWorld.news?.date ?? newsDate)
       setStep("play")
-      if (needsSave) {
-        void saveNewsWorld(patchedWorld).catch(() => {})
-      }
       return
     }
     if (!newsDate) {
@@ -982,11 +1150,6 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         },
       }
       setWorld(newsWorld)
-      try {
-        await saveNewsWorld(newsWorld)
-      } catch (saveError) {
-        setError((saveError as Error).message)
-      }
       setStep("play")
     } catch (err) {
       setError((err as Error).message)
@@ -1003,6 +1166,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const placeholders = Array.from({ length: Math.max(0, 5 - base.length) }, (_, i) => ({
       id: `placeholder-${i}`,
       title: "",
+      chunking: "sentence",
+      mode: "explore",
       news: {
         summary: [],
         sourceUrl: "",
@@ -1076,15 +1241,102 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     ? headline.news?.summary[0] ?? ""
                     : ""
                   const url = headline.news?.sourceUrl || ""
+                  const normalizedUrl = url ? normalizeNewsUrl(url) : ""
+                  const isSaved = normalizedUrl && savedNewsUrls.has(normalizedUrl)
                   return (
                     <div
                       key={headline.id}
                       className="bg-[#FAF7F2] rounded-[24px] p-1 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)] border border-[#3A3A3A]/5 overflow-hidden"
                     >
                       <div className="p-2.5 pt-2 flex flex-col h-[180px]">
-                        <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] mb-4 text-center px-1 line-clamp-2 h-[40px] flex items-center justify-center">
-                          {title}
-                        </h3>
+                        <div className="relative mb-4 h-[40px] flex items-center justify-center">
+                          <h3 className="font-serif text-[16px] leading-[1.2] text-[#3A3A3A] text-center px-6 line-clamp-2">
+                            {title}
+                          </h3>
+                          <button
+                            type="button"
+                            disabled={!url}
+                            onClick={async () => {
+                              if (!url) return
+                              try {
+                                const token = await getAuthToken()
+                                if (!token) {
+                                  // Can't save if not logged in
+                                  return
+                                }
+                                const listId = await ensureNewsListId(token)
+                                const worldToSave = {
+                                  ...headline,
+                                  id: buildNewsWorldId(url),
+                                }
+
+                                if (isSaved) {
+                                  // UNSAVE
+                                  setSavedNewsUrls((prev) => {
+                                    const next = new Set(prev)
+                                    next.delete(normalizedUrl)
+                                    if (typeof window !== "undefined") {
+                                      window.localStorage.setItem(
+                                        SAVED_NEWS_STORAGE_KEY,
+                                        JSON.stringify(Array.from(next))
+                                      )
+                                      window.localStorage.setItem("vocado-refresh-worlds", "1")
+                                    }
+                                    return next
+                                  })
+
+                                  queuePendingWorld(worldToSave, listId, true)
+                                  await updateLocalWorldsCache(worldToSave, listId, true)
+
+                                  try {
+                                    await fetch("/api/storage/worlds/delete", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ worldIds: [worldToSave.id] }),
+                                    })
+                                  } catch {
+                                    // ignore delete error, optimistic update already happened
+                                  }
+                                } else {
+                                  // SAVE
+                                  setSavedNewsUrls((prev) => {
+                                    const next = new Set(prev)
+                                    next.add(normalizedUrl)
+                                    if (typeof window !== "undefined") {
+                                      window.localStorage.setItem(
+                                        SAVED_NEWS_STORAGE_KEY,
+                                        JSON.stringify(Array.from(next))
+                                      )
+                                      window.localStorage.setItem("vocado-refresh-worlds", "1")
+                                    }
+                                    return next
+                                  })
+
+                                  queuePendingWorld(worldToSave, listId, false)
+                                  await updateLocalWorldsCache(worldToSave, listId, false)
+
+                                  try {
+                                    await saveNewsWorld(worldToSave)
+                                  } catch (saveError) {
+                                    setError((saveError as Error).message)
+                                    // Revert optimistic update if failed completely? 
+                                    // Usually better to keep it and retry, but for now we leave as is.
+                                  }
+                                }
+                              } catch (err) {
+                                setError((err as Error).message)
+                              }
+                            }}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/60 flex items-center justify-center hover:text-[#3A3A3A] disabled:opacity-60"
+                            aria-label="Save"
+                          >
+                            {isSaved ? (
+                              <Check className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
+                            ) : (
+                              <BookmarkPlus className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                         <div className="relative flex-1 overflow-hidden bg-[#EBE7DF] rounded-[12px] px-3 py-2 mb-2">
                           <p className="text-[11px] leading-relaxed text-[#5A5A5A] font-serif">
                             {teaser || title}
