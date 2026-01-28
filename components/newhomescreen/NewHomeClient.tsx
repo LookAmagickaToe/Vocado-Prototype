@@ -344,12 +344,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         newsCategory: profile.newsCategory,
         onboardingDone: profile.onboardingDone,
     })
-    const [showTutorial, setShowTutorial] = useState(() => {
-        if (typeof window !== "undefined") {
-            return !profile.onboardingDone && !window.localStorage.getItem("vocado-onboarding-done")
-        }
-        return !profile.onboardingDone
-    })
+    const [showTutorial, setShowTutorial] = useState(!profile.onboardingDone)
     const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome")
     const [savingProfile, setSavingProfile] = useState(false)
     const [profileError, setProfileError] = useState<string | null>(null)
@@ -531,6 +526,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
     useEffect(() => {
         const initProfile = async () => {
+            // Check tutorial persistence immediately
+            if (typeof window !== "undefined" && window.localStorage.getItem("vocado-onboarding-done")) {
+                setShowTutorial(false)
+            }
+
             // 1. Get User Metadata
             const userRes = await supabase.auth.getUser()
             const userId = userRes.data.user?.id
