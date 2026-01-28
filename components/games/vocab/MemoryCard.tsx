@@ -3,7 +3,6 @@
 import { motion } from "framer-motion"
 import type { CardModel } from "./types"
 import AutoFitText from "@/components/ui/auto-fit-text"
-import { formatCardText } from "@/lib/text-format"
 
 function ParticleBurst() {
   const particles = Array.from({ length: 18 }, (_, i) => {
@@ -101,9 +100,9 @@ export default function MemoryCard({
             {model.kind === "word" ? (
               <div className="h-full w-full px-2 text-center flex items-center justify-center">
                 <AutoFitText
-                  text={formatCardText(model.front.title || "")}
-                  maxPx={32}
-                  minPx={8}
+                  text={model.front.title || ""}
+                  maxPx={18}
+                  minPx={5}
                   lineHeight={1.05}
                   className="w-full font-semibold tracking-tight leading-tight"
                 />
@@ -118,13 +117,13 @@ export default function MemoryCard({
                   />
                 ) : (
                   <div className="text-[clamp(1.4rem,6vw,2.6rem)] leading-none">
-                    {formatCardText(model.front.title || "")}
+                    {model.front.title}
                   </div>
                 )}
 
                 {model.front.subtitle ? (
                   <AutoFitText
-                    text={formatCardText(model.front.subtitle || "")}
+                    text={model.front.subtitle || ""}
                     maxPx={14}
                     minPx={5}
                     lineHeight={1.05}
