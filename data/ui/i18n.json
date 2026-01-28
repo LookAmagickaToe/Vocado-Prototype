@@ -140,7 +140,8 @@
         "world": "Mundo",
         "wirtschaft": "Economy",
         "sport": "Sport"
-      }
+      },
+      "addToVocab": "Añadir al vocabulario"
     },
     "home": {
       "title": "Inicio",
@@ -156,10 +157,8 @@
       "uploadAction": "Crear mundo",
       "worldsAction": "Mundos",
       "newsAction": "📰 Vocado Diario",
-      "newsTitle": "Título del artículo destacado",
-      "leaderboardTitle": "Clasificación",
-      "leaderboardOverall": "Puntuación total",
-      "leaderboardWeekly": "Campeón semanal",
+      "newsTitle": "Noticia destacada",
+      "leaderboardTitle": "Ranking",
       "leaderboardEmpty": "Aún no hay puntuaciones.",
       "seedsLabel": "Semillas",
       "translateTitle": "Traducir",
@@ -495,7 +494,8 @@
         "world": "World",
         "wirtschaft": "Economy",
         "sport": "Sport"
-      }
+      },
+      "addToVocab": "Add to vocabulary"
     },
     "home": {
       "title": "Home",
@@ -513,8 +513,6 @@
       "newsAction": "📰 Vocado News",
       "newsTitle": "Top headline",
       "leaderboardTitle": "Leaderboard",
-      "leaderboardOverall": "Overall score",
-      "leaderboardWeekly": "Weekly champion",
       "leaderboardEmpty": "No scores yet.",
       "seedsLabel": "Seeds",
       "translateTitle": "Translate",
@@ -850,7 +848,8 @@
         "world": "Welt",
         "wirtschaft": "Wirtschaft",
         "sport": "Sport"
-      }
+      },
+      "addToVocab": "Zum Vokabular hinzufügen"
     },
     "home": {
       "title": "Start",
@@ -867,9 +866,7 @@
       "worldsAction": "Welten",
       "newsAction": "📰 Vocado Zeitung",
       "newsTitle": "Top-Schlagzeile",
-      "leaderboardTitle": "Rangliste",
-      "leaderboardOverall": "Gesamtwertung",
-      "leaderboardWeekly": "Wochenchampion",
+      "leaderboardTitle": "Bestenliste",
       "leaderboardEmpty": "Noch keine Ergebnisse.",
       "seedsLabel": "Samen",
       "translateTitle": "Übersetzen",
@@ -1198,7 +1195,8 @@
         "world": "Monde",
         "wirtschaft": "Économie",
         "sport": "Sport"
-      }
+      },
+      "addToVocab": "Ajouter au vocabulaire"
     },
     "home": {
       "title": "Accueil",
@@ -1216,8 +1214,6 @@
       "newsAction": "📰 Vocado Journal",
       "newsTitle": "Article à la une",
       "leaderboardTitle": "Classement",
-      "leaderboardOverall": "Score global",
-      "leaderboardWeekly": "Champion hebdo",
       "leaderboardEmpty": "Pas encore de scores.",
       "seedsLabel": "Graines",
       "translateTitle": "Traduire",

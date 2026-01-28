@@ -42,7 +42,7 @@ export default function AutoFitText({
     overflowing =
       el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1
     el.style.overflow = overflowing ? "auto" : "hidden"
-    ;(el.style as any).webkitOverflowScrolling = "touch"
+      ; (el.style as any).webkitOverflowScrolling = "touch"
   }
 
   useLayoutEffect(() => {
@@ -55,7 +55,7 @@ export default function AutoFitText({
   }, [text, maxPx, minPx, lineHeight])
 
   return (
-    <div ref={ref} className={`break-words whitespace-nowrap ${className}`}>
+    <div ref={ref} className={`break-words whitespace-pre-wrap ${className}`}>
       {text}
     </div>
   )

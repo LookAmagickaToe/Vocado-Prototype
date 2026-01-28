@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { BookmarkPlus, Check } from "lucide-react"
+import { useRef, useEffect, useMemo, useState } from "react"
+import { BookmarkPlus, Check, Plus, Sparkles } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 import { getUiSettings } from "@/lib/ui-settings"
 import pointsConfig from "@/data/ui/points.json"
@@ -225,6 +226,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [world, setWorld] = useState<VocabWorld | null>(null)
   const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
+
+  // Selection state
+  const [selectionText, setSelectionText] = useState("")
+  const [selectionPos, setSelectionPos] = useState<{ x: number; y: number } | null>(null)
+  const [isAddingSelection, setIsAddingSelection] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -461,7 +467,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title)
     setNewsDate(patchedWorld.news?.date ?? todayKey)
     setItems(buildReviewItemsFromWorld(patchedWorld))
-    setStep("play")
+    setStep("summary")
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
@@ -617,6 +623,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       sourceLabel: uiSettings?.news?.sourceLabel ?? "Fuente",
       categoryLabel: uiSettings?.news?.categoryLabel ?? "Categoría",
       categoryOptions: uiSettings?.news?.categoryOptions ?? {},
+      addToVocab: uiSettings?.news?.addToVocab ?? "Zum Vokabular hinzufügen",
       nav: uiSettings?.nav ?? {},
       tutorial: {
         letsPlay: uiSettings?.tutorial?.letsPlay ?? "Let's Play",
@@ -1118,7 +1125,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setItems(buildReviewItemsFromWorld(patchedWorld))
       setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
       setNewsDate(patchedWorld.news?.date ?? newsDate)
-      setStep("play")
+      setStep("summary")
       return
     }
     if (!newsDate) {
@@ -1158,11 +1165,99 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         },
       }
       setWorld(newsWorld)
-      setStep("play")
+      setStep("summary")
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleContextMenu = (e: React.MouseEvent | React.TouchEvent) => {
+    const selection = window.getSelection()
+    const text = selection?.toString().trim()
+    if (!text) {
+      setSelectionPos(null)
+      setSelectionText("")
+      return
+    }
+
+    e.preventDefault()
+
+    let x = 0
+    let y = 0
+    if ("clientX" in e) {
+      x = e.clientX
+      y = e.clientY
+    } else if ("touches" in e) {
+      x = e.touches[0].clientX
+      y = e.touches[0].clientY
+    }
+
+    setSelectionText(text)
+    setSelectionPos({ x, y })
+  }
+
+  const handleAddSelectionToVocab = async () => {
+    if (!selectionText || !world) return
+    setIsAddingSelection(true)
+    setSelectionPos(null) // Close menu immediately
+    try {
+      const result = await callAi({
+        task: "parse_text",
+        text: selectionText,
+        sourceLabel,
+        targetLabel,
+        level: profileState.level || undefined,
+      })
+
+      const newItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+      if (!newItems.length) return
+
+      const newPairs = newItems.map((item, idx) => ({
+        id: `${world.id}-custom-${Date.now()}-${idx}`,
+        es: item.source,
+        de: item.target,
+        pos: item.pos,
+        image: { type: "emoji", value: item.emoji || "📝" } as any,
+        explanation: item.explanation,
+        example: item.example,
+        srs: initializeSRS(),
+      }))
+
+      const updatedPool = [...(world.pool || []), ...newPairs]
+      const updatedWorld = { ...world, pool: updatedPool }
+
+      setWorld(updatedWorld)
+      setItems(buildReviewItemsFromWorld(updatedWorld))
+
+      // Update local cache
+      const localCached = loadLocalNewsCache()
+      if (localCached) {
+        const next = localCached.map((w) => (w.id === world.id ? updatedWorld : w))
+        saveLocalNewsCache(category, next)
+      }
+
+      // Update newsWorlds state
+      setNewsWorlds((prev) => prev.map((w) => (w.id === world.id ? updatedWorld : w)))
+
+      // If world is saved in DB, update DB
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (token && (await findExistingNewsWorldByUrl(newsUrl))) {
+        await fetch("/api/storage/worlds/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            worlds: [updatedWorld],
+            listId: await ensureNewsListId(token),
+            positions: { [updatedWorld.id]: 0 },
+          }),
+        })
+      }
+    } finally {
+      setIsAddingSelection(false)
+      setSelectionText("")
     }
   }
 
@@ -1391,8 +1486,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
         {step === "play" && world && (
           <div className="space-y-4 mt-4">
-            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 text-sm text-[#3A3A3A]/60">
-              {newsUrl}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 text-sm text-[#3A3A3A]/60 truncate">
+                {newsUrl}
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep("summary")}
+                className="flex items-center gap-2 bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A]/70 px-4 py-3 rounded-2xl border border-[#3A3A3A]/5 transition-all text-sm font-medium whitespace-nowrap"
+              >
+                {ui.readButton}
+              </button>
             </div>
             <VocabMemoryGame
               key={world.id}
@@ -1458,15 +1562,55 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               onWin={(moves, wordsLearnedCount) =>
                 awardExperience(moves, wordsLearnedCount, world.id, world.pool.length)
               }
+              renderWinActions={({ closeWin }) => (
+                <div className="mt-6 flex flex-col gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeWin()
+                      setStep("summary")
+                    }}
+                    className="w-full bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
+                  >
+                    {ui.readButton}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeWin()
+                      setStep("input")
+                    }}
+                    className="w-full bg-white/50 hover:bg-white/80 text-[#3A3A3A]/70 px-4 py-3 rounded-xl font-medium transition-all"
+                  >
+                    Menu
+                  </button>
+                </div>
+              )}
             />
           </div>
         )}
 
         {step === "summary" && (
           <div className="grid gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
-            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5">
-              <div className="text-lg font-semibold">{ui.summaryTitle}</div>
-              <div className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70">
+            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold">{ui.summaryTitle}</div>
+                <button
+                  type="button"
+                  onClick={() => setStep("play")}
+                  className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-1.5 rounded-full shadow-sm transition-all text-xs font-semibold"
+                >
+                  🚀 Jetzt spielen
+                </button>
+              </div>
+              <div
+                className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none"
+                onContextMenu={handleContextMenu}
+                onTouchStart={(e) => {
+                  // For mobile: use a timer to simulate long press if contextmenu doesn't fire nicely
+                  // but standard contextmenu event usually works on high-end browsers.
+                }}
+              >
                 {summary.map((line, index) => (
                   <div key={`${line}-${index}`} className="leading-relaxed">
                     {line}
@@ -1474,7 +1618,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 ))}
               </div>
               {newsUrl && (
-                <div className="mt-4 text-xs text-[#3A3A3A]/50">
+                <div className="mt-6 pt-4 border-t border-[#3A3A3A]/5 text-xs text-[#3A3A3A]/50">
                   {ui.sourceLabel}: {newsUrl}
                 </div>
               )}
@@ -1534,6 +1678,54 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           </div>
         )}
       </div>
+      <AnimatePresence>
+        {selectionPos && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100]"
+              onClick={() => setSelectionPos(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              style={{
+                position: "fixed",
+                left: Math.min(selectionPos.x, typeof window !== "undefined" ? window.innerWidth - 160 : 0),
+                top: Math.min(selectionPos.y, typeof window !== "undefined" ? window.innerHeight - 60 : 0),
+              }}
+              className="z-[101] bg-white rounded-xl shadow-xl border border-[#3A3A3A]/10 p-1 flex flex-col min-w-[160px] overflow-hidden"
+            >
+              <button
+                onClick={handleAddSelectionToVocab}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-[#F6F2EB] text-[#3A3A3A] transition-colors text-sm font-medium text-left"
+              >
+                <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
+                  {isAddingSelection ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent animate-spin rounded-full" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                </div>
+                {ui.addToVocab ?? "Zum Vokabular hinzufügen"}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {isAddingSelection && (
+        <div className="fixed bottom-24 right-6 z-[100] animate-bounce">
+          <div className="bg-[rgb(var(--vocado-accent-rgb))] text-white px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2">
+            <Sparkles className="w-3 h-3" />
+            Vokabel wird extrahiert...
+          </div>
+        </div>
+      )}
+
       <NavFooter labels={ui.nav} />
     </div>
   )

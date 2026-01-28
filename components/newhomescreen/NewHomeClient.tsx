@@ -425,8 +425,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             leaderboardTitle: uiSettings?.home?.leaderboardTitle ?? "Leaderboard",
             leaderboardWeekly: uiSettings?.home?.leaderboardWeekly ?? "Weekly",
             leaderboardOverall: uiSettings?.home?.leaderboardOverall ?? "Overall",
+            readNow: uiSettings?.news?.readNow ?? "Leer periódico",
             nav: uiSettings?.nav ?? {},
             newsTabs: uiSettings?.news?.categoryOptions ?? {},
+            overlay: uiSettings?.overlay ?? {},
         }),
         [uiSettings]
     )
@@ -586,7 +588,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     .select(baseSelect)
                     .eq("id", userId)
                     .maybeSingle()
-                row = fallback.data
+                row = fallback.data as any
             }
             if (!row) return
             if (typeof row.seeds === "number") {
@@ -1945,7 +1947,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 py-1 rounded-full shadow-sm transition-all group scale-90"
                                 >
                                     <Play className="w-3 h-3 fill-current" />
-                                    <span className="text-[10px] font-bold tracking-wide uppercase">{ui.playNow}</span>
+                                    <span className="text-[10px] font-bold tracking-wide uppercase">{ui.readNow}</span>
                                 </button>
 
                                 {/* Right Arrow & Count */}
@@ -2131,7 +2133,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 onSelectList={setSelectedOverlayListId}
                 onGenerateMore={handleGenerateMoreWords}
             />
-        </div>
+        </div >
     )
 }
 
