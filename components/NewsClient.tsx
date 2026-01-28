@@ -113,6 +113,7 @@ type NewsPayload = {
   summary: string[]
   sourceUrl?: string
   title?: string
+  text?: string
   items?: ReviewItem[]
 }
 
@@ -516,6 +517,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         const worldTitle = `Vocado Diario - ${headline.title || "Noticia"}${dateSuffix}`
         let nextSummary: string[] = []
         let nextItems: ReviewItem[] = []
+        let nextText: string = ""
         try {
           const result = await callAi({
             task: "news",
@@ -523,9 +525,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             level: profileState.level || undefined,
             sourceLabel,
             targetLabel,
+            includeText: true
           })
           nextSummary = Array.isArray(result?.summary) ? result.summary : []
           nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+          nextText = Array.isArray(result?.text) ? result.text.join("\n") : (typeof result?.text === "string" ? result.text : "")
         } catch {
           const fallbackText = [headline.title, headline.teaser].filter(Boolean).join(". ")
           if (fallbackText) {
@@ -536,12 +540,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 level: profileState.level || undefined,
                 sourceLabel,
                 targetLabel,
+                includeText: true
               })
               nextSummary = Array.isArray(result?.summary) ? result.summary : [fallbackText]
               nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+              nextText = Array.isArray(result?.text) ? result.text.join("\n") : (typeof result?.text === "string" ? result.text : "")
             } catch {
               nextSummary = fallbackText ? [fallbackText] : []
               nextItems = []
+              nextText = fallbackText
             }
           }
         }
@@ -558,6 +565,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             category: categoryValue,
             date: baseDate,
             index: cachedList.length + worldsToSave.length,
+            text: nextText,
           },
         }
         worldsToSave.push(newsWorld)
@@ -1166,8 +1174,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const placeholders = Array.from({ length: Math.max(0, 5 - base.length) }, (_, i) => ({
       id: `placeholder-${i}`,
       title: "",
-      chunking: "sentence",
-      mode: "explore",
+      chunking: { itemsPerGame: 5 },
+      mode: "vocab",
+      pool: [],
       news: {
         summary: [],
         sourceUrl: "",
@@ -1315,13 +1324,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                                   queuePendingWorld(worldToSave, listId, false)
                                   await updateLocalWorldsCache(worldToSave, listId, false)
 
+
+                                  // Background save (no await)
+                                  saveNewsWorld(worldToSave).catch(console.error)
+                                  /*
                                   try {
                                     await saveNewsWorld(worldToSave)
                                   } catch (saveError) {
-                                    setError((saveError as Error).message)
+                                    // setError((saveError as Error).message)
                                     // Revert optimistic update if failed completely? 
                                     // Usually better to keep it and retry, but for now we leave as is.
                                   }
+                                  */
                                 }
                               } catch (err) {
                                 setError((err as Error).message)

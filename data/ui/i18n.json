@@ -324,7 +324,11 @@
       "listMenuConfirmEmpty": "¿Vaciar esta lista? Se eliminarán {count} mundos.",
       "listMenuConfirmDelete": "¿Eliminar esta lista? Se eliminarán {count} mundos.",
       "listMenuConfirmYes": "Sí",
-      "listMenuConfirmCancel": "Cancelar"
+      "listMenuConfirmCancel": "Cancelar",
+      "moveToListAction": "Mover a lista",
+      "moveTitle": "Elige una lista de destino",
+      "moveConfirmTitle": "¿Mover a {list}?",
+      "moveConfirmMessage": "¿Mover \"{world}\" a \"{list}\"?"
     },
     "vocables": {
       "title": "Vocabulario",
@@ -675,7 +679,11 @@
       "listMenuConfirmEmpty": "Empty this list? {count} worlds will be removed.",
       "listMenuConfirmDelete": "Remove this list? {count} worlds will be removed.",
       "listMenuConfirmYes": "Yes",
-      "listMenuConfirmCancel": "Cancel"
+      "listMenuConfirmCancel": "Cancel",
+      "moveToListAction": "Move to list",
+      "moveTitle": "Click list to move world to",
+      "moveConfirmTitle": "Move to {list}?",
+      "moveConfirmMessage": "Move \"{world}\" to \"{list}\"?"
     },
     "vocables": {
       "title": "Vocables",
@@ -1026,7 +1034,11 @@
       "listMenuConfirmEmpty": "Liste leeren? {count} Welten werden entfernt.",
       "listMenuConfirmDelete": "Liste entfernen? {count} Welten werden entfernt.",
       "listMenuConfirmYes": "Ja",
-      "listMenuConfirmCancel": "Abbrechen"
+      "listMenuConfirmCancel": "Abbrechen",
+      "moveToListAction": "In Liste verschieben",
+      "moveTitle": "Klicke auf eine Liste zum Verschieben",
+      "moveConfirmTitle": "Nach {list} verschieben?",
+      "moveConfirmMessage": "\"{world}\" nach \"{list}\" verschieben?"
     },
     "vocables": {
       "title": "Vokabeln",
@@ -1370,7 +1382,11 @@
       "listMenuConfirmEmpty": "Vider cette liste ? {count} mondes seront supprimés.",
       "listMenuConfirmDelete": "Supprimer cette liste ? {count} mondes seront supprimés.",
       "listMenuConfirmYes": "Oui",
-      "listMenuConfirmCancel": "Annuler"
+      "listMenuConfirmCancel": "Annuler",
+      "moveToListAction": "Déplacer vers une liste",
+      "moveTitle": "Cliquez sur une liste pour déplacer",
+      "moveConfirmTitle": "Déplacer vers {list} ?",
+      "moveConfirmMessage": "Déplacer \"{world}\" vers \"{list}\" ?"
     },
     "vocables": {
       "title": "Vocabulaire",

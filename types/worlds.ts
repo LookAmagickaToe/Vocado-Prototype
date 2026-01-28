@@ -67,6 +67,7 @@ export type WorldBase = {
     category?: string
     date?: string
     index?: number
+    text?: string
   }
 
   ui?: WorldUI

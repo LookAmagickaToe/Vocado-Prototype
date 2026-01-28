@@ -83,6 +83,13 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     const [renameValue, setRenameValue] = useState("")
     const [isLoadingRemote, setIsLoadingRemote] = useState(false)
 
+    // Move World State
+    const [moveWorldId, setMoveWorldId] = useState<string | null>(null)
+    const [confirmMoveTarget, setConfirmMoveTarget] = useState<{
+        listId: string
+        listName: string
+    } | null>(null)
+
     const uiSettings = useMemo(
         () => getUiSettings(profile.sourceLanguage),
         [profile.sourceLanguage]
@@ -103,6 +110,10 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             libraryAction: uiSettings?.worlds?.libraryAction ?? "Library",
             uploadAction: uiSettings?.worlds?.uploadAction ?? "Upload",
             deleteLabel: uiSettings?.worldsOverlay?.deleteLabel ?? "Delete",
+            moveLabel: uiSettings?.worlds?.moveToListAction ?? "Move to list",
+            moveTitle: uiSettings?.worlds?.moveTitle ?? "Click list to move world to",
+            moveConfirmTitle: uiSettings?.worlds?.moveConfirmTitle ?? "Move to {list}?",
+            moveConfirmMessage: uiSettings?.worlds?.moveConfirmMessage ?? "Move \"{world}\" to \"{list}\"?",
             loadingLabel: uiSettings?.worlds?.loading ?? "Loading...",
             listMenuRename: uiSettings?.worlds?.listMenuRename ?? "Rename list",
             listMenuEmpty: uiSettings?.worlds?.listMenuEmpty ?? "Empty list",
@@ -213,11 +224,11 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                     nextLists = nextLists.map((list) =>
                         list.id === targetListId
                             ? {
-                                  ...list,
-                                  worldIds: list.worldIds?.includes(world.id)
-                                      ? list.worldIds
-                                      : [...(list.worldIds ?? []), world.id],
-                              }
+                                ...list,
+                                worldIds: list.worldIds?.includes(world.id)
+                                    ? list.worldIds
+                                    : [...(list.worldIds ?? []), world.id],
+                            }
                             : list
                     )
                     return
@@ -427,6 +438,16 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
         return () => window.removeEventListener("storage", handleStorage)
     }, [fetchLatest])
 
+    // Close menus on click outside
+    useEffect(() => {
+        const handleGlobalClick = () => {
+            setOpenListMenuId(null)
+            setOpenWorldMenuId(null)
+        }
+        window.addEventListener("click", handleGlobalClick)
+        return () => window.removeEventListener("click", handleGlobalClick)
+    }, [])
+
     const deleteWorld = async (worldId: string) => {
         setCachedWorlds((prev) => prev.filter((world) => world.id !== worldId))
         setCachedLists((prev) =>
@@ -508,8 +529,87 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     }
 
     const handleListClick = (listId: string) => {
+        if (moveWorldId) {
+            // In Move Mode
+            const targetList = cachedLists.find(l => l.id === listId)
+            if (targetList) {
+                setConfirmMoveTarget({ listId: targetList.id, listName: targetList.name })
+            }
+            return
+        }
         setExpandedWorldId(null) // Close any expanded world
         setExpandedListId(prev => prev === listId ? null : listId)
+    }
+
+    const handleMoveConfirm = async () => {
+        if (!moveWorldId || !confirmMoveTarget) return
+        const worldId = moveWorldId
+        const targetListId = confirmMoveTarget.listId
+
+        // Optimistic Update
+        let sourceListId = ""
+        setCachedLists(prev => {
+            return prev.map(list => {
+                if (list.worldIds.includes(worldId)) {
+                    if (list.id === targetListId) return list // Already in target
+                    sourceListId = list.id
+                    return { ...list, worldIds: list.worldIds.filter(id => id !== worldId) }
+                }
+                if (list.id === targetListId) {
+                    return { ...list, worldIds: [...list.worldIds, worldId] }
+                }
+                return list
+            })
+        })
+
+        setMoveWorldId(null)
+        setConfirmMoveTarget(null)
+        setExpandedListId(targetListId) // Optionally expand target
+
+        // Server Sync
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+
+            // We need to update both source and target lists
+            const updates = []
+
+            // Re-fetch latest state of lists involved to be safe or use cached
+            const currentLists = cachedListsRef.current
+
+            const sourceList = currentLists.find(l => l.id === sourceListId)
+            const targetList = currentLists.find(l => l.id === targetListId)
+
+            if (sourceList) {
+                updates.push({
+                    id: sourceList.id,
+                    name: sourceList.name,
+                    worldIds: sourceList.worldIds.filter(id => id !== worldId) // Remove
+                })
+            }
+            if (targetList) {
+                // Check if not already added in ref (could happen due to async types, being explicit)
+                const nextIds = targetList.worldIds.includes(worldId) ? targetList.worldIds : [...targetList.worldIds, worldId]
+                updates.push({
+                    id: targetList.id,
+                    name: targetList.name,
+                    worldIds: nextIds
+                })
+            }
+
+            if (updates.length > 0) {
+                await fetch("/api/storage/state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        lists: updates
+                    }),
+                })
+            }
+        } catch {
+            // ignore error
+        }
     }
 
     const handleWorldClick = (worldId: string, e: React.MouseEvent) => {
@@ -606,11 +706,11 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                 prev.map((list) =>
                     list.id === listId
                         ? {
-                              ...list,
-                              worldIds: list.worldIds.includes(world.id)
-                                  ? list.worldIds
-                                  : [...list.worldIds, world.id],
-                          }
+                            ...list,
+                            worldIds: list.worldIds.includes(world.id)
+                                ? list.worldIds
+                                : [...list.worldIds, world.id],
+                        }
                         : list
                 )
             )
@@ -918,9 +1018,20 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                         type="button"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation()
-                                                                            deleteWorld(worldId)
+                                                                            setMoveWorldId(worldId)
+                                                                            setOpenWorldMenuId(null)
                                                                         }}
                                                                         className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                                                    >
+                                                                        {ui.moveLabel}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            deleteWorld(worldId)
+                                                                        }}
+                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F6F2EB]"
                                                                     >
                                                                         {ui.deleteLabel}
                                                                     </button>
@@ -968,53 +1079,103 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             </div>
 
             {/* Floating Plus Button */}
-            <div className="fixed bottom-24 right-6 z-50">
-                <AnimatePresence>
-                    {isMenuOpen && (
-                        <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-black/20"
-                                onClick={() => setIsMenuOpen(false)}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                                className="absolute bottom-16 right-0 flex flex-col gap-2 items-end"
-                            >
-                                <button
-                                    onClick={() => { setIsMenuOpen(false) }}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
+            {!moveWorldId && (
+                <div className="fixed bottom-24 right-6 z-50">
+                    <AnimatePresence>
+                        {isMenuOpen && (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fixed inset-0 bg-black/20"
+                                    onClick={() => setIsMenuOpen(false)}
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                                    className="absolute bottom-16 right-0 flex flex-col gap-2 items-end"
                                 >
-                                    <BookOpen className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
-                                    <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.libraryAction}</span>
-                                </button>
-                                <button
-                                    onClick={handleUpload}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
-                                >
-                                    <Upload className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
-                                    <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.uploadAction}</span>
-                                </button>
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
+                                    <button
+                                        onClick={() => { setIsMenuOpen(false) }}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
+                                    >
+                                        <BookOpen className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
+                                        <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.libraryAction}</span>
+                                    </button>
+                                    <button
+                                        onClick={handleUpload}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white shadow-lg border border-[#3A3A3A]/10"
+                                    >
+                                        <Upload className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" />
+                                        <span className="text-[13px] font-medium text-[#3A3A3A]">{ui.uploadAction}</span>
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
 
-                <motion.button
-                    onClick={() => setIsMenuOpen(prev => !prev)}
-                    animate={{ rotate: isMenuOpen ? 45 : 0 }}
-                    className="w-14 h-14 rounded-full bg-[rgb(var(--vocado-accent-rgb))] shadow-lg flex items-center justify-center"
-                >
-                    <Plus className="w-6 h-6 text-white" />
-                </motion.button>
-            </div>
+                    <motion.button
+                        onClick={() => setIsMenuOpen(prev => !prev)}
+                        animate={{ rotate: isMenuOpen ? 45 : 0 }}
+                        className="w-14 h-14 rounded-full bg-[rgb(var(--vocado-accent-rgb))] shadow-lg flex items-center justify-center"
+                    >
+                        <Plus className="w-6 h-6 text-white" />
+                    </motion.button>
+                </div>
+            )}
 
             {/* Navigation Footer */}
             <NavFooter labels={ui.nav} />
+
+            {/* Move Confirmation Overlay */}
+            <AnimatePresence>
+                {confirmMoveTarget && moveWorldId && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-sm rounded-2xl bg-[#FAF7F2] border border-[#3A3A3A]/10 p-4 space-y-3"
+                        >
+                            {(() => {
+                                const world = worldMap.get(moveWorldId)
+                                const text = formatTemplate(ui.moveConfirmMessage, {
+                                    world: world?.title || "World",
+                                    list: confirmMoveTarget.listName
+                                })
+                                return (
+                                    <>
+                                        <div className="text-[14px] text-[#3A3A3A]">{text}</div>
+                                        <div className="flex items-center gap-2 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => setConfirmMoveTarget(null)}
+                                                className="px-3 py-1.5 text-[12px] rounded-full border border-[#3A3A3A]/10 text-[#3A3A3A]/70"
+                                            >
+                                                {ui.listMenuConfirmCancel}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleMoveConfirm}
+                                                className="px-3 py-1.5 text-[12px] rounded-full bg-[rgb(var(--vocado-accent-rgb))] text-white"
+                                            >
+                                                {ui.listMenuConfirmYes}
+                                            </button>
+                                        </div>
+                                    </>
+                                )
+                            })()}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <AnimatePresence>
                 {confirmListAction && (
