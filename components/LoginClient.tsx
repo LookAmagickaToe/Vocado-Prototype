@@ -139,8 +139,10 @@ export default function LoginClient() {
         window.google.accounts.id.renderButton(parent, {
           theme: "outline",
           size: "large",
+          shape: "rectangular", // rounded-lg is ~8px, rectangular is ~4px. Best match.
           width: "100%",
           text: "continue_with",
+          logo_alignment: "left"
         })
       }
     } catch (e) {
@@ -213,18 +215,6 @@ export default function LoginClient() {
               Authentication unavailable: Missing Client ID
             </p>
           )}
-
-          {/* Legacy fallback if needed, but we replace it */}
-          {/*
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={isLoading}
-            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-4 py-2 text-sm text-[#3A3A3A] hover:bg-[#EAE8E0] disabled:opacity-50 transition-colors"
-          >
-            Continue with Google
-          </button>
-          */}
         </div>
 
         <div className="mt-6 text-sm text-[#3A3A3A]/70 text-center">
