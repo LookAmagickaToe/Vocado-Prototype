@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 import { Conjugation } from "@/types/worlds"
 
-type ReviewCarouselItem = {
+
+export type ReviewCarouselItem = {
   id: string
   image:
   | { type: "emoji"; value: string }
@@ -44,6 +45,7 @@ export default function WinningScreen({
   setCarouselIndex,
   carouselItem,
   reviewTitle = "Revisión",
+  clickToFlipLabel = "(Click to flip)",
 
   // ✅ NEW (single tile + single table)
   summaryItem,
@@ -83,9 +85,16 @@ export default function WinningScreen({
   nextLabelDefault?: string
   closeLabelDefault?: string
   emptyCarouselText?: string
+  clickToFlipLabel?: string
 }) {
   const hasSummary = !!summaryItem
   const [hasMergedAward, setHasMergedAward] = useState(false)
+  const [isFlipped, setIsFlipped] = useState(false)
+
+  // Reset flip state when the item changes
+  useEffect(() => {
+    setIsFlipped(false)
+  }, [carouselIndex])
 
   useEffect(() => {
     if (!awardSummary) return
@@ -215,7 +224,10 @@ export default function WinningScreen({
 
           {/* OLD: Revision carousel (kept for vocab worlds) */}
           {hasCarousel && (
-            <div className="mt-6 rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-4">
+            <div
+              className="mt-6 rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-4 cursor-pointer"
+              onClick={() => setIsFlipped(!isFlipped)}
+            >
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-[#3A3A3A]">{reviewTitle}</div>
                 <div className="text-xs text-[#3A3A3A]/50">
@@ -229,64 +241,83 @@ export default function WinningScreen({
                     <button
                       type="button"
                       className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
-                      onClick={() => setCarouselIndex!((i) => Math.max(0, i - 1))}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCarouselIndex!((i) => Math.max(0, i - 1))
+                      }}
                       disabled={carouselIndex === 0}
                     >
                       ←
                     </button>
 
-                    <div className="flex-1 rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center">
-                      <div className="flex justify-center">
-                        {carouselItem.image.type === "emoji" ? (
-                          <div className="text-5xl">{carouselItem.image.value}</div>
-                        ) : (
-                          <img
-                            src={carouselItem.image.src}
-                            alt={carouselItem.image.alt ?? "review image"}
-                            className="h-20 w-20 object-contain"
-                          />
-                        )}
+                    <div className="flex-1 flex flex-col gap-2">
+                      <div
+                        className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center cursor-pointer select-none relative active:scale-[0.98] transition-all"
+                        onClick={() => setIsFlipped(!isFlipped)}
+                      >
+                        <div className="flex justify-center">
+                          {carouselItem.image.type === "emoji" ? (
+                            <div className="text-5xl">{carouselItem.image.value}</div>
+                          ) : (
+                            <img
+                              src={carouselItem.image.src}
+                              alt={carouselItem.image.alt ?? "review image"}
+                              className="h-20 w-20 object-contain"
+                            />
+                          )}
+                        </div>
+
+                        <div className="mt-3 text-sm">
+                          <span className="text-[#3A3A3A]/60">{primaryCaption}</span>{" "}
+                          <span className="font-semibold text-[#3A3A3A]">{carouselItem.primaryLabel}</span>
+                        </div>
+
+                        <div className={`text-sm mt-1 transition-opacity duration-300 ${isFlipped ? "opacity-100" : "opacity-0"}`}>
+                          <span className="text-[#3A3A3A]/60">{secondaryCaption}</span>{" "}
+                          <span className="font-semibold text-[#3A3A3A]">{carouselItem.secondaryLabel}</span>
+                        </div>
                       </div>
 
-                      <div className="mt-3 text-sm">
-                        <span className="text-[#3A3A3A]/60">{primaryCaption}</span>{" "}
-                        <span className="font-semibold text-[#3A3A3A]">{carouselItem.primaryLabel}</span>
-                      </div>
-
-                      <div className="text-sm">
-                        <span className="text-[#3A3A3A]/60">{secondaryCaption}</span>{" "}
-                        <span className="font-semibold text-[#3A3A3A]">{carouselItem.secondaryLabel}</span>
-                      </div>
+                      {!isFlipped && (
+                        <div className="text-center text-sm font-medium text-black animate-pulse">
+                          {clickToFlipLabel}
+                        </div>
+                      )}
                     </div>
 
                     <button
                       type="button"
                       className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setCarouselIndex!((i) => Math.min(matchedOrder!.length - 1, i + 1))
-                      }
+                      }}
                       disabled={carouselIndex! >= matchedOrder!.length - 1}
                     >
                       →
                     </button>
                   </div>
 
-                  <div className="my-4 border-t border-[#3A3A3A]/10" />
+                  {isFlipped && (
+                    <>
+                      <div className="my-4 border-t border-[#3A3A3A]/10" />
 
-                  <div className="text-sm font-medium text-[#3A3A3A]">{explanationTitle}</div>
-                  <div className="mt-2 text-xs text-[#3A3A3A]/70 leading-relaxed">
-                    {carouselItem.explanation ?? "No explanation added yet."}
+                      <div className="text-sm font-medium text-[#3A3A3A]">{explanationTitle}</div>
+                      <div className="mt-2 text-xs text-[#3A3A3A]/70 leading-relaxed">
+                        {carouselItem.explanation ?? "No explanation added yet."}
 
-                    {carouselItem.conjugation ? (
-                      <>
-                        <div className="my-4 border-t border-[#3A3A3A]/10" />
-                        <div className="text-sm font-medium text-[#3A3A3A]">{conjugationTitle}</div>
-                        <div className="mt-2">
-                          <ConjugationCard conjugation={carouselItem.conjugation} />
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
+                        {carouselItem.conjugation ? (
+                          <>
+                            <div className="my-4 border-t border-[#3A3A3A]/10" />
+                            <div className="text-sm font-medium text-[#3A3A3A]">{conjugationTitle}</div>
+                            <div className="mt-2">
+                              <ConjugationCard conjugation={carouselItem.conjugation} />
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <div className="mt-3 text-xs text-[#3A3A3A]/50">{emptyCarouselText}</div>

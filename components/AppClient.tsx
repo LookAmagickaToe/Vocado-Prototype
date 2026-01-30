@@ -1,9 +1,9 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { RotateCcw } from "lucide-react"
+import { RotateCcw, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { formatTemplate } from "@/lib/ui"
@@ -38,6 +38,8 @@ const NEWS_STORAGE_KEY = "vocado-news-current"
 const ONBOARDING_STORAGE_KEY = "vocado-onboarded"
 
 const LANGUAGE_OPTIONS = ["Español", "Deutsch", "English", "Français", "Português"]
+
+const MAX_GAME_PAIRS = 8
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -465,7 +467,7 @@ const buildWorldFromItems = (
     description: "Noticias del día.",
     mode: "vocab",
     pool,
-    chunking: { itemsPerGame: 8 },
+    chunking: { itemsPerGame: MAX_GAME_PAIRS },
     source_language: sourceLabel,
     target_language: targetLabel,
     ui: {
@@ -513,6 +515,7 @@ export default function AppClient({
   initialProfile,
 }: AppClientProps) {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [isAuthed, setIsAuthed] = useState(true)
   const [isSupabaseLoaded, setIsSupabaseLoaded] = useState(initialSupabaseLoaded)
   const [uploadedWorlds, setUploadedWorlds] = useState<World[]>(initialUploadedWorlds)
@@ -902,7 +905,8 @@ export default function AppClient({
     const key = `${worldIdValue}:${levelIdx}`
     const sBest = typeof bestMap[key] === "number" ? bestMap[key] : 0
     const isNew = sBest === 0
-    const multiplier = (isNew ? firstMultiplier : 1) * (greatScore ? greatMultiplier : 1)
+    const df = pairs / MAX_GAME_PAIRS
+    const multiplier = (isNew ? firstMultiplier : 1) * (greatScore ? greatMultiplier : 1) * df
     const payout = Math.round(baseScore * multiplier)
 
     const newBest = Math.max(baseScore, sBest)
@@ -1769,9 +1773,16 @@ export default function AppClient({
   }
 
   const callAi = async (payload: Record<string, unknown>) => {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
     const response = await fetch("/api/ai", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     })
     let data: any = null
@@ -3210,10 +3221,21 @@ export default function AppClient({
           <div className="col-span-12 space-y-3 mt-3">
             <div className="flex items-center justify-between md:hidden">
               <div className="text-xs text-neutral-300">{headerInstructions}</div>
-              <Button onClick={restart} className="flex items-center gap-2 text-xs px-2 py-1">
-                <RotateCcw className="w-3 h-3" />
-                {ui.menu.restart}
-              </Button>
+              <div className="flex items-center gap-2">
+                {isNewsWorld && (
+                  <Button
+                    onClick={() => openNewsSummary(currentWorld!)}
+                    className="flex items-center gap-2 text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    {ui.news.readButton}
+                  </Button>
+                )}
+                <Button onClick={restart} className="flex items-center gap-2 text-xs px-2 py-1">
+                  <RotateCcw className="w-3 h-3" />
+                  {ui.menu.restart}
+                </Button>
+              </div>
             </div>
             {!currentWorld && (
               <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5 text-sm text-neutral-200">
@@ -3244,7 +3266,9 @@ export default function AppClient({
                   primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                   secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
-                  renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem }) => {
+                  clickToFlipLabel={uiSettings?.vocables?.clickToFlip}
+                  uiWinning={uiSettings?.winning}
+                  renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem, closeWin: onCloseWin }) => {
                     if (!currentWorld || currentWorld.submode === "conjugation") return null
                     if (!matchedOrder?.length) return null
                     if (typeof carouselIndex !== "number" || !setCarouselIndex) return null
@@ -3298,7 +3322,11 @@ export default function AppClient({
                         <div className="flex items-center justify-between gap-3">
                           <button
                             type="button"
-                            onClick={closeWin}
+                            onClick={() => {
+                              onCloseWin()
+                              setWorldId("")
+                              router.push("/worlds")
+                            }}
                             className="flex-1 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] px-4 py-3 text-[13px] font-medium text-[#3A3A3A]/70"
                           >
                             {uiSettings?.vocables?.menuLabel ?? "Menu"}
@@ -3306,7 +3334,7 @@ export default function AppClient({
                           <button
                             type="button"
                             onClick={() => {
-                              closeWin()
+                              onCloseWin()
                               nextLevel()
                             }}
                             className="flex-1 rounded-full bg-[rgb(var(--vocado-accent-rgb))] px-4 py-3 text-[13px] font-medium text-white"
@@ -3353,6 +3381,16 @@ export default function AppClient({
                       wordsLearnedCount,
                       currentChunk.length
                     )
+
+                    if (res) {
+                      console.log("🌱 Game Win Stats:", {
+                        game: currentWorld.title,
+                        moves,
+                        rewardedSeeds: res.payout,
+                        totalSeedsBefore: res.totalBefore,
+                        totalSeedsAfter: res.totalAfter,
+                      })
+                    }
 
                     if (tutorialStep === "play_intro" || tutorialStep === "tour_intro") {
                       saveTutorialProgress("post_game")

@@ -495,7 +495,20 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     setEarned((prev) => prev + 1)
   }
 
-  const persistWorld = async (entry: ReviewEntry) => {
+  /* 
+   * Queue for sequential persistence to avoid race conditions.
+   * stored as a ref to persist across renders
+   */
+  const saveQueue = useMemo(() => {
+    let p = Promise.resolve()
+    return {
+      add: (fn: () => Promise<void>) => {
+        p = p.then(fn).catch(err => console.error("Save queue error:", err))
+      }
+    }
+  }, [])
+
+  const persistWorld = async (entry: ReviewEntry, worldToSave: VocabWorld) => {
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return
@@ -503,7 +516,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        worlds: [entry.world],
+        worlds: [worldToSave],
         listId: entry.listId ?? null,
         positions: { [entry.worldId]: entry.position ?? 0 },
       }),
@@ -516,11 +529,17 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const rateCurrent = (rating: "easy" | "medium" | "difficult") => {
     if (!currentEntry) return
+
+    // BUG FIX: Retrieve the LATEST version of the world from state, 
+    // because currentEntry.world is a stale snapshot from when review started.
+    const latestStored = worlds.find(w => w.worldId === currentEntry.worldId)
+    const baseWorld = latestStored?.json ?? currentEntry.world
+
     const nextSrs = calculateNextReview(currentEntry.pair.srs, rating)
 
     const updatedWorld: VocabWorld = {
-      ...currentEntry.world,
-      pool: currentEntry.world.pool.map((pair, index) =>
+      ...baseWorld,
+      pool: baseWorld.pool.map((pair, index) =>
         index === currentEntry.pairIndex ? { ...pair, srs: nextSrs } : pair
       ),
     }
@@ -538,12 +557,12 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       setActiveReviewLabel(null)
       setReviewIndex(0)
       setShowBack(false)
-      void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => { })
+      saveQueue.add(() => persistWorld({ ...currentEntry }, updatedWorld))
       return
     }
     setReviewIndex(nextIndex)
     setShowBack(false)
-    void persistWorld({ ...currentEntry, world: updatedWorld }).catch(() => { })
+    saveQueue.add(() => persistWorld({ ...currentEntry }, updatedWorld))
   }
 
   return (
@@ -635,17 +654,48 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 const nextAssigned = new Set(memoryAssigned)
                 nextAssigned.add(carouselItem.id)
                 setMemoryAssigned(nextAssigned)
-                void persistWorldByMeta(updatedWorld, entry.listId, entry.position).catch(() => { })
-                if (matchedOrder.length > 1) {
-                  let nextIndex = carouselIndex
-                  for (let i = 1; i <= matchedOrder.length; i += 1) {
-                    const idx = (carouselIndex + i) % matchedOrder.length
-                    if (!nextAssigned.has(matchedOrder[idx])) {
-                      nextIndex = idx
-                      break
-                    }
+                const handleAssign = (rating: "easy" | "medium" | "difficult") => {
+                  const entry = memoryPairMap.get(carouselItem.id)
+                  if (!entry) return
+
+                  // BUG FIX: Use latest world state
+                  const latestStored = worlds.find(w => w.worldId === entry.worldId)
+                  const baseWorld = latestStored?.json ?? entry.world
+
+                  const nextSrs = calculateNextReview(entry.pair.srs, rating)
+                  const updatedWorld: VocabWorld = {
+                    ...baseWorld,
+                    pool: baseWorld.pool.map((pair, index) =>
+                      index === entry.pairIndex ? { ...pair, srs: nextSrs } : pair
+                    ),
                   }
-                  setCarouselIndex(nextIndex)
+                  setWorlds((prev) =>
+                    prev.map((stored) =>
+                      stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
+                    )
+                  )
+                  awardReviewSeed(memorySeedsEarned, setMemorySeedsEarned)
+                  const nextAssigned = new Set(memoryAssigned)
+                  nextAssigned.add(carouselItem.id)
+                  setMemoryAssigned(nextAssigned)
+                  // Use saveQueue or direct call? Since handleAssign is user interaction, queue is safer.
+                  // But we didn't expose saveQueue to this scope. We should probably move saveQueue up or duplicate.
+                  // For now, let's keep it simple and just use local atomic save, relying on the fact that memory game 
+                  // might not be as rapid-fire as SRS, but ideally we use the queue.
+                  // Re-using persistWorld defined above which now takes (entry, world).
+                  saveQueue.add(() => persistWorld({ ...entry }, updatedWorld))
+
+                  if (matchedOrder.length > 1) {
+                    let nextIndex = carouselIndex
+                    for (let i = 1; i <= matchedOrder.length; i += 1) {
+                      const idx = (carouselIndex + i) % matchedOrder.length
+                      if (!nextAssigned.has(matchedOrder[idx])) {
+                        nextIndex = idx
+                        break
+                      }
+                    }
+                    setCarouselIndex(nextIndex)
+                  }
                 }
               }
 
@@ -720,15 +770,16 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           />
         </div>
       ) : reviewQueue.length > 0 && currentEntry ? (
-        <div className="px-4 pt-6 pb-6 space-y-4">
+        <div
+          className="px-4 pt-6 pb-6 space-y-4 min-h-[calc(100vh-60px)] outline-none"
+          onClick={() => setShowBack((prev) => !prev)}
+        >
           <div className="text-[12px] text-[#3A3A3A]/50 text-center">
             {activeReviewLabel ? `${activeReviewLabel} • ` : ""}{reviewIndex + 1}/{reviewQueue.length}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowBack((prev) => !prev)}
-            className="w-full rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-6 shadow-sm text-left"
+          <div
+            className="w-full rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-6 shadow-sm text-left select-none pointer-events-none"
           >
             {!showBack ? (
               <div className="space-y-2">
@@ -799,27 +850,27 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 ) : null}
               </div>
             )}
-          </button>
+          </div>
 
           <div className="fixed bottom-[72px] left-0 right-0 px-4">
             <div className="mx-auto max-w-md grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => rateCurrent("difficult")}
+                onClick={(e) => { e.stopPropagation(); rateCurrent("difficult") }}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#F4E6E3] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyHard}
               </button>
               <button
                 type="button"
-                onClick={() => rateCurrent("medium")}
+                onClick={(e) => { e.stopPropagation(); rateCurrent("medium") }}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#F6F0E1] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyMedium}
               </button>
               <button
                 type="button"
-                onClick={() => rateCurrent("easy")}
+                onClick={(e) => { e.stopPropagation(); rateCurrent("easy") }}
                 className="rounded-xl border border-[#3A3A3A]/10 bg-[#E9F2E7] py-2 text-[12px] font-medium text-[#3A3A3A]"
               >
                 {ui.difficultyEasy}

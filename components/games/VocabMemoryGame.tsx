@@ -7,7 +7,7 @@ import MemoryCard from "@/components/games/vocab/MemoryCard"
 import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 import type { CardModel } from "@/components/games/vocab/types"
 import { AnimatePresence } from "framer-motion"
-import WinningScreen from "@/components/games/WinningScreen"
+import WinningScreen, { ReviewCarouselItem } from "@/components/games/WinningScreen"
 import { formatTemplate } from "@/lib/ui"
 
 
@@ -77,6 +77,8 @@ export default function VocabMemoryGame({
   onWin,
   nextLabelOverride,
   renderWinActions,
+  clickToFlipLabel,
+  uiWinning,
 }: {
   world: VocabWorld
   levelIndex: number
@@ -95,6 +97,15 @@ export default function VocabMemoryGame({
     carouselItem: ReviewCarouselItem | null
     closeWin: () => void
   }) => React.ReactNode
+  clickToFlipLabel?: string
+  uiWinning?: {
+    title: string
+    subtitle: string
+    movesLabel: string
+    reviewTitle: string
+    explanationTitle: string
+    conjugationTitle: string
+  }
 }) {
   const VOCAB = useMemo(() => {
     const k = world.chunking.itemsPerGame
@@ -168,7 +179,8 @@ export default function VocabMemoryGame({
     setPendingResolution(null)
     setHasReportedWin(false)
     setAwardSummary(null)
-  }, [baseDeck])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world.id, levelIndex])
 
 
   useEffect(() => {
@@ -223,17 +235,10 @@ export default function VocabMemoryGame({
     if (flippedKeys.includes(slotKey)) return
     if (flippedKeys.length === 2) return
 
-    // If this is the SECOND flip in a move, forbid drawing a matching pairId
-    let forbidPairId: string | undefined = undefined
-    if (flippedKeys.length === 1) {
-      const firstSlot = slots.find((s) => s.slotKey === flippedKeys[0])
-      forbidPairId = firstSlot?.assigned?.pairId
-    }
-
-    // If slot not assigned yet, pull from urn (with forbid rule on 2nd flip)
+    // If slot not assigned yet, pull from urn
     if (!slot.assigned) {
-      const ok = assignSlotFromUrn(slotKey, forbidPairId)
-      if (!ok) return // no valid card in urn that avoids forbidden match
+      const ok = assignSlotFromUrn(slotKey)
+      if (!ok) return
     }
 
     // track whether THIS slot was seen BEFORE this click
@@ -258,12 +263,8 @@ export default function VocabMemoryGame({
 
       const isPairMatch = a.pairId === b.pairId && a.key !== b.key
 
-      // ❗ allow match ONLY if both cards were seen BEFORE this move
-      const aSeenBefore = seenSlots.has(next[0])
-      const bSeenBefore = seenSlots.has(next[1])
-      const allowMatch = VOCAB.length === 1 || (aSeenBefore && bSeenBefore)
-
-      const finalIsMatch = isPairMatch && allowMatch
+      const isLastPair = VOCAB.length - matchedPairIds.size === 1
+      const finalIsMatch = isPairMatch || isLastPair
 
       setPendingResolution({
         keys: [a.key, b.key],
@@ -302,15 +303,19 @@ export default function VocabMemoryGame({
   const wui = world.ui?.winning
   const vui = world.ui?.vocab
 
-  const winTitle = wui?.title
-  const winMovesLabel = wui?.movesLabel
-  const winExplanationTitle = wui?.explanationTitle
-  const winConjugationTitle = wui?.conjugationTitle
-  const winReviewTitle = wui?.reviewTitle ?? "Revisión"
+  // Prefer passed uiWinning (current app language), then world specific (if any), then fallback.
+  const winTitle = uiWinning?.title ?? wui?.title ?? "Lo has logrado 🎉"
+  const winMovesLabel = uiWinning?.movesLabel ?? wui?.movesLabel ?? "Movimientos"
+  const winExplanationTitle = uiWinning?.explanationTitle ?? wui?.explanationTitle ?? "Explicación"
+  const winConjugationTitle = uiWinning?.conjugationTitle ?? wui?.conjugationTitle ?? "Conjugación"
+  const winReviewTitle = uiWinning?.reviewTitle ?? wui?.reviewTitle ?? "Revisión"
+
   const winNextDefault = wui?.nextDefault
   const winCloseDefault = wui?.closeDefault
 
-  const winSubtitle = `Todas las tarjetas reveladas — ${VOCAB.length} parejas encontradas.`
+  // Subtitle template
+  const rawSubtitle = uiWinning?.subtitle ?? "Todas las tarjetas reveladas — {count} parejas encontradas."
+  const winSubtitle = rawSubtitle.replace("{count}", VOCAB.length.toString())
 
   const k = world.chunking.itemsPerGame
   const start = levelIndex * k
@@ -341,10 +346,40 @@ export default function VocabMemoryGame({
     }
   }, [isConjugation, firstOfLevel, currentVerb, conjugationTable])
 
-  function assignSlotFromUrn(slotKey: string, forbidPairId?: string): boolean {
+  function assignSlotFromUrn(slotKey: string, forbidPairId?: string): { card: CardModel, otherCard?: CardModel, otherSlotKey?: string } | null {
     // already assigned
     const slot = slots.find((s) => s.slotKey === slotKey)
-    if (!slot || slot.assigned) return true
+    if (slot?.assigned) return { card: slot.assigned }
+    if (!slot) return null
+
+    // If only 2 cards (or fewer) left in urn, assign EVERYTHING to remaining slots
+    if (urn.length <= 2 && urn.length > 0) {
+      // We need to fill `slotKey` + logical others
+      const unassignedSlots = slots.filter((s) => !s.assigned && s.slotKey !== slotKey)
+
+      const pickedForCurrent = urn[0]
+      const pickedForOther = urn[1] // might be undefined if length 1 (weird but possible)
+
+      const nextUrn: CardModel[] = []
+
+      // Create new slots array
+      setSlots((prev) =>
+        prev.map((s) => {
+          if (s.slotKey === slotKey) return { ...s, assigned: pickedForCurrent }
+          if (pickedForOther && unassignedSlots[0] && s.slotKey === unassignedSlots[0].slotKey) {
+            return { ...s, assigned: pickedForOther }
+          }
+          return s
+        })
+      )
+      setUrn(nextUrn)
+
+      return {
+        card: pickedForCurrent,
+        otherCard: pickedForOther,
+        otherSlotKey: unassignedSlots[0]?.slotKey
+      }
+    }
 
     // find a card in urn that does NOT create a forbidden match
     const idx = forbidPairId
@@ -354,13 +389,13 @@ export default function VocabMemoryGame({
     // no valid non-matching card available -> allow match to avoid deadlock
     if (idx < 0) {
       const picked = urn[0]
-      if (!picked) return false
+      if (!picked) return null
       const nextUrn = urn.slice(1)
       setUrn(nextUrn)
       setSlots((prev) =>
         prev.map((s) => (s.slotKey === slotKey ? { ...s, assigned: picked } : s))
       )
-      return true
+      return { card: picked }
     }
 
     const picked = urn[idx]
@@ -370,7 +405,7 @@ export default function VocabMemoryGame({
     setSlots((prev) =>
       prev.map((s) => (s.slotKey === slotKey ? { ...s, assigned: picked } : s))
     )
-    return true
+    return { card: picked }
   }
 
   return (
@@ -546,15 +581,18 @@ export default function VocabMemoryGame({
             customActions={
               renderWinActions
                 ? renderWinActions({
-                    matchedOrder,
-                    carouselIndex,
-                    setCarouselIndex,
-                    carouselItem,
-                    closeWin: closeWinOverlay,
-                  })
+                  matchedOrder,
+                  carouselIndex,
+                  setCarouselIndex,
+                  carouselItem,
+                  closeWin: closeWinOverlay,
+                })
                 : undefined
             }
+
+
             hideDefaultActions={!!renderWinActions}
+            clickToFlipLabel={clickToFlipLabel}
           />
 
         )}

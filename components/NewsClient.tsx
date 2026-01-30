@@ -1519,6 +1519,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 onClick={() => setStep("summary")}
                 className="flex items-center gap-2 bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A]/70 px-4 py-3 rounded-2xl border border-[#3A3A3A]/5 transition-all text-sm font-medium whitespace-nowrap"
               >
+                <div className="rotate-180">➜</div>
                 {ui.readButton}
               </button>
             </div>
@@ -1618,7 +1619,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           <div className="grid gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
             <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5 flex flex-col h-full">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-lg font-semibold">{ui.summaryTitle}</div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setStep("input")}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-[#3A3A3A]/5 hover:bg-[#3A3A3A]/10 text-[#3A3A3A]/70 transition-colors"
+                  >
+                    <div className="rotate-180">➜</div>
+                  </button>
+                  <div className="text-lg font-semibold">{ui.summaryTitle}</div>
+                </div>
                 <button
                   type="button"
                   onClick={() => setStep("play")}

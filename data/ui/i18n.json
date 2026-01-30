@@ -356,7 +356,22 @@
       "reviewModeSrs": "Repaso",
       "reviewModeMemory": "Memoria",
       "menuLabel": "Menú",
-      "continueLabel": "Continuar"
+      "continueLabel": "Continuar",
+      "clickToFlip": "(Haz clic para voltear)",
+      "carousel": {
+        "primaryLabel": "Español:",
+        "secondaryLabel": "Alemán:"
+      }
+    },
+    "winning": {
+      "title": "¡Lo has logrado! 🎉",
+      "movesLabel": "Movimientos",
+      "explanationTitle": "Explicación",
+      "conjugationTitle": "Conjugación",
+      "reviewTitle": "Revisión",
+      "nextDefault": "Siguiente",
+      "closeDefault": "Cerrar",
+      "subtitle": "Todas las tarjetas reveladas — {count} parejas encontradas."
     }
   },
   "en": {
@@ -716,7 +731,22 @@
       "reviewModeSrs": "Review",
       "reviewModeMemory": "Memory",
       "menuLabel": "Menu",
-      "continueLabel": "Continue"
+      "continueLabel": "Continue",
+      "clickToFlip": "(Click to flip)",
+      "carousel": {
+        "primaryLabel": "Spanish:",
+        "secondaryLabel": "German:"
+      }
+    },
+    "winning": {
+      "title": "You did it! 🎉",
+      "movesLabel": "Moves",
+      "explanationTitle": "Explanation",
+      "conjugationTitle": "Conjugation",
+      "reviewTitle": "Review",
+      "nextDefault": "Next",
+      "closeDefault": "Close",
+      "subtitle": "All cards revealed — {count} pairs found."
     }
   },
   "de": {
@@ -1076,7 +1106,22 @@
       "reviewModeSrs": "Karteikarte",
       "reviewModeMemory": "Memory",
       "menuLabel": "Menü",
-      "continueLabel": "Weiter"
+      "continueLabel": "Weiter",
+      "clickToFlip": "(Zum Umdrehen klicken)",
+      "carousel": {
+        "primaryLabel": "Spanisch:",
+        "secondaryLabel": "Deutsch:"
+      }
+    },
+    "winning": {
+      "title": "Geschafft! 🎉",
+      "movesLabel": "Züge",
+      "explanationTitle": "Erklärung",
+      "conjugationTitle": "Konjugation",
+      "reviewTitle": "Überprüfung",
+      "nextDefault": "Weiter",
+      "closeDefault": "Schließen",
+      "subtitle": "Alle Karten aufgedeckt — {count} Paare gefunden."
     }
   },
   "fr": {
@@ -1436,7 +1481,22 @@
       "reviewModeSrs": "Révision",
       "reviewModeMemory": "Mémoire",
       "menuLabel": "Menu",
-      "continueLabel": "Continuar"
+      "continueLabel": "Continuer",
+      "clickToFlip": "(Cliquer pour retourner)",
+      "carousel": {
+        "primaryLabel": "Espagnol :",
+        "secondaryLabel": "Allemand :"
+      }
+    },
+    "winning": {
+      "title": "Vous avez réussi ! 🎉",
+      "movesLabel": "Coups",
+      "explanationTitle": "Explication",
+      "conjugationTitle": "Conjugaison",
+      "reviewTitle": "Révision",
+      "nextDefault": "Suivant",
+      "closeDefault": "Fermer",
+      "subtitle": "Toutes les cartes révélées — {count} paires trouvées."
     }
   },
   "pt": {
@@ -1796,7 +1856,22 @@
       "reviewModeSrs": "Revisão",
       "reviewModeMemory": "Memória",
       "menuLabel": "Menu",
-      "continueLabel": "Continuar"
+      "continueLabel": "Continuar",
+      "clickToFlip": "(Clique para virar)",
+      "carousel": {
+        "primaryLabel": "Espanhol:",
+        "secondaryLabel": "Alemão:"
+      }
+    },
+    "winning": {
+      "title": "Conseguiu! 🎉",
+      "movesLabel": "Jogadas",
+      "explanationTitle": "Explicação",
+      "conjugationTitle": "Conjugação",
+      "reviewTitle": "Revisão",
+      "nextDefault": "Seguinte",
+      "closeDefault": "Fechar",
+      "subtitle": "Todas as cartas reveladas — {count} pares encontrados."
     }
   }
 }

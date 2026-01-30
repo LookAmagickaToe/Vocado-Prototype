@@ -106,11 +106,25 @@ export default function LoginClient() {
   const handleGoogleNative = async (response: any) => {
     try {
       const { credential } = response
-      const { error } = await supabase.auth.signInWithIdToken({
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: credential,
       })
       if (error) throw error
+
+      // Ensure profile exists
+      if (data?.user) {
+        await fetch("/api/auth/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: data.user.id,
+            email: data.user.email || "",
+            username: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || "User",
+          }),
+        })
+      }
+
       router.push("/")
     } catch (err) {
       setError((err as Error).message)
@@ -139,7 +153,7 @@ export default function LoginClient() {
         window.google.accounts.id.renderButton(parent, {
           theme: "outline",
           size: "large",
-          shape: "rectangular", // rounded-lg is ~8px, rectangular is ~4px. Best match.
+          shape: "pill", // rounded-lg is ~8px, rectangular is ~4px. Best match.
           width: "100%",
           text: "continue_with",
           logo_alignment: "left"
@@ -202,7 +216,7 @@ export default function LoginClient() {
             type="button"
             onClick={handleAuth}
             disabled={isLoading}
-            className="w-full rounded-lg border border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb))] px-4 py-2 text-sm text-white font-medium hover:bg-[rgb(var(--vocado-accent-dark-rgb))] disabled:opacity-50 transition-colors"
+            className="w-full rounded-full border border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb))] px-4 py-2 text-sm text-white font-medium hover:bg-[rgb(var(--vocado-accent-dark-rgb))] disabled:opacity-50 transition-colors"
           >
             {isLoading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
           </button>

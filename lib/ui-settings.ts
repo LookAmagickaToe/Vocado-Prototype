@@ -4,10 +4,10 @@ type UiSettings = (typeof i18n)["es"]
 
 const getLanguageKey = (sourceLanguage?: string): keyof typeof i18n => {
   const value = (sourceLanguage || "").toLowerCase()
-  if (value.includes("deutsch") || value.includes("german")) return "de"
-  if (value.includes("english")) return "en"
-  if (value.includes("français") || value.includes("french")) return "fr"
-  if (value.includes("português") || value.includes("portuguese") || value.includes("portugues")) return "pt"
+  if (value === "de" || value.includes("deutsch") || value.includes("german")) return "de"
+  if (value === "en" || value.includes("english")) return "en"
+  if (value === "fr" || value.includes("français") || value.includes("french")) return "fr"
+  if (value === "pt" || value.includes("português") || value.includes("portuguese") || value.includes("portugues")) return "pt"
   return "es"
 }
 

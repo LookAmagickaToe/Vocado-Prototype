@@ -206,10 +206,33 @@ function buildNewsPrompt({
   ].join("\n")
 }
 
+import { supabaseAdmin } from "@/lib/supabase/admin"
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 })
+  }
+
+  // Track usage
+  const authHeader = req.headers.get("Authorization")
+  if (authHeader) {
+    const token = authHeader.replace("Bearer ", "")
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+    if (user) {
+      // Increment counter (read-write)
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("gemini_api_calls")
+        .eq("id", user.id)
+        .single()
+
+      const current = Number(profile?.gemini_api_calls || 0)
+      await supabaseAdmin
+        .from("profiles")
+        .update({ gemini_api_calls: current + 1 })
+        .eq("id", user.id)
+    }
   }
 
   const body = await req.json()
