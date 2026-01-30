@@ -140,6 +140,10 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     [sourceLabel, targetLabel]
   )
 
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
   useEffect(() => {
     const load = async () => {
       const perfEnabled =
@@ -151,26 +155,28 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
         const elapsed = Math.round(performance.now() - perfStart)
         console.log(`[perf][vocables] ${label} (${elapsed}ms)`, extra || "")
       }
-      setIsLoading(true)
-      setLoadError(null)
+
+      // 1. Optimistic load from cache
       if (typeof window !== "undefined") {
         try {
           const rawCache = window.localStorage.getItem(cacheKey)
           if (rawCache) {
             const parsed = JSON.parse(rawCache)
             const cachedWorlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
-            const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0")
-            if (cachedWorlds.length && (!lastLogin || parsed?.lastLogin === lastLogin)) {
+            if (cachedWorlds.length) {
               setWorlds(cachedWorlds)
+              // Don't set isLoading(false) yet if you want to show a spinner,
+              // but typically with SWR we show stale data immediately.
+              // We'll keep isLoading true only if cache was empty.
               setIsLoading(false)
-              logPerf("cache hit", { worlds: cachedWorlds.length })
-              return
             }
           }
         } catch {
           // ignore cache errors
         }
       }
+
+      // 2. Refresh from server (Stale-While-Revalidate)
       try {
         const sessionStart = perfEnabled ? performance.now() : 0
         const session = await supabase.auth.getSession()
@@ -194,7 +200,12 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
         }
         if (!response.ok) {
           const data = await response.json().catch(() => null)
-          throw new Error(data?.error ?? "Load failed")
+          // If we have cached data, we might not want to show a full screen error,
+          // maybe just a toast? For now, we only setLoadError if we have NO data.
+          // But here, let's log it.
+          console.error("Background sync failed:", data?.error)
+          if (worlds.length === 0) throw new Error(data?.error ?? "Load failed")
+          return
         }
         const parseStart = perfEnabled ? performance.now() : 0
         const data = await response.json()
@@ -223,8 +234,12 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             }
           })
           .filter(Boolean)
+
+        // Update state with fresh server data
         setWorlds(loaded)
         logPerf("loaded", { worlds: loaded.length })
+
+        // Update cache
         if (typeof window !== "undefined") {
           try {
             const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()
@@ -237,24 +252,25 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           }
         }
       } catch (err) {
-        setLoadError((err as Error).message)
+        if (worlds.length === 0) setLoadError((err as Error).message)
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [cacheKey])
+  }, [cacheKey]) // Removed worlds dependency to prevent loops, but cacheKey depends on lang settings so it triggers on profile change.
 
+  // Cache effect: anytime worlds change (from user action or server load), update cache.
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (isLoading) return
+    if (isLoading && worlds.length === 0) return // Don't wipe cache if still initial loading
     try {
       const lastLogin = Number(window.localStorage.getItem(LAST_LOGIN_STORAGE_KEY) || "0") || Date.now()
       window.localStorage.setItem(cacheKey, JSON.stringify({ lastLogin, worlds }))
     } catch {
-      // ignore cache failures
+      // ignore
     }
-  }, [cacheKey, isLoading, worlds])
+  }, [cacheKey, worlds, isLoading])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -503,27 +519,40 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     let p = Promise.resolve()
     return {
       add: (fn: () => Promise<void>) => {
-        p = p.then(fn).catch(err => console.error("Save queue error:", err))
+        p = p.then(fn).catch(err => {
+          console.error("Save queue error:", err)
+          setSaveError("Save failed")
+        })
       }
     }
   }, [])
 
   const persistWorld = async (entry: ReviewEntry, worldToSave: VocabWorld) => {
-    const session = await supabase.auth.getSession()
-    const token = session.data.session?.access_token
-    if (!token) return
-    const response = await fetch("/api/storage/worlds/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        worlds: [worldToSave],
-        listId: entry.listId ?? null,
-        positions: { [entry.worldId]: entry.position ?? 0 },
-      }),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => null)
-      throw new Error(data?.error ?? "Save failed")
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) return
+      const response = await fetch("/api/storage/worlds/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          worlds: [worldToSave],
+          listId: entry.listId ?? null,
+          positions: { [entry.worldId]: entry.position ?? 0 },
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.error ?? "Save failed")
+      }
+    } catch (err) {
+      console.error("Persist error:", err)
+      setSaveError((err as Error).message)
+      throw err // propagate to queue
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -587,6 +616,21 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
         ) : (
           <div className="h-9 w-9" />
         )}
+
+        {/* Saving Status Indicator */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+          {isSaving && (
+            <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full animate-pulse border border-yellow-200">
+              Saving...
+            </span>
+          )}
+          {saveError && (
+            <span className="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded-full border border-red-200" title={saveError}>
+              Save error
+            </span>
+          )}
+        </div>
+
         <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">
           {seedsValue} 🌱
         </span>
@@ -638,13 +682,19 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
               const handleAssign = (rating: "easy" | "medium" | "difficult") => {
                 const entry = memoryPairMap.get(carouselItem.id)
                 if (!entry) return
+
+                // Retrieve the LATEST version of the world from state
+                const latestStored = worlds.find(w => w.worldId === entry.worldId)
+                const baseWorld = latestStored?.json ?? entry.world
+
                 const nextSrs = calculateNextReview(entry.pair.srs, rating)
                 const updatedWorld: VocabWorld = {
-                  ...entry.world,
-                  pool: entry.world.pool.map((pair, index) =>
+                  ...baseWorld,
+                  pool: baseWorld.pool.map((pair, index) =>
                     index === entry.pairIndex ? { ...pair, srs: nextSrs } : pair
                   ),
                 }
+
                 setWorlds((prev) =>
                   prev.map((stored) =>
                     stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
@@ -654,48 +704,20 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                 const nextAssigned = new Set(memoryAssigned)
                 nextAssigned.add(carouselItem.id)
                 setMemoryAssigned(nextAssigned)
-                const handleAssign = (rating: "easy" | "medium" | "difficult") => {
-                  const entry = memoryPairMap.get(carouselItem.id)
-                  if (!entry) return
 
-                  // BUG FIX: Use latest world state
-                  const latestStored = worlds.find(w => w.worldId === entry.worldId)
-                  const baseWorld = latestStored?.json ?? entry.world
+                // Persist changes
+                saveQueue.add(() => persistWorld({ ...entry }, updatedWorld))
 
-                  const nextSrs = calculateNextReview(entry.pair.srs, rating)
-                  const updatedWorld: VocabWorld = {
-                    ...baseWorld,
-                    pool: baseWorld.pool.map((pair, index) =>
-                      index === entry.pairIndex ? { ...pair, srs: nextSrs } : pair
-                    ),
-                  }
-                  setWorlds((prev) =>
-                    prev.map((stored) =>
-                      stored.worldId === entry.worldId ? { ...stored, json: updatedWorld } : stored
-                    )
-                  )
-                  awardReviewSeed(memorySeedsEarned, setMemorySeedsEarned)
-                  const nextAssigned = new Set(memoryAssigned)
-                  nextAssigned.add(carouselItem.id)
-                  setMemoryAssigned(nextAssigned)
-                  // Use saveQueue or direct call? Since handleAssign is user interaction, queue is safer.
-                  // But we didn't expose saveQueue to this scope. We should probably move saveQueue up or duplicate.
-                  // For now, let's keep it simple and just use local atomic save, relying on the fact that memory game 
-                  // might not be as rapid-fire as SRS, but ideally we use the queue.
-                  // Re-using persistWorld defined above which now takes (entry, world).
-                  saveQueue.add(() => persistWorld({ ...entry }, updatedWorld))
-
-                  if (matchedOrder.length > 1) {
-                    let nextIndex = carouselIndex
-                    for (let i = 1; i <= matchedOrder.length; i += 1) {
-                      const idx = (carouselIndex + i) % matchedOrder.length
-                      if (!nextAssigned.has(matchedOrder[idx])) {
-                        nextIndex = idx
-                        break
-                      }
+                if (matchedOrder.length > 1) {
+                  let nextIndex = carouselIndex
+                  for (let i = 1; i <= matchedOrder.length; i += 1) {
+                    const idx = (carouselIndex + i) % matchedOrder.length
+                    if (!nextAssigned.has(matchedOrder[idx])) {
+                      nextIndex = idx
+                      break
                     }
-                    setCarouselIndex(nextIndex)
                   }
+                  setCarouselIndex(nextIndex)
                 }
               }
 
