@@ -1,5 +1,6 @@
 "use client"
 
+import { RotateCcw } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import type { VocabWorld } from "@/types/worlds"
 
@@ -79,6 +80,7 @@ export default function VocabMemoryGame({
   renderWinActions,
   clickToFlipLabel,
   uiWinning,
+  onRestart,
 }: {
   world: VocabWorld
   levelIndex: number
@@ -106,6 +108,7 @@ export default function VocabMemoryGame({
     explanationTitle: string
     conjugationTitle: string
   }
+  onRestart?: () => void
 }) {
   const VOCAB = useMemo(() => {
     const k = world.chunking.itemsPerGame
@@ -235,10 +238,24 @@ export default function VocabMemoryGame({
     if (flippedKeys.includes(slotKey)) return
     if (flippedKeys.length === 2) return
 
+    let assignedNow: CardModel | null | undefined = slot.assigned
+
     // If slot not assigned yet, pull from urn
-    if (!slot.assigned) {
-      const ok = assignSlotFromUrn(slotKey)
-      if (!ok) return
+    if (!assignedNow) {
+      // Restore Anti-Luck: forbid matching the FIRST flipped card if possible
+      let forbidId: string | undefined
+      if (flippedKeys.length === 1 && VOCAB.length - matchedPairIds.size > 1) {
+        const firstKey = flippedKeys[0]
+        const firstSlot = slots.find(s => s.slotKey === firstKey)
+        // firstSlot is usually assigned if it's in flippedKeys
+        if (firstSlot?.assigned) {
+          forbidId = firstSlot.assigned.pairId
+        }
+      }
+
+      const res = assignSlotFromUrn(slotKey, forbidId)
+      if (!res) return
+      assignedNow = res.card
     }
 
     // track whether THIS slot was seen BEFORE this click
@@ -253,13 +270,21 @@ export default function VocabMemoryGame({
     if (next.length === 2) {
       setMoves((m) => m + 1)
 
-      const aSlot = slots.find((s) => s.slotKey === next[0])
-      const bSlot = slots.find((s) => s.slotKey === next[1])
+      const aKey = next[0]
+      const bKey = next[1]
 
-      // slots might have just been assigned; re-read from state is slightly async,
-      // so we compute via "renderModelForSlot" which uses assigned or placeholder
-      const a = renderModelForSlot(aSlot!)
-      const b = renderModelForSlot(bSlot!)
+      const aSlot = slots.find((s) => s.slotKey === aKey)
+      const bSlot = slots.find((s) => s.slotKey === bKey)
+
+      // Use helper to resolve model, preferring our local 'assignedNow' if applicable
+      const getModel = (s: Slot | undefined, key: string) => {
+        if (!s) return null
+        if (key === slotKey && assignedNow) return { ...assignedNow, key }
+        return renderModelForSlot(s)
+      }
+
+      const a = getModel(aSlot, aKey)!
+      const b = getModel(bSlot, bKey)!
 
       const isPairMatch = a.pairId === b.pairId && a.key !== b.key
 
@@ -441,12 +466,24 @@ export default function VocabMemoryGame({
               </div>
             </div>
 
-            <div className="mt-4 text-xs text-[#3A3A3A]/50">
-              {formatTemplate(progressTemplate, {
-                matched: matchedPairIds.size,
-                total: VOCAB.length,
-                moves,
-              })}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-xs text-[#3A3A3A]/50">
+                {formatTemplate(progressTemplate, {
+                  matched: matchedPairIds.size,
+                  total: VOCAB.length,
+                  moves,
+                })}
+              </div>
+              {onRestart && (
+                <button
+                  type="button"
+                  onClick={onRestart}
+                  className="rounded-full p-1 text-[#3A3A3A]/40 hover:bg-[#3A3A3A]/5 hover:text-[#3A3A3A] transition-colors"
+                  title="Restart"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
           </div>

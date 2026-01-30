@@ -5,8 +5,8 @@
       "worlds": "Mundos",
       "upload": "Crear mundo",
       "manage": "Gestion",
-      "locked": "🔒 Locked",
-      "restart": "Reanudar"
+      "locked": "🔒 Bloqueado",
+      "restart": "Reiniciar"
     },
     "worldsOverlay": {
       "title": "🌎 Mundos",
@@ -358,6 +358,11 @@
       "menuLabel": "Menú",
       "continueLabel": "Continuar",
       "clickToFlip": "(Haz clic para voltear)",
+      "progressTemplate": "Progreso: {matched}/{total} • Movimientos: {moves}",
+      "rightPanel": {
+        "title": "Parejas encontradas",
+        "emptyHint": "Encuentra una pareja para empezar."
+      },
       "carousel": {
         "primaryLabel": "Español:",
         "secondaryLabel": "Alemán:"
@@ -381,7 +386,7 @@
       "upload": "Create world",
       "manage": "Manage",
       "locked": "🔒 Locked",
-      "restart": "Resume"
+      "restart": "Restart"
     },
     "worldsOverlay": {
       "title": "🌎 Worlds",
@@ -733,6 +738,11 @@
       "menuLabel": "Menu",
       "continueLabel": "Continue",
       "clickToFlip": "(Click to flip)",
+      "progressTemplate": "Progress: {matched}/{total} • Moves: {moves}",
+      "rightPanel": {
+        "title": "Pairs found",
+        "emptyHint": "Find a pair to start."
+      },
       "carousel": {
         "primaryLabel": "Spanish:",
         "secondaryLabel": "German:"
@@ -755,8 +765,8 @@
       "worlds": "Welten",
       "upload": "Welt erstellen",
       "manage": "Verwalten",
-      "locked": "🔒 Locked",
-      "restart": "Fortsetzen"
+      "locked": "🔒 Gesperrt",
+      "restart": "Neustart"
     },
     "worldsOverlay": {
       "title": "🌎 Welten",
@@ -1108,6 +1118,11 @@
       "menuLabel": "Menü",
       "continueLabel": "Weiter",
       "clickToFlip": "(Zum Umdrehen klicken)",
+      "progressTemplate": "Fortschritt: {matched}/{total} • Züge: {moves}",
+      "rightPanel": {
+        "title": "Gefundene Paare",
+        "emptyHint": "Finde ein Paar zum Beginnen."
+      },
       "carousel": {
         "primaryLabel": "Spanisch:",
         "secondaryLabel": "Deutsch:"
@@ -1131,7 +1146,7 @@
       "upload": "Créer un monde",
       "manage": "Gérer",
       "locked": "🔒 Verrouillé",
-      "restart": "Reprendre"
+      "restart": "Recommencer"
     },
     "worldsOverlay": {
       "title": "🌎 Mondes",
@@ -1483,6 +1498,11 @@
       "menuLabel": "Menu",
       "continueLabel": "Continuer",
       "clickToFlip": "(Cliquer pour retourner)",
+      "progressTemplate": "Progrès: {matched}/{total} • Coups: {moves}",
+      "rightPanel": {
+        "title": "Paires trouvées",
+        "emptyHint": "Trouvez une paire pour commencer."
+      },
       "carousel": {
         "primaryLabel": "Espagnol :",
         "secondaryLabel": "Allemand :"
@@ -1506,7 +1526,7 @@
       "upload": "Criar mundo",
       "manage": "Gestão",
       "locked": "🔒 Bloqueado",
-      "restart": "Retomar"
+      "restart": "Reiniciar"
     },
     "worldsOverlay": {
       "title": "🌎 Mundos",
@@ -1858,6 +1878,11 @@
       "menuLabel": "Menu",
       "continueLabel": "Continuar",
       "clickToFlip": "(Clique para virar)",
+      "progressTemplate": "Progresso: {matched}/{total} • Movimentos: {moves}",
+      "rightPanel": {
+        "title": "Pares encontrados",
+        "emptyHint": "Encontre um par para começar."
+      },
       "carousel": {
         "primaryLabel": "Espanhol:",
         "secondaryLabel": "Alemão:"

@@ -2814,18 +2814,24 @@ export default function AppClient({
           instructions: "Empareja las palabras en español con las palabras en alemán.",
         },
         vocab: {
-          progressTemplate: "Progreso: {matched}/{total} • Movimientos: {moves}",
-          carousel: { primaryLabel: "Español:", secondaryLabel: "Deutsch:" },
-          rightPanel: { title: "Parejas encontradas", emptyHint: "Encuentra una pareja para empezar." },
+          progressTemplate: ui?.vocables?.progressTemplate ?? "Progreso: {matched}/{total} • Movimientos: {moves}",
+          carousel: {
+            primaryLabel: ui?.vocables?.carousel?.primaryLabel ?? "Español:",
+            secondaryLabel: ui?.vocables?.carousel?.secondaryLabel ?? "Deutsch:"
+          },
+          rightPanel: {
+            title: ui?.vocables?.rightPanel?.title ?? "Parejas encontradas",
+            emptyHint: ui?.vocables?.rightPanel?.emptyHint ?? "Encuentra una pareja para empezar."
+          },
         },
         winning: {
-          title: "Lo has logrado 🎉",
-          movesLabel: "Movimientos:",
-          explanationTitle: "Explicación",
-          reviewTitle: "Revisión",
-          conjugationTitle: "Conjugación",
-          nextDefault: "Siguiente",
-          closeDefault: "Cerrar",
+          title: ui?.winning?.title ?? "Lo has logrado 🎉",
+          movesLabel: ui?.winning?.movesLabel ?? "Movimientos:",
+          explanationTitle: ui?.winning?.explanationTitle ?? "Explicación",
+          reviewTitle: ui?.winning?.reviewTitle ?? "Revisión",
+          conjugationTitle: ui?.winning?.conjugationTitle ?? "Conjugación",
+          nextDefault: ui?.winning?.nextDefault ?? "Siguiente",
+          closeDefault: ui?.winning?.closeDefault ?? "Cerrar",
         },
       },
     } as World
@@ -2854,18 +2860,24 @@ export default function AppClient({
           instructions: "Empareja las palabras en español con las palabras en alemán.",
         },
         vocab: {
-          progressTemplate: "Progreso: {matched}/{total} • Movimientos: {moves}",
-          carousel: { primaryLabel: "Español:", secondaryLabel: "Deutsch:" },
-          rightPanel: { title: "Parejas encontradas", emptyHint: "Encuentra una pareja para empezar." },
+          progressTemplate: ui?.vocables?.progressTemplate ?? "Progreso: {matched}/{total} • Movimientos: {moves}",
+          carousel: {
+            primaryLabel: ui?.vocables?.carousel?.primaryLabel ?? "Español:",
+            secondaryLabel: ui?.vocables?.carousel?.secondaryLabel ?? "Deutsch:"
+          },
+          rightPanel: {
+            title: ui?.vocables?.rightPanel?.title ?? "Parejas encontradas",
+            emptyHint: ui?.vocables?.rightPanel?.emptyHint ?? "Encuentra una pareja para empezar."
+          },
         },
         winning: {
-          title: "Lo has logrado 🎉",
-          movesLabel: "Movimientos:",
-          explanationTitle: "Explicación",
-          reviewTitle: "Revisión",
-          conjugationTitle: "Conjugación",
-          nextDefault: "Siguiente",
-          closeDefault: "Cerrar",
+          title: ui?.winning?.title ?? "Lo has logrado 🎉",
+          movesLabel: ui?.winning?.movesLabel ?? "Movimientos:",
+          explanationTitle: ui?.winning?.explanationTitle ?? "Explicación",
+          reviewTitle: ui?.winning?.reviewTitle ?? "Revisión",
+          conjugationTitle: ui?.winning?.conjugationTitle ?? "Conjugación",
+          nextDefault: ui?.winning?.nextDefault ?? "Siguiente",
+          closeDefault: ui?.winning?.closeDefault ?? "Cerrar",
         },
       },
     } as World
@@ -3206,10 +3218,6 @@ export default function AppClient({
               </div>
 
               <div className="flex items-center gap-3">
-                <Button onClick={restart} className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4" />
-                  {ui.menu.restart}
-                </Button>
                 <div className="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-200">
                   <span className="font-semibold">{seeds}</span> 🌱
                 </div>
@@ -3220,7 +3228,7 @@ export default function AppClient({
           {/* GAME AREA */}
           <div className="col-span-12 space-y-3 mt-3">
             <div className="flex items-center justify-between md:hidden">
-              <div className="text-xs text-neutral-300">{headerInstructions}</div>
+
               <div className="flex items-center gap-2">
                 {isNewsWorld && (
                   <Button
@@ -3231,10 +3239,6 @@ export default function AppClient({
                     {ui.news.readButton}
                   </Button>
                 )}
-                <Button onClick={restart} className="flex items-center gap-2 text-xs px-2 py-1">
-                  <RotateCcw className="w-3 h-3" />
-                  {ui.menu.restart}
-                </Button>
               </div>
             </div>
             {!currentWorld && (
@@ -3266,6 +3270,7 @@ export default function AppClient({
                   primaryLabelOverride={sourceLabel ? `${sourceLabel}:` : undefined}
                   secondaryLabelOverride={targetLabel ? `${targetLabel}:` : undefined}
                   nextLabelOverride={isNewsWorld ? ui.news.readButton : undefined}
+                  onRestart={restart}
                   clickToFlipLabel={uiSettings?.vocables?.clickToFlip}
                   uiWinning={uiSettings?.winning}
                   renderWinActions={({ matchedOrder, carouselIndex, setCarouselIndex, carouselItem, closeWin: onCloseWin }) => {

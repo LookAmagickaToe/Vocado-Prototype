@@ -226,7 +226,7 @@ export default function WinningScreen({
           {hasCarousel && (
             <div
               className="mt-6 rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-4 cursor-pointer"
-              onClick={() => setIsFlipped(!isFlipped)}
+              onClick={() => setIsFlipped(true)}
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-[#3A3A3A]">{reviewTitle}</div>
@@ -253,7 +253,10 @@ export default function WinningScreen({
                     <div className="flex-1 flex flex-col gap-2">
                       <div
                         className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center cursor-pointer select-none relative active:scale-[0.98] transition-all"
-                        onClick={() => setIsFlipped(!isFlipped)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsFlipped(true)
+                        }}
                       >
                         <div className="flex justify-center">
                           {carouselItem.image.type === "emoji" ? (
