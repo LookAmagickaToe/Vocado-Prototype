@@ -1270,22 +1270,27 @@ export default function AppClient({
     const worldParam = searchParams.get("world")
     const levelParam = searchParams.get("level")
     if (worldParam) {
-      const exists = allWorlds.find((w) => w.id === worldParam)
-      if (exists) {
-        setWorldId(worldParam)
-        if (levelParam) {
-          const l = parseInt(levelParam, 10)
-          if (!isNaN(l) && l >= 0) {
-            setLevelIndex(l)
-          } else {
-            setLevelIndex(0)
-          }
+      // Set worldId immediately from URL, don't wait for world to exist in allWorlds
+      setWorldId(worldParam)
+
+      if (levelParam) {
+        const l = parseInt(levelParam, 10)
+        if (!isNaN(l) && l >= 0) {
+          setLevelIndex(l)
         } else {
           setLevelIndex(0)
         }
+      } else {
+        setLevelIndex(0)
+      }
+
+      // If world doesn't exist yet, trigger a refresh to fetch it
+      const exists = allWorlds.find((w) => w.id === worldParam)
+      if (!exists && isSupabaseLoaded && isAuthed) {
+        loadSupabaseState()
       }
     }
-  }, [searchParams, allWorlds])
+  }, [searchParams, allWorlds, isSupabaseLoaded, isAuthed])
 
   useEffect(() => {
     if (typeof window === "undefined") return
