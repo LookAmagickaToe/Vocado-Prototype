@@ -62,6 +62,7 @@ export type WorldBase = {
   target_language?: string
   news?: {
     summary: string[]
+    summary_source?: string[]
     sourceUrl?: string
     title?: string
     category?: string

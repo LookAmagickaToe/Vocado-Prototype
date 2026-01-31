@@ -5,7 +5,7 @@ const DEFAULT_MODEL = "gemini-flash-latest"
 
 type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news"
 
-function extractJson(text: string) {
+export function extractJson(text: string) {
   const start = text.indexOf("{")
   const end = text.lastIndexOf("}")
   if (start >= 0 && end > start) {
@@ -158,7 +158,7 @@ function buildThemePrompt({
   ].join("\n")
 }
 
-function stripHtml(html: string) {
+export function stripHtml(html: string) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -168,7 +168,7 @@ function stripHtml(html: string) {
     .trim()
 }
 
-function buildNewsPrompt({
+export function buildNewsPrompt({
   sourceLabel,
   targetLabel,
   level,
@@ -188,9 +188,10 @@ function buildNewsPrompt({
     `Vocabulary pairs must use source language "${sourceLabel}" and target language "${targetLabel}".`,
     levelLine,
     "Return ONLY valid JSON with this shape:",
-    `{"summary":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
+    `{"summary":["..."],"summary_source":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
     "For verbs, you MUST provide a 'conjugation' object with exactly 3 sections: 'Präsens', 'Präteritum', 'Perfekt' (same structure as parse_text task).",
-    "summary: 3-7 sentences forming a single flowing mini-article, not bullet points.",
+    "summary: 3-7 sentences forming a single flowing mini-article in the TARGET language.",
+    "summary_source: The SAME sentences as in 'summary', but translated into the SOURCE language.",
     "If level is A1/A2: use very short sentences, common words, present tense when possible, no complex clauses.",
     "If level is B1/B2: medium length sentences, limited subordinate clauses, clear connectors.",
     "If level is C1/C2: more natural flow, richer vocabulary, but still concise.",

@@ -112,6 +112,7 @@ type ReviewItem = {
 
 type NewsPayload = {
   summary: string[]
+  summary_source?: string[]
   sourceUrl?: string
   title?: string
   text?: string
@@ -226,6 +227,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [world, setWorld] = useState<VocabWorld | null>(null)
   const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
+  const [summarySource, setSummarySource] = useState<string[]>([])
+  const [showTranslation, setShowTranslation] = useState(false)
 
   // Selection state
   const [selectionText, setSelectionText] = useState("")
@@ -387,41 +390,16 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
-  const loadCachedDailyNewsList = async (categoryValue: string) => {
+  const fetchDailyNewsApi = async (categoryValue: string) => {
     try {
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
-      if (!token) return null
-      const response = await fetch("/api/storage/worlds/list", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!response.ok) return null
+      const lang = profileState.sourceLanguage || "es"
+      const level = profileState.level || "A2"
+      const response = await fetch(`/api/news/daily?category=${categoryValue}&source_language=${lang}&level=${level}`)
+      if (!response.ok) return []
       const data = await response.json()
-      const worlds = Array.isArray(data?.worlds) ? data.worlds : []
-      const matched: VocabWorld[] = []
-      for (const entry of worlds) {
-        const json = entry?.json
-        if (!json || json.mode !== "vocab") continue
-        const news = json.news
-        if (!news?.summary?.length) continue
-        if (news?.category !== categoryValue) continue
-        if (!isSameDay(news?.date)) continue
-        matched.push(json as VocabWorld)
-      }
-      if (!matched.length) return null
-      matched.sort((a, b) => (a.news?.index ?? 0) - (b.news?.index ?? 0))
-      const seen = new Set<string>()
-      const unique = matched.filter((world) => {
-        const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
-        if (!url) return true
-        if (seen.has(url)) return false
-        seen.add(url)
-        return true
-      })
-      return unique
+      return Array.isArray(data?.items) ? (data.items as VocabWorld[]) : []
     } catch {
-      return null
+      return []
     }
   }
 
@@ -487,37 +465,66 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const patchedWorld = needsSave ? { ...newsWorld, pool: normalizedPool } : newsWorld
     setWorld(patchedWorld)
     setSummary(Array.isArray(patchedWorld.news?.summary) ? patchedWorld.news!.summary : [])
+    setSummarySource(Array.isArray(patchedWorld.news?.summary_source) ? patchedWorld.news!.summary_source : [])
     setNewsUrl(patchedWorld.news?.sourceUrl ?? "")
     setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title)
     setNewsDate(patchedWorld.news?.date ?? todayKey)
     setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("summary")
+    setShowTranslation(false)
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
     const localCached = loadLocalNewsCache()
-    if (localCached && localCached.length >= 5) {
+    const today = new Date().toISOString().slice(0, 10)
+
+    // Filter cache for relevance and validity
+    const validCached = localCached?.filter((world) => {
+      // Must match requested category
+      if (world.news?.category !== categoryValue) return false
+      // Must be from today
+      if (world.news?.date !== today) return false
+      // Must have source summary (integrity check)
+      if (!Array.isArray(world.news?.summary_source) || world.news.summary_source.length === 0) return false
+      return true
+    }) ?? []
+
+    if (validCached.length >= 5) {
       const seen = new Set<string>()
-      const finalLocal = localCached.filter((world) => {
+      const finalLocal = validCached.filter((world) => {
         const url = world.news?.sourceUrl ? normalizeNewsUrl(world.news.sourceUrl) : ""
         if (!url) return true
         if (seen.has(url)) return false
         seen.add(url)
         return true
       }).slice(0, 5)
-      setNewsWorlds(finalLocal)
-      return finalLocal
+
+      if (finalLocal.length >= 5) {
+        setNewsWorlds(finalLocal)
+        return finalLocal
+      }
     }
 
-    const cachedList =
-      (localCached && localCached.length ? localCached : await loadCachedDailyNewsList(categoryValue)) ?? []
-    if (cachedList.length >= 5) {
-      const finalCached = cachedList.slice(0, 5)
-      setNewsWorlds(finalCached)
-      saveLocalNewsCache(finalCached)
-      return finalCached
+    // 1. Try API (Fast path)
+    const apiNews = await fetchDailyNewsApi(categoryValue)
+    if (apiNews.length > 0) {
+      // Check which ones we already have in cache to merge progress? 
+      // For now just prefer API fresh content, but maybe we want to keep local progress if ID matches?
+      // IDs from API are deterministic based on URL.
+      // So if I played one, local cache has progress. API call returns fresh 0 progress.
+      // We should merge.
+
+      const merged = apiNews.map((apiWorld: VocabWorld) => {
+        const localMatch = localCached?.find((w) => w.id === apiWorld.id)
+        return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 5 } }
+      })
+
+      setNewsWorlds(merged)
+      saveLocalNewsCache(merged)
+      return merged
     }
 
+    // 2. Fallback: Slow client-side generation
     const response = await fetch(`/api/news/tagesschau?ressort=${categoryValue}`)
     const data = await response.json()
     const itemsList = Array.isArray(data?.items) ? data.items : []
@@ -530,13 +537,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setIsLoading(true)
       const worldsToSave: VocabWorld[] = []
       const existing = new Set(
-        cachedList
+        (localCached || [])
           .map((world) => world.news?.sourceUrl)
           .filter((value): value is string => Boolean(value))
           .map(normalizeNewsUrl)
       )
       for (let i = 0; i < itemsList.length; i += 1) {
-        if (cachedList.length + worldsToSave.length >= 5) break
+        if ((localCached?.length || 0) + worldsToSave.length >= 5) break
         const headline = itemsList[i]
         if (!headline?.url) continue
         const normalizedUrl = normalizeNewsUrl(headline.url)
@@ -548,6 +555,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         let nextSummary: string[] = []
         let nextItems: ReviewItem[] = []
         let nextText: string = ""
+        let nextSummarySource: string[] = []
         try {
           const result = await callAi({
             task: "news",
@@ -558,6 +566,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             includeText: true
           })
           nextSummary = Array.isArray(result?.summary) ? result.summary : []
+          nextSummarySource = Array.isArray(result?.summary_source) ? result.summary_source : []
           nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
           nextText = Array.isArray(result?.text) ? result.text.join("\n") : (typeof result?.text === "string" ? result.text : "")
         } catch {
@@ -573,6 +582,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 includeText: true
               })
               nextSummary = Array.isArray(result?.summary) ? result.summary : [fallbackText]
+              nextSummarySource = Array.isArray(result?.summary_source) ? result.summary_source : []
               nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
               nextText = Array.isArray(result?.text) ? result.text.join("\n") : (typeof result?.text === "string" ? result.text : "")
             } catch {
@@ -594,14 +604,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             title: headline.title || "Noticia",
             category: categoryValue,
             date: baseDate,
-            index: cachedList.length + worldsToSave.length,
+            index: (localCached?.length || 0) + worldsToSave.length,
             text: nextText,
+            summary_source: nextSummarySource,
           },
         }
         worldsToSave.push(newsWorld)
         existing.add(normalizedUrl)
       }
-      const merged = [...cachedList, ...worldsToSave]
+      const merged = [...(localCached || []), ...worldsToSave]
       const seenUrls = new Set<string>()
       const finalList = merged
         .filter((world) => {
@@ -704,6 +715,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const parsed: NewsPayload = JSON.parse(raw)
       if (Array.isArray(parsed.summary) && parsed.summary.length) {
         setSummary(parsed.summary)
+        setSummarySource(parsed.summary_source || [])
         if (parsed.items) {
           setItems(parsed.items)
           setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel, ui))
@@ -1146,10 +1158,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const patchedWorld = { ...existingWorld, pool: normalizedPool }
       setWorld(patchedWorld)
       setSummary(Array.isArray(patchedWorld.news?.summary) ? patchedWorld.news!.summary : [])
+      setSummarySource(Array.isArray(patchedWorld.news?.summary_source) ? patchedWorld.news!.summary_source : [])
       setItems(buildReviewItemsFromWorld(patchedWorld))
       setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
       setNewsDate(patchedWorld.news?.date ?? newsDate)
       setStep("summary")
+      setShowTranslation(false)
       return
     }
     if (!newsDate) {
@@ -1171,6 +1185,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         return
       }
       setSummary(nextSummary)
+      setSummarySource(Array.isArray(result?.summary_source) ? result.summary_source : [])
       setItems(nextItems)
       const baseDate = newsDate || new Date().toISOString()
       const dateLabel = formatNewsDate(baseDate)
@@ -1186,6 +1201,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           title: newsTitle || worldTitle,
           category,
           date: baseDate,
+          summary_source: Array.isArray(result?.summary_source) ? result.summary_source : [],
         },
       }
       setWorld(newsWorld)
@@ -1531,6 +1547,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 if (typeof window !== "undefined") {
                   const payload: NewsPayload = {
                     summary,
+                    summary_source: summarySource,
                     sourceUrl: newsUrl.trim(),
                     title: ui.title,
                     items,
@@ -1626,15 +1643,42 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   >
                     <div className="rotate-180">➜</div>
                   </button>
-                  <div className="text-lg font-semibold">{ui.summaryTitle}</div>
+                  <div className="relative flex items-center bg-[#3A3A3A]/5 rounded-full p-1 h-9 md:h-12 w-fit select-none min-w-[160px] md:min-w-[240px]">
+                    <div
+                      className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                      style={{
+                        left: showTranslation ? "50%" : "4px",
+                        width: "calc(50% - 4px)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTranslation(false)}
+                      className={`relative z-10 flex-1 px-2 md:px-4 text-xs md:text-base font-semibold text-center transition-colors ${!showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
+                        }`}
+                    >
+                      {targetLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTranslation(true)}
+                      className={`relative z-10 flex-1 px-2 md:px-4 text-xs md:text-base font-semibold text-center transition-colors ${showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
+                        }`}
+                    >
+                      {sourceLabel}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setStep("play")}
-                  className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-1.5 rounded-full shadow-sm transition-all text-xs font-semibold"
-                >
-                  🚀 Jetzt spielen
-                </button>
+                <div className="flex gap-2">
+
+                  <button
+                    type="button"
+                    onClick={() => setStep("play")}
+                    className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center"
+                  >
+                    🚀 Jetzt spielen
+                  </button>
+                </div>
               </div>
               <div
                 className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none"
@@ -1644,7 +1688,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   // but standard contextmenu event usually works on high-end browsers.
                 }}
               >
-                {summary.map((line, index) => (
+                {(showTranslation ? (summarySource.length > 0 ? summarySource : [sourceLabel === "Deutsch" ? "(Übersetzung nicht verfügbar)" : sourceLabel === "English" ? "(Translation not available)" : "(Traducción no disponible)"]) : summary).map((line, index) => (
                   <div key={`${line}-${index}`} className="leading-relaxed">
                     {line}
                   </div>
