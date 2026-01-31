@@ -356,7 +356,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const newsCacheKey = useMemo(() => {
     const levelKey = profileState.level || "A2"
-    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}`
+    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}|v3`
     return `vocado-news-cache:${sessionKey}`
   }, [category, profileState.level, sourceLabel, targetLabel])
 
@@ -393,8 +393,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const fetchDailyNewsApi = async (categoryValue: string) => {
     try {
       const lang = profileState.sourceLanguage || "es"
+      const target = profileState.targetLanguage || "de"
       const level = profileState.level || "A2"
-      const response = await fetch(`/api/news/daily?category=${categoryValue}&source_language=${lang}&level=${level}`)
+      const response = await fetch(`/api/news/daily?category=${categoryValue}&source_language=${lang}&target_language=${target}&level=${level}`)
       if (!response.ok) return []
       const data = await response.json()
       return Array.isArray(data?.items) ? (data.items as VocabWorld[]) : []
@@ -586,7 +587,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
               nextText = Array.isArray(result?.text) ? result.text.join("\n") : (typeof result?.text === "string" ? result.text : "")
             } catch {
-              nextSummary = fallbackText ? [fallbackText] : []
+              const isTargetGerman = targetLabel.toLowerCase().includes("german") || targetLabel.toLowerCase().includes("alemán") || targetLabel.toLowerCase().includes("deutsch")
+              const isSourceGerman = sourceLabel.toLowerCase().includes("german") || sourceLabel.toLowerCase().includes("alemán") || sourceLabel.toLowerCase().includes("deutsch")
+              if (isTargetGerman) {
+                nextSummary = fallbackText ? [fallbackText] : []
+                nextSummarySource = []
+              } else if (isSourceGerman) {
+                nextSummary = []
+                nextSummarySource = fallbackText ? [fallbackText] : []
+              } else {
+                nextSummary = fallbackText ? [fallbackText] : []
+                nextSummarySource = []
+              }
               nextItems = []
               nextText = fallbackText
             }
@@ -1734,7 +1746,18 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       <span className="text-[#3A3A3A]/50">{sourceLabel}:</span>{" "}
                       <span className="font-semibold">{currentItem.source}</span>
                     </div>
-                    <div className="text-sm">
+                    {/* Only show target if it differs or if desired? User complained carousel is empty. 
+                        Maybe previous edit removed it? Screenshot shows "Deutsch: " and "Español: " labels but empty values.
+                        Wait, currentItem.source and currentItem.target might be empty or wrong?
+                        If user learns Spanish (Target), source is German.
+                        Label "Deutsch:" -> currentItem.source (German word)
+                        Label "Español:" -> currentItem.target (Spanish word)
+                        Screenshot shows labels but no values.
+                        This block renders {sourceLabel}: {currentItem.source}.
+                        If sourceLabel is "Deutsch", it should show the German word.
+                        I will add the target line back because user likely wants to see the translation.
+                    */}
+                    <div className="mt-1 text-sm">
                       <span className="text-[#3A3A3A]/50">{targetLabel}:</span>{" "}
                       <span className="font-semibold">{currentItem.target}</span>
                     </div>

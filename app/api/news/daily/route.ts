@@ -17,11 +17,28 @@ export async function GET(req: Request) {
         en: "English",
         fr: "Français",
         pt: "Português",
-        de: "Deutsch"
+        de: "Deutsch",
+        deutsch: "Deutsch",
+        english: "English",
+        español: "Español",
+        français: "Français",
+        português: "Português",
+        spanish: "Español",
+        german: "Deutsch",
+        french: "Français",
+        portuguese: "Português",
+        aleman: "Deutsch",
+        alemán: "Deutsch",
+        spanisch: "Español"
     }
+    const targetParam = (searchParams.get("target_language") || "de").toLowerCase()
+
     // approximate matching for codes like 'en-US'
-    const shortCode = sourceParam.split("-")[0]
+    const shortCode = sourceParam.split("-")[0].toLowerCase()
     const sourceLabel = LANGUAGES[shortCode] || "Español"
+
+    const targetShortCode = targetParam.split("-")[0].toLowerCase()
+    const targetLabel = LANGUAGES[targetShortCode] || "Deutsch"
 
     try {
         const { data: rows, error } = await supabaseAdmin
@@ -31,6 +48,8 @@ export async function GET(req: Request) {
             .eq("category", category)
             .eq("source_language", sourceLabel)
             .eq("level", level)
+            .eq("level", level)
+            .filter("json->>target_language", "eq", targetLabel)
             .limit(5)
 
         if (error) throw new Error(error.message)

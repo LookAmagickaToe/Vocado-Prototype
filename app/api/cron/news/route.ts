@@ -118,6 +118,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const maxPerCategory = 5
     const results = {
         processed: 0,
         errors: 0,
@@ -136,128 +137,181 @@ export async function GET(req: Request) {
         de: "Deutsch"
     }
 
-    // 1. Fetch active user settings to optimize generation
+    // 1. Fetch active user settings to determine what to generate
+    // We want to generate for every occurring (Level, SourceLanguage) tuple.
     const { data: profiles } = await supabaseAdmin
         .from("profiles")
         .select("source_language, level")
 
-    const targetsMap = new Map<string, { code: string, label: string, level: string }>()
+    // Map: Level -> Set of SourceLanguageCodes
+    // e.g. "A2" -> ["es", "en"], "B1" -> ["es"]
+    const demands = new Map<string, Set<string>>()
 
-    // Helper to add target
-    const addTarget = (langCode: string, level: string) => {
-        const code = langCode.toLowerCase()
-        const label = LANGUAGES[code]
+    // Helper to register demand
+    const addDemand = (level: string, langCode: string) => {
         const lvl = (level || "A2").toUpperCase()
-        if (label && ["A1", "A2", "B1", "B2", "C1", "C2"].includes(lvl)) {
-            const key = `${code}-${lvl}`
-            targetsMap.set(key, { code, label, level: lvl })
+        if (!["A1", "A2", "B1", "B2", "C1", "C2"].includes(lvl)) return
+
+        let code = langCode.toLowerCase()
+        // normalize code from full name if needed
+        if (LANGUAGES[code]) {
+            // ok
+        } else {
+            const found = Object.keys(LANGUAGES).find(k => LANGUAGES[k].toLowerCase() === code)
+            if (found) code = found
+            else {
+                const foundName = Object.keys(LANGUAGES).find(k => LANGUAGES[k] === langCode)
+                if (foundName) code = foundName
+                else return // unsupported language
+            }
         }
+
+        if (!demands.has(lvl)) {
+            demands.set(lvl, new Set())
+        }
+        demands.get(lvl)!.add(code)
     }
 
-    // Default fallbacks
-    addTarget("es", "A2")
-    addTarget("en", "A2")
+    // Default Fallbacks (always generate ES/EN A2)
+    addDemand("A2", "es")
+    addDemand("A2", "en")
 
-    // Add dictionary-based targets from profiles
     if (profiles) {
         for (const p of profiles) {
-            let code = "es"
             if (p.source_language) {
-                if (LANGUAGES[p.source_language.toLowerCase()]) {
-                    code = p.source_language.toLowerCase()
-                } else {
-                    const foundCode = Object.keys(LANGUAGES).find(k => LANGUAGES[k] === p.source_language)
-                    if (foundCode) code = foundCode
-                }
+                addDemand(p.level || "A2", p.source_language)
             }
-            addTarget(code, p.level)
         }
     }
 
-    const targets = Array.from(targetsMap.values())
-    console.log(`Generating news for ${targets.length} configurations:`, targets.map(t => `${t.code}-${t.level}`).join(", "))
+    console.log(`Generation Demands:`, Array.from(demands.entries()).map(([lvl, set]) => `${lvl}:[${Array.from(set).join(",")}]`))
 
     for (const category of categories) {
         const headlines = await fetchTagesschau(category)
-        // Process top 5
-        for (const item of headlines.slice(0, 5)) {
+
+        // LIMIT: 5 stories per category
+        for (const item of headlines.slice(0, maxPerCategory)) {
             const url = item.detailsweb || item.details || item.shareurl || item.url
             if (!url) continue
 
             const id = safeSegment(item.externalId || item.title || url)
 
-            // Generate for each target configuration
-            for (const target of targets) {
-                try {
-                    console.log(`Generating [${target.code}-${target.level}]: ${url}`)
+            // Iterate Levels
+            for (const [level, sourceCodes] of demands.entries()) {
+                let baseTextForLevel: string | null = null
 
-                    const generated = await generateNewsContent(url, target.label, target.level, item.title, item.teaser)
+                // Sort to ensure deterministic order (maybe put 'en' or 'es' first as they are good anchors)
+                const sortedSources = Array.from(sourceCodes).sort()
 
-                    const payload = {
-                        id: `news-${Date.now()}-${id}-${target.code}-${target.level}`,
-                        ui: {
-                            vocab: {
-                                carousel: {
-                                    primaryLabel: `${target.label}:`,
-                                    secondaryLabel: "Alemán:"
-                                }
+                for (const sourceCode of sortedSources) {
+                    const sourceLabel = LANGUAGES[sourceCode]
+                    const targetLabel = "Alemán"
+                    const configKey = `[${category}/${level}/${sourceCode}]`
+
+                    try {
+                        let generated: any = null
+                        let statusTag = "[Fresh]"
+
+                        if (baseTextForLevel) {
+                            console.log(`Reusing base text for ${configKey}`)
+                            // Reuse the base German text. 
+                            // We pass 'baseTextForLevel' as 'rawText' to the prompt builder.
+                            // The prompt builder sees: "Input article text: <German Summary>".
+                            // It will extract vocabulary and back-translate to Source.
+                            generated = await generateNewsContent(
+                                "", // url empty
+                                sourceLabel,
+                                level,
+                                item.title,
+                                baseTextForLevel // Pass the summary as "teaser/text" override logic
+                            )
+                            // Important: verify if generated.summary matches baseTextForLevel?
+                            // The AI *should* ideally keep the summary (Target) identical if input is identical to output.
+                            // But it might re-summarize. We can force it to be the same if we want perfect sync,
+                            // but allowing it to refine is also fine.
+                            // However, for pure optimization, we might accept the AI's re-output.
+
+                            // Optimization 2: If we want to force the 'summary' to be identical to baseTextForLevel to save generation tokens,
+                            // we would need a different prompt task like "translate_vocab_only". 
+                            // For now, full generation is safer for quality, just skipping the fetch & simplify steps.
+                            statusTag = "[Reused]"
+                        } else {
+                            console.log(`Generating fresh BASE for ${configKey}`)
+                            generated = await generateNewsContent(url, sourceLabel, level, item.title, item.teaser)
+
+                            // Capture the generated TARGET summary to reuse as input for others
+                            if (Array.isArray(generated.summary)) {
+                                baseTextForLevel = generated.summary.join(" ")
                             }
-                        },
-                        mode: "vocab",
-                        news: {
-                            sourceUrl: url,
-                            title: item.title,
-                            teaser: item.teaser,
-                            image: item.teaserImage?.imageVariants?.["1x1-840"] || item.teaserImage?.imageUrl,
-                            date: new Date().toISOString(),
-                            generatedAt: new Date().toISOString(),
-                            index: 0,
-                            level: target.level,
-                            ...generated // summary, items, text, summary_source
-                        },
-                        pool: generated.items.map((it: any, idx: number) => ({
-                            ...it,
-                            id: `news-${Date.now()}-${id}-${target.code}-${target.level}-${idx}`
-                        })),
-                        title: `Vocado Diario - ${item.title}`,
-                        chunking: { itemsPerGame: 8 },
-                        description: generated.summary.join(" "),
-                        source_language: target.label,
-                        target_language: "Alemán"
+                        }
+
+                        const payload = {
+                            id: `news-${Date.now()}-${id}-${sourceCode}-${level}`,
+                            ui: {
+                                vocab: {
+                                    carousel: {
+                                        primaryLabel: `${sourceLabel}:`,
+                                        secondaryLabel: `${targetLabel}:`
+                                    }
+                                }
+                            },
+                            mode: "vocab",
+                            news: {
+                                sourceUrl: url,
+                                title: item.title,
+                                teaser: item.teaser,
+                                image: item.teaserImage?.imageVariants?.["1x1-840"] || item.teaserImage?.imageUrl,
+                                date: new Date().toISOString(),
+                                generatedAt: new Date().toISOString(),
+                                index: 0,
+                                category: category, // Save category for filtering
+                                level: level,
+                                ...generated
+                            },
+                            pool: generated.items.map((it: any, idx: number) => ({
+                                ...it,
+                                id: `news-${Date.now()}-${id}-${sourceCode}-${level}-${idx}`
+                            })),
+                            title: `Vocado Diario - ${item.title}`,
+                            chunking: { itemsPerGame: 8 },
+                            description: Array.isArray(generated.summary) ? generated.summary.join(" ") : "",
+                            source_language: sourceLabel,
+                            target_language: targetLabel
+                        }
+
+                        // Save to Supabase
+                        await supabaseAdmin
+                            .from("daily_news")
+                            .delete()
+                            .eq("source_url", url)
+                            .eq("date", today)
+                            .eq("source_language", sourceLabel)
+                            .eq("level", level)
+
+                        const { error: insertError } = await supabaseAdmin
+                            .from("daily_news")
+                            .insert({
+                                id: crypto.randomUUID(),
+                                date: today,
+                                category: category,
+                                level: level,
+                                source_language: sourceLabel,
+                                target_language: targetLabel,
+                                source_url: url,
+                                title: item.title,
+                                json: JSON.stringify(payload)
+                            })
+
+                        if (insertError) throw new Error(insertError.message)
+
+                        results.processed++
+                        results.details.push(`Saved ${configKey} ${statusTag}`)
+
+                    } catch (err) {
+                        console.error(`Error ${configKey}:`, err)
+                        results.errors++
+                        results.details.push(`Error ${configKey}: ${(err as Error).message}`)
                     }
-
-                    // 3. Save to Supabase Table 'daily_news'
-                    // First delete existing for this specific configuration
-                    await supabaseAdmin
-                        .from("daily_news")
-                        .delete()
-                        .eq("source_url", url)
-                        .eq("date", today)
-                        .eq("source_language", target.label)
-                        .eq("level", target.level)
-
-                    const { error: insertError } = await supabaseAdmin
-                        .from("daily_news")
-                        .insert({
-                            id: crypto.randomUUID(),
-                            date: today,
-                            category: category,
-                            level: target.level,
-                            source_language: target.label,
-                            target_language: "Alemán",
-                            source_url: url,
-                            title: item.title,
-                            json: JSON.stringify(payload)
-                        })
-
-                    if (insertError) throw new Error(insertError.message)
-
-                    results.processed++
-                    results.details.push(`Generated [${target.code}-${target.level}]: ${category}/${item.title}`)
-                } catch (err) {
-                    console.error(`Failed to generate [${target.code}-${target.level}] ${url}:`, err)
-                    results.errors++
-                    results.details.push(`Error [${target.code}-${target.level}] ${category}/${item.title}: ${(err as Error).message}`)
                 }
             }
         }

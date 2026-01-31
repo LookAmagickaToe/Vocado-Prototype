@@ -910,6 +910,20 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         [activeNewsTab, profileSettings.level, profileSettings.sourceLanguage, profileSettings.targetLanguage]
     )
 
+    const fetchDailyNewsApi = async (categoryValue: string) => {
+        try {
+            const lang = profileSettings.sourceLanguage || "es"
+            const target = profileSettings.targetLanguage || "de"
+            const level = profileSettings.level || "A2"
+            const response = await fetch(`/api/news/daily?category=${categoryValue}&source_language=${lang}&target_language=${target}&level=${level}`)
+            if (!response.ok) return []
+            const data = await response.json()
+            return Array.isArray(data?.items) ? (data.items as VocabWorld[]) : []
+        } catch {
+            return []
+        }
+    }
+
     useEffect(() => {
         const fetchNews = async () => {
             setIsNewsLoading(true)
@@ -941,6 +955,28 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     return
                 }
 
+                // Try API (Fast path)
+                const apiNews = await fetchDailyNewsApi(category)
+                if (apiNews.length > 0) {
+                    const merged = apiNews.map((apiWorld: VocabWorld) => {
+                        const localMatch = cachedList.find((w) => w.id === apiWorld.id)
+                        return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 5 } }
+                    })
+
+                    const finalList = merged.slice(0, 5)
+                    const baseItems = finalList.map((item) => ({
+                        title: item.news?.title || item.title,
+                        teaser: item.news?.summary?.[0] || "",
+                    }))
+
+                    setNewsWorlds(finalList)
+                    setNewsItems(baseItems)
+                    setCurrentNewsIndex(0)
+                    saveLocalNewsCache(category, finalList)
+                    setIsNewsLoading(false)
+                    return
+                }
+
                 const res = await fetch(`/api/news/tagesschau?ressort=${category}`)
                 const data = await res.json()
                 const list = Array.isArray(data?.items) ? data.items : []
@@ -964,7 +1000,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     const normalizedUrl = normalizeNewsUrl(headline.url)
                     if (!normalizedUrl || usedUrls.has(normalizedUrl)) continue
                     let nextSummary: string[] = []
+                    let nextSummarySource: string[] = []
                     let nextItems = [] as NewsReviewItem[]
+                    let nextTitle = headline.title || "Noticia"
                     try {
                         const result = await callAi({
                             task: "news",
@@ -972,9 +1010,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             level: profileSettings.level || undefined,
                             sourceLabel: profileSettings.sourceLanguage || "Español",
                             targetLabel: profileSettings.targetLanguage || "Alemán",
+                            includeText: true,
                         })
                         nextSummary = Array.isArray(result?.summary) ? result.summary : []
+                        nextSummarySource = Array.isArray(result?.summary_source) ? result.summary_source : []
                         nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+                        if (result?.title && typeof result.title === "string") {
+                            nextTitle = result.title
+                        }
                     } catch {
                         const fallbackText = [headline.title, headline.teaser].filter(Boolean).join(". ")
                         if (fallbackText) {
@@ -985,11 +1028,30 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                     level: profileSettings.level || undefined,
                                     sourceLabel: profileSettings.sourceLanguage || "Español",
                                     targetLabel: profileSettings.targetLanguage || "Alemán",
+                                    includeText: true,
                                 })
                                 nextSummary = Array.isArray(result?.summary) ? result.summary : [fallbackText]
+                                nextSummarySource = Array.isArray(result?.summary_source) ? result.summary_source : []
                                 nextItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+                                if (result?.title && typeof result.title === "string") {
+                                    nextTitle = result.title
+                                }
                             } catch {
-                                nextSummary = [fallbackText]
+                                const sLabel = profileSettings.sourceLanguage || "Español"
+                                const tLabel = profileSettings.targetLanguage || "Alemán"
+                                const isTargetGerman = tLabel.toLowerCase().includes("german") || tLabel.toLowerCase().includes("alemán") || tLabel.toLowerCase().includes("deutsch")
+                                const isSourceGerman = sLabel.toLowerCase().includes("german") || sLabel.toLowerCase().includes("alemán") || sLabel.toLowerCase().includes("deutsch")
+
+                                if (isTargetGerman) {
+                                    nextSummary = [fallbackText]
+                                    nextSummarySource = []
+                                } else if (isSourceGerman) {
+                                    nextSummary = []
+                                    nextSummarySource = [fallbackText]
+                                } else {
+                                    nextSummary = [fallbackText]
+                                    nextSummarySource = []
+                                }
                                 nextItems = []
                             }
                         }
@@ -1003,12 +1065,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             ui,
                             normalizedUrl ? buildNewsWorldId(normalizedUrl) : undefined
                         ),
-                        title: `Vocado Diario - ${headline.title || "Noticia"}`,
+                        title: `Vocado Diario - ${nextTitle}`,
                         description: "Noticias del día.",
+                        source_language: profileSettings.sourceLanguage || "Español",
+                        target_language: profileSettings.targetLanguage || "Alemán",
                         news: {
                             summary: nextSummary,
+                            summary_source: nextSummarySource,
                             sourceUrl: normalizedUrl,
-                            title: headline.title || "Noticia",
+                            title: nextTitle,
                             category,
                             date: headline.date || new Date().toISOString(),
                             index: cachedList.length + worldsToSave.length,
@@ -1017,6 +1082,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     if (!usedUrls.has(normalizedUrl)) {
                         worldsToSave.push(newsWorld)
                         usedUrls.add(normalizedUrl)
+                        // Share generated news with community
+                        fetch("/api/news/share", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                world: newsWorld,
+                                level: profileSettings.level || "A2"
+                            }),
+                        }).catch(() => { })
                     }
                 }
 
