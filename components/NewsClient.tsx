@@ -396,15 +396,25 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   }
 
   const fetchDailyNewsApi = async (categoryValue: string) => {
+    const startTime = performance.now()
     try {
       const lang = profileState.sourceLanguage || "es"
       const target = profileState.targetLanguage || "de"
       const level = profileState.level || "A2"
+      console.log(`[NewsClient] Fetching API news - category: ${categoryValue}, lang: ${lang}, level: ${level}`)
       const response = await fetch(`/api/news/daily?category=${categoryValue}&source_language=${lang}&target_language=${target}&level=${level}`)
-      if (!response.ok) return []
+      if (!response.ok) {
+        console.warn(`[NewsClient] API returned status ${response.status}`)
+        return []
+      }
       const data = await response.json()
-      return Array.isArray(data?.items) ? (data.items as VocabWorld[]) : []
-    } catch {
+      const items = Array.isArray(data?.items) ? (data.items as VocabWorld[]) : []
+      const elapsed = (performance.now() - startTime).toFixed(0)
+      console.log(`[NewsClient] API returned ${items.length} items in ${elapsed}ms`)
+      return items
+    } catch (err) {
+      const elapsed = (performance.now() - startTime).toFixed(0)
+      console.error(`[NewsClient] API error after ${elapsed}ms:`, err)
       return []
     }
   }
@@ -482,6 +492,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
+    const fnStartTime = performance.now()
+    console.log(`[NewsClient] ensureDailyNewsList started - category: ${categoryValue}`)
+
     const localCached = loadLocalNewsCache()
     const today = new Date().toISOString().slice(0, 10)
 
@@ -507,12 +520,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       }).slice(0, 5)
 
       if (finalLocal.length >= 5) {
+        const elapsed = (performance.now() - fnStartTime).toFixed(0)
+        console.log(`[NewsClient] ✓ Returned ${finalLocal.length} items from CACHE in ${elapsed}ms`)
         setNewsWorlds(finalLocal)
         return finalLocal
       }
     }
 
     // 1. Try API (Fast path)
+    console.log(`[NewsClient] Cache miss - trying API...`)
     const apiNews = await fetchDailyNewsApi(categoryValue)
     if (apiNews.length > 0) {
       // Check which ones we already have in cache to merge progress? 
@@ -526,20 +542,27 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 5 } }
       })
 
+      const elapsed = (performance.now() - fnStartTime).toFixed(0)
+      console.log(`[NewsClient] ✓ Returned ${merged.length} items from API in ${elapsed}ms total`)
       setNewsWorlds(merged)
       saveLocalNewsCache(merged)
       return merged
     }
 
     // 2. Fallback: Slow client-side generation
+    console.warn(`[NewsClient] ⚠️  API returned no results - falling back to CLIENT-SIDE AI generation (SLOW!)...`)
+    const fallbackStartTime = performance.now()
     const response = await fetch(`/api/news/tagesschau?ressort=${categoryValue}`)
     const data = await response.json()
     const itemsList = Array.isArray(data?.items) ? data.items : []
     if (!itemsList.length) {
+      const elapsed = (performance.now() - fnStartTime).toFixed(0)
+      console.error(`[NewsClient] ✗ No headlines from Tagesschau - total time: ${elapsed}ms`)
       setNewsWorlds([])
       setError(ui.noNews)
       return []
     }
+    console.log(`[NewsClient] Got ${itemsList.length} headlines from Tagesschau, generating AI content...`)
     try {
       setIsLoading(true)
       const worldsToSave: VocabWorld[] = []
@@ -629,6 +652,19 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         }
         worldsToSave.push(newsWorld)
         existing.add(normalizedUrl)
+
+        // Share generated news with all users via Supabase
+        console.log(`[NewsClient] Sharing generated news to Supabase: ${headline.title}`)
+        fetch("/api/news/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            world: newsWorld,
+            level: profileState.level || "A2"
+          }),
+        }).catch((err) => {
+          console.error(`[NewsClient] Failed to share news:`, err)
+        })
       }
       const merged = [...(localCached || []), ...worldsToSave]
       const seenUrls = new Set<string>()
@@ -643,6 +679,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           return true
         })
         .slice(0, 5)
+      const fallbackElapsed = (performance.now() - fallbackStartTime).toFixed(0)
+      const totalElapsed = (performance.now() - fnStartTime).toFixed(0)
+      console.log(`[NewsClient] ✓ Generated ${finalList.length} news items via AI in ${fallbackElapsed}ms (total: ${totalElapsed}ms)`)
       setNewsWorlds(finalList)
       saveLocalNewsCache(finalList)
       if (!finalList.length) {

@@ -83,9 +83,10 @@ export async function POST(req: Request) {
                 date: today,
                 category: news.category,
                 source_language: sourceLabel,
-                // We should ideally update the world object with normalized languages too?
-                // But let's just trust the columns. For json, we keep it as is or update it?
-                // Let's update it to ensure consistency.
+                level: level,  // Add the level field
+                target_language: targetLabel,
+                source_url: news.sourceUrl,
+                title: news.title || world.title,
                 json: JSON.stringify({
                     ...world,
                     source_language: sourceLabel,
