@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Play } from "lucide-react"
+import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 
 // Design system colors
 const COLORS = {
@@ -27,9 +28,9 @@ export type ReviewWord = {
     pos?: "verb" | "noun" | "adj" | "other"
     syllables?: string
     conjugation?: {
-        verb: string
-        translation: string
-        sections: { title: string; rows: string[][] }[]
+        infinitive?: string
+        translation?: string
+        sections: { title: string; rows: [string, string][] }[]
     }
 }
 
@@ -428,28 +429,10 @@ export default function WorldReviewOverlay({
                                         >
                                             <X size={12} />
                                         </button>
+                                        {/* Conjugation Table (Restored with new design) */}
                                         {word.pos === "verb" && word.conjugation?.sections && (
-                                            <div className="col-span-full px-2 pb-4 pt-0">
-                                                <div className="bg-[#FAF7F2] rounded-lg p-3 border border-[#3A3A3A]/5">
-                                                    <div className="text-[11px] font-medium text-[#3A3A3A]/50 mb-2 uppercase tracking-wide">Conjugations</div>
-                                                    <div className="grid grid-cols-3 gap-4">
-                                                        {word.conjugation.sections.map((section, idx) => (
-                                                            <div key={idx} className="bg-white rounded-md p-2 border border-[#3A3A3A]/5">
-                                                                <div className="text-[11px] font-semibold text-[#3A3A3A] mb-1.5 border-b border-[#3A3A3A]/5 pb-1">
-                                                                    {section.title}
-                                                                </div>
-                                                                <div className="space-y-0.5">
-                                                                    {section.rows.map((row, rIdx) => (
-                                                                        <div key={rIdx} className="flex justify-between text-[10px]">
-                                                                            <span className="text-[#3A3A3A]/50">{row[0]}</span>
-                                                                            <span className="text-[#3A3A3A] font-medium">{row[1]}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                            <div className="col-span-full px-2 pb-4 pt-2">
+                                                <ConjugationCard conjugation={word.conjugation} />
                                             </div>
                                         )}
                                     </div>

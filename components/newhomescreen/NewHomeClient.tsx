@@ -75,6 +75,11 @@ type NewsReviewItem = {
     explanation?: string
     example?: string
     syllables?: string
+    conjugation?: {
+        infinitive?: string
+        translation?: string
+        sections: { title: string; rows: [string, string][] }[]
+    }
 }
 
 const normalizeText = (value: unknown) =>
@@ -124,6 +129,7 @@ const buildReviewItemsFromAi = (items: any[]) =>
         explanation: normalizeText(item?.explanation) || undefined,
         example: normalizeText(item?.example) || undefined,
         syllables: normalizeText(item?.syllables) || undefined,
+        conjugation: item?.conjugation, // ✅ NEW
     })) as NewsReviewItem[]
 
 const buildReviewWordsFromItems = (items: NewsReviewItem[]) =>
@@ -139,6 +145,7 @@ const buildReviewWordsFromItems = (items: NewsReviewItem[]) =>
             example: item.example,
             pos: item.pos,
             syllables: item.syllables,
+            conjugation: item.conjugation, // ✅ Pass through
         }))
 
 const buildWorldFromItems = (
@@ -235,6 +242,7 @@ const buildWorldFromReviewWords = (
                 explanation: explanationWithSyllables,
                 example,
                 srs,
+                conjugation: word.conjugation, // ✅ Store result
             }
         })
         .filter(Boolean) as any[]
@@ -273,6 +281,8 @@ const buildConjugationWorld = (
     const conjugationMap: Record<string, any> = {}
     const pool: Array<any> = []
 
+    const levelNames: string[] = []
+
     conjugations.forEach((entry) => {
         const verb = entry?.verb
         if (!verb) return
@@ -283,15 +293,22 @@ const buildConjugationWorld = (
             translation,
             sections,
         }
-        const firstSection = sections[0]
-        const rows = Array.isArray(firstSection?.rows) ? firstSection.rows : []
-        rows.forEach((row: any, idx: number) => {
-            if (!Array.isArray(row) || row.length < 2) return
-            pool.push({
-                id: `${verb}_${idx + 1}`,
-                es: row[0],
-                de: row[1],
-                image: { type: "emoji", value: "📝" },
+        // Flatten ALL sections into the pool so they become levels/items
+        sections.forEach((section: any) => {
+            const rows = Array.isArray(section?.rows) ? section.rows : []
+            // Add level name for this section (assuming 6 items per section -> 1 level)
+            const verbName = verb.charAt(0).toUpperCase() + verb.slice(1)
+            levelNames.push(`${verbName} - ${section.title}`)
+
+            rows.forEach((row: any, idx: number) => {
+                if (!Array.isArray(row) || row.length < 2) return
+                pool.push({
+                    id: `${verb}_${section.title}_${idx + 1}`,
+                    es: row[0], // pronoun
+                    de: row[1], // conjugated form
+                    image: { type: "emoji", value: "📝" },
+                    explanation: `${section.title}: ${row[0]} -> ${row[1]}`, // Hint for context
+                })
             })
         })
     })
@@ -305,6 +322,7 @@ const buildConjugationWorld = (
         pool,
         conjugations: conjugationMap,
         chunking: { itemsPerGame: 6 },
+        level_names: levelNames,
         source_language: sourceLabel,
         target_language: targetLabel,
         ui: {
@@ -1039,19 +1057,19 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             } catch {
                                 const sLabel = profileSettings.sourceLanguage || "Español"
                                 const tLabel = profileSettings.targetLanguage || "Alemán"
-                                const isTargetGerman = tLabel.toLowerCase().includes("german") || tLabel.toLowerCase().includes("alemán") || tLabel.toLowerCase().includes("deutsch")
-                                const isSourceGerman = sLabel.toLowerCase().includes("german") || sLabel.toLowerCase().includes("alemán") || sLabel.toLowerCase().includes("deutsch")
 
-                                if (isTargetGerman) {
-                                    nextSummary = [fallbackText]
-                                    nextSummarySource = []
-                                } else if (isSourceGerman) {
-                                    nextSummary = []
-                                    nextSummarySource = [fallbackText]
-                                } else {
-                                    nextSummary = [fallbackText]
-                                    nextSummarySource = []
-                                }
+                                // Logic: We want to show the news in the TARGET language (what they are learning)
+                                // If the fallback text (headline/teaser) is already in the target language (e.g. German news source for German learner),
+                                // we should use it as the summary. If it's in the source language, we should translate it.
+                                // Since we can't easily detect the language of the fallback text reliably without AI,
+                                // and the API call failed, we have to make a guess based on the source URL or just use it as is.
+
+                                // CORRECT BEHAVIOR: Always try to put the content in 'summary' (which represents target language content in our schema)
+                                // and 'summary_source' is the translation. If we only have one text and AI failed, 
+                                // we populate 'summary' with it to ensure SOMETHING shows up in the main view.
+
+                                nextSummary = [fallbackText]
+                                nextSummarySource = []
                                 nextItems = []
                             }
                         }
@@ -1247,7 +1265,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         setCreateWorldError(null)
         try {
             const lowerTheme = theme.toLowerCase()
-            const isConjugationRequest = /conjug|konjug/.test(lowerTheme)
+            const isConjugationRequest = /conjug|konjug|verb/.test(lowerTheme) // ✅ Added "verb"
             if (isConjugationRequest) {
                 const parseResult = await callAi({
                     task: "parse_text",
@@ -1258,6 +1276,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     targetLabel: profileSettings.targetLanguage || "Alemán",
                 })
                 const items = Array.isArray(parseResult?.items) ? parseResult.items : []
+
+                // [NEW] Build Base Vocab World so verbs appear in library
+                const reviewItems = buildReviewItemsFromAi(items)
+                const words = buildReviewWordsFromItems(reviewItems).filter(w => w.pos === "verb")
+
+                if (!words.length) {
+                    setCreateWorldError(ui.noWordsError)
+                    return
+                }
+
                 const verbs = items
                     .filter((item: any) => (item?.pos === "verb") || item?.lemma)
                     .map((item: any) => ({
@@ -1265,10 +1293,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         translation: (item?.source || "").trim(),
                     }))
                     .filter((item: any) => item.lemma)
-                if (!verbs.length) {
-                    setCreateWorldError(ui.noWordsError)
-                    return
-                }
+
                 const conjugationResult = await callAi({
                     task: "conjugate",
                     verbs,
@@ -1288,6 +1313,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         : theme
                 const sourceLabel = profileSettings.sourceLanguage || "Español"
                 const targetLabel = profileSettings.targetLanguage || "Alemán"
+
+                // Helper to create IDs
+                const baseId = `upload-${Date.now()}`
+
+                // Build ONLY Conjugation World (no vocab world for explicit conjugation requests)
                 const conjugationWorld = buildConjugationWorld(
                     conjugations,
                     title,
@@ -1295,6 +1325,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     targetLabel,
                     uiSettings
                 )
+                conjugationWorld.id = baseId
+
                 let listId = selectedOverlayListId ?? null
                 const session = await supabase.auth.getSession()
                 const token = session.data.session?.access_token
@@ -1302,6 +1334,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 if (!listId) {
                     listId = await ensureUnlistedListId(token)
                 }
+
+                // Save ONLY conjugation world
                 const response = await fetch("/api/storage/worlds/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -1315,9 +1349,15 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     const data = await response.json().catch(() => ({}))
                     throw new Error(data?.error || "Save failed")
                 }
+
                 setStoredWorlds((prev) => [...prev, conjugationWorld])
-                setWorldMetaMap((prev) => ({ ...prev, [conjugationWorld.id]: { listId } }))
+                setWorldMetaMap((prev) => ({
+                    ...prev,
+                    [conjugationWorld.id]: { listId }
+                }))
+
                 setInputText("")
+                // Play the CONJUGATION world as requested
                 router.push(`/play?world=${encodeURIComponent(conjugationWorld.id)}&level=0`)
                 return
             }
@@ -1708,13 +1748,41 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 listId = await ensureUnlistedListId(token)
             }
 
+            // [DUAL WORLD LOGIC] Check for verbs with conjugations
+            const verbsWithConjugation = words.filter(w => w.pos === "verb" && w.conjugation)
+            const worldsToSave = [world]
+
+            if (verbsWithConjugation.length > 0) {
+                // Construct conjugation data structure for buildConjugationWorld
+                const conjugationData = verbsWithConjugation.map(v => ({
+                    verb: v.target, // using target as the verb key (e.g. German verb)
+                    translation: v.source,
+                    sections: v.conjugation?.sections || []
+                }))
+
+                const conjugationWorld = buildConjugationWorld(
+                    conjugationData,
+                    title, // share base title
+                    sourceLabel,
+                    targetLabel,
+                    uiSettings
+                )
+
+                // Ensure unique ID but related
+                conjugationWorld.id = `${world.id}-verbs`
+                worldsToSave.push(conjugationWorld)
+            }
+
+            const positions: Record<string, number> = {}
+            worldsToSave.forEach((w, i) => positions[w.id] = i)
+
             const response = await fetch("/api/storage/worlds/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
-                    worlds: [world],
+                    worlds: worldsToSave,
                     listId,
-                    positions: { [world.id]: 0 },
+                    positions,
                 }),
             })
             if (!response.ok) {
@@ -1723,13 +1791,26 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             }
 
             setStoredWorlds((prev) => {
-                const existing = prev.find((item) => item.id === world.id)
-                if (existing) {
-                    return prev.map((item) => (item.id === world.id ? world : item))
+                let next = [...prev]
+                for (const w of worldsToSave) {
+                    const existingIdx = next.findIndex((item) => item.id === w.id)
+                    if (existingIdx >= 0) {
+                        next[existingIdx] = w
+                    } else {
+                        next.push(w)
+                    }
                 }
-                return [...prev, world]
+                return next
             })
-            setWorldMetaMap((prev) => ({ ...prev, [world.id]: { listId } }))
+
+            setWorldMetaMap((prev) => {
+                const update = { ...prev }
+                for (const w of worldsToSave) {
+                    update[w.id] = { listId }
+                }
+                return update
+            })
+
             setIsOverlayOpen(false)
             if (playNow) {
                 router.push(`/play?world=${encodeURIComponent(world.id)}&level=0`)

@@ -1060,7 +1060,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                             <Play className="w-3 h-3 text-[rgb(var(--vocado-accent-rgb))]" />
                                                                         </div>
                                                                         <span className="text-[13px] text-[#3A3A3A]/80">
-                                                                            {formatTemplate(ui.levelItemLabel, { count: String(i + 1) })}
+                                                                            {(world as any).level_names?.[i] ?? formatTemplate(ui.levelItemLabel, { count: String(i + 1) })}
                                                                         </span>
                                                                     </button>
                                                                 ))}

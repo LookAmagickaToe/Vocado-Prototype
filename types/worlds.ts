@@ -80,6 +80,7 @@ export type VocabWorld = WorldBase & {
   submode?: "conjugation" | string
   pool: VocabPair[]
   conjugations?: Record<string, Conjugation>
+  level_names?: string[]
 
 }
 

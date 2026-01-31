@@ -108,6 +108,7 @@ type ReviewItem = {
   explanation?: string
   example?: string
   syllables?: string
+  conjugation?: any // Using any for now, matches Conjugation type
 }
 
 type NewsPayload = {
@@ -140,6 +141,7 @@ const buildReviewItemsFromAi = (items: any[]) =>
       explanation: normalizeText(item?.explanation) || undefined,
       example: normalizeText(item?.example) || undefined,
       syllables: normalizeText(item?.syllables) || undefined,
+      conjugation: item?.conjugation, // ✅ NEW
     } as ReviewItem
   })
 
@@ -151,6 +153,7 @@ const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
     emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
     explanation: pair.explanation,
     example: pair.example,
+    conjugation: pair.conjugation // ✅ NEW
   }))
 
 const buildWorldFromItems = (
@@ -180,6 +183,7 @@ const buildWorldFromItems = (
       pos: item.pos,
       explanation: explanationWithSyllables,
       example,
+      conjugation: item.conjugation, // ✅ NEW
       srs: hardSrs,
     }
   })
@@ -211,6 +215,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const autoStartedRef = useRef(false)
   const autoIndexRef = useRef<number | null>(null)
   const [profileState, setProfileState] = useState(profile)
+  const [currentLevel, setCurrentLevel] = useState(0)
   const [seeds, setSeeds] = useState(0)
   const [newsUrl, setNewsUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -473,6 +478,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("summary")
     setShowTranslation(false)
+    setCurrentLevel(0)
   }
 
   const ensureDailyNewsList = async (categoryValue: string) => {
@@ -1205,6 +1211,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const worldTitle = `Vocado Diario - ${newsTitle || "Noticia"}${dateSuffix}`
       const newsWorld = {
         ...buildWorldFromItems(nextItems, sourceLabel, targetLabel, ui),
+        id: buildNewsWorldId(finalUrl),
         title: worldTitle,
         description: "Noticias del día.",
         news: {
@@ -1274,6 +1281,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         image: { type: "emoji", value: item.emoji || "📝" } as any,
         explanation: item.explanation,
         example: item.example,
+        conjugation: item.conjugation,
         srs: initializeSRS(),
       }))
 
@@ -1380,7 +1388,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     category === item.id
                       ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
                       : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
-                  ].join(" ")}
+                  ].join("")}
                 >
                   {item.label}
                 </button>
@@ -1554,8 +1562,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             <VocabMemoryGame
               key={world.id}
               world={world}
-              levelIndex={0}
+              levelIndex={currentLevel}
+              nextLabelOverride={currentLevel < Math.ceil((world.pool.length || 0) / (world.chunking?.itemsPerGame || 8)) - 1 ? "Continúa" : ui.readButton}
               onNextLevel={() => {
+                const totalLevels = Math.ceil((world.pool.length || 0) / (world.chunking?.itemsPerGame || 8))
+                if (currentLevel < totalLevels - 1) {
+                  setCurrentLevel(prev => prev + 1)
+                  return
+                }
+
                 if (typeof window !== "undefined") {
                   const payload: NewsPayload = {
                     summary,
@@ -1603,6 +1618,11 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     )
                   }
                 }
+                // Show carousel instead of auto-switch?
+                // User said: "When finishing the first game, the carousel has the button instead of 'read news' continue."
+                // Since we handled level increment above, this block runs only at FINAL level.
+                // User: "Once all vocab has been played, the user can click read news."
+                // User: "Also when finishing all levels, the user should have a button to save the vocabulary"
                 setStep("summary")
                 if (typeof window !== "undefined") {
                   const url = new URL(window.location.href)
@@ -1612,34 +1632,78 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               }}
               primaryLabelOverride={`${sourceLabel}:`}
               secondaryLabelOverride={`${targetLabel}:`}
-              nextLabelOverride={ui.readButton}
               onWin={(moves, wordsLearnedCount) =>
                 awardExperience(moves, wordsLearnedCount, world.id, world.pool.length)
               }
-              renderWinActions={({ closeWin }) => (
-                <div className="mt-6 flex flex-col gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeWin()
-                      setStep("summary")
-                    }}
-                    className="w-full bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
-                  >
-                    {ui.readButton}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeWin()
-                      setStep("input")
-                    }}
-                    className="w-full bg-white/50 hover:bg-white/80 text-[#3A3A3A]/70 px-4 py-3 rounded-xl font-medium transition-all"
-                  >
-                    Menu
-                  </button>
-                </div>
-              )}
+              renderWinActions={({ closeWin }) => {
+                const totalLevels = Math.ceil((world.pool.length || 0) / (world.chunking?.itemsPerGame || 8))
+                const isLastLevel = currentLevel >= totalLevels - 1
+
+                return (
+                  <div className="mt-6 flex flex-col gap-2 w-full">
+                    {!isLastLevel ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeWin()
+                          setCurrentLevel(prev => prev + 1)
+                        }}
+                        className="w-full bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
+                      >
+                        Continúa
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeWin()
+                            setStep("summary")
+                          }}
+                          className="w-full bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
+                        >
+                          {ui.readButton}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // SAVE VOCAB LOGIC
+                            // We will call the new API endpoint
+                            const session = await supabase.auth.getSession()
+                            const token = session.data.session?.access_token
+                            if (token) {
+                              await fetch("/api/storage/vocables/save", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({
+                                  items: world.pool,
+                                  sourceLayout: sourceLabel, // e.g. "Español"
+                                  targetLayout: targetLabel
+                                }),
+                              })
+                            }
+                            closeWin()
+                            setStep("summary")
+                          }}
+                          className="w-full bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A] border border-[#3A3A3A]/10 px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
+                        >
+                          Guardar Vocabulario
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeWin()
+                        setStep("input")
+                      }}
+                      className="w-full bg-white/50 hover:bg-white/80 text-[#3A3A3A]/70 px-4 py-3 rounded-xl font-medium transition-all"
+                    >
+                      Menu
+                    </button>
+                  </div>
+                )
+              }}
             />
           </div>
         )}
@@ -1767,6 +1831,27 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   )}
                   {currentItem.example && (
                     <div className="text-xs text-[#3A3A3A]/60">{currentItem.example}</div>
+                  )}
+                  {/* CONJUGATION RENDERING */}
+                  {currentItem.conjugation && (
+                    <div className="mt-4 pt-4 border-t border-[#3A3A3A]/10">
+                      <div className="text-xs font-semibold mb-3">Konjugation ({currentItem.conjugation.infinitive || currentItem.conjugation.verb})</div>
+                      <div className="grid gap-3">
+                        {currentItem.conjugation.sections?.map((section: any) => (
+                          <div key={section.title} className="bg-white rounded-xl border border-[#3A3A3A]/5 p-3 shadow-sm">
+                            <div className="font-medium text-[rgb(var(--vocado-accent-rgb))] mb-2 text-xs uppercase tracking-wide">{section.title}</div>
+                            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-xs">
+                              {section.rows?.map((row: string[], i: number) => (
+                                <div key={i} className="contents text-[#3A3A3A]/80">
+                                  <span className="text-right text-[#3A3A3A]/40 font-medium">{row[0]}</span>
+                                  <span className="font-medium">{row[1]}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (

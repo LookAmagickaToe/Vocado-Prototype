@@ -10,6 +10,7 @@ import { getUiSettings } from "@/lib/ui-settings"
 import { formatTemplate } from "@/lib/ui"
 import AutoFitText from "@/components/ui/auto-fit-text"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
+import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 import {
   calculateNextReview,
   countByBucket,
@@ -849,25 +850,8 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                   <div className="text-[12px] text-[#3A3A3A]/60">{currentEntry.pair.example}</div>
                 )}
                 {currentEntry.pair.conjugation?.sections?.length ? (
-                  <div className="space-y-2">
-                    {currentEntry.pair.conjugation.translation && (
-                      <div className="text-[11px] text-[#3A3A3A]/60">
-                        {currentEntry.pair.conjugation.translation}
-                      </div>
-                    )}
-                    {currentEntry.pair.conjugation.sections.map((section) => (
-                      <div key={section.title} className="text-[11px] text-[#3A3A3A]/70">
-                        <div className="font-medium text-[#3A3A3A]/80">{section.title}</div>
-                        <div className="mt-1 space-y-1">
-                          {section.rows.map((row, idx) => (
-                            <div key={`${section.title}-${idx}`} className="flex justify-between gap-4">
-                              <span>{row[0]}</span>
-                              <span>{row[1]}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="mt-6">
+                    <ConjugationCard conjugation={currentEntry.pair.conjugation} />
                   </div>
                 ) : null}
               </div>
