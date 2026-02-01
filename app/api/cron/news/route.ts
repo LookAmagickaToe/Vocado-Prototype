@@ -261,12 +261,12 @@ export async function GET(req: Request) {
                             }
 
                             const payload = {
-                                id: `news - ${Date.now()} -${id} -${sourceCode} -${level} `,
+                                id: `news-${Date.now()}-${id}-${sourceCode}-${level}`,
                                 ui: {
                                     vocab: {
                                         carousel: {
-                                            primaryLabel: `${sourceLabel}: `,
-                                            secondaryLabel: `${targetLabel}: `
+                                            primaryLabel: `${sourceLabel}:`,
+                                            secondaryLabel: `${targetLabel}:`
                                         }
                                     }
                                 },
@@ -285,9 +285,9 @@ export async function GET(req: Request) {
                                 },
                                 pool: generated.items.map((it: any, idx: number) => ({
                                     ...it,
-                                    id: `news - ${Date.now()} -${id} -${sourceCode} -${level} -${idx} `
+                                    id: `news-${Date.now()}-${id}-${sourceCode}-${level}-${idx}`
                                 })),
-                                title: `Vocado Diario - ${item.title} `,
+                                title: `Vocado Diario - ${item.title}`,
                                 chunking: { itemsPerGame: 8 },
                                 description: Array.isArray(generated.summary) ? generated.summary.join(" ") : "",
                                 source_language: sourceLabel,
@@ -331,6 +331,7 @@ export async function GET(req: Request) {
                 }
             }
         }
-
-        return NextResponse.json(results)
     }
+
+    return NextResponse.json(results)
+}
