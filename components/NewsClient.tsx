@@ -373,8 +373,22 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const parsed = JSON.parse(raw)
       const worlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
       if (!worlds.length) return null
-      // We trust the Home cache if it exists, assuming Home logic validates its freshness
-      return worlds as VocabWorld[]
+
+      // Validate that cached news is from today
+      const validWorlds = worlds.filter((world: VocabWorld) => {
+        const newsDate = world.news?.date
+        return isSameDay(newsDate)
+      })
+
+      if (!validWorlds.length) {
+        // Cache is stale (from yesterday), clear it
+        console.log(`[NewsClient] Cache contains ${worlds.length} items but none from today - clearing`)
+        window.localStorage.removeItem(newsCacheKey)
+        return null
+      }
+
+      console.log(`[NewsClient] Cache contains ${validWorlds.length} items from today (filtered from ${worlds.length} total)`)
+      return validWorlds as VocabWorld[]
     } catch {
       return null
     }

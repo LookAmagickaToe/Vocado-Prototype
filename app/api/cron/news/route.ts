@@ -129,6 +129,21 @@ export async function GET(req: Request) {
     const categories = ["world", "wirtschaft", "sport"]
     const today = new Date().toISOString().slice(0, 10)
 
+    // Clean up old news before generating new ones
+    console.log(`[cron/news] Cleaning up old news (keeping only ${today})`)
+    const { error: cleanupError } = await supabaseAdmin
+        .from("daily_news")
+        .delete()
+        .neq("date", today)
+
+    if (cleanupError) {
+        console.error("[cron/news] Cleanup error:", cleanupError)
+        results.details.push(`⚠️ Cleanup error: ${cleanupError.message}`)
+    } else {
+        console.log("[cron/news] Old news cleaned up successfully")
+        results.details.push("✅ Old news cleaned up")
+    }
+
     const LANGUAGES: Record<string, string> = {
         es: "Español",
         en: "English",
