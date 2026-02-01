@@ -52,7 +52,6 @@ export async function GET(req: Request) {
             .eq("category", category)
             .eq("source_language", sourceLabel)
             .eq("level", level)
-            .eq("target_language", targetLabel)  // Use column instead of JSON field
             .limit(5)
 
         const queryTime = Date.now() - queryStartTime

@@ -21,6 +21,7 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
         Array<{ username: string; score: number; avatarUrl?: string | null; harvestCount?: number }>
     >([])
     const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
+    const [userHarvestCount, setUserHarvestCount] = useState<number>(0)
 
     const fullUi = getUiSettings(profile.sourceLanguage)
 
@@ -67,6 +68,29 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
         }
         loadLeaderboard()
     }, [leaderboardScope])
+
+    // Load user's harvest count
+    useEffect(() => {
+        const loadHarvestCount = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+
+                const { data: profileData } = await supabase
+                    .from("profiles")
+                    .select("harvest_count")
+                    .eq("id", user.id)
+                    .single()
+
+                if (profileData?.harvest_count) {
+                    setUserHarvestCount(profileData.harvest_count)
+                }
+            } catch {
+                // ignore
+            }
+        }
+        loadHarvestCount()
+    }, [])
 
     return (
         <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
@@ -201,6 +225,70 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
                                 {ui.noEntries || "No entries yet"}
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Festive Harvest Showcase */}
+                <div className="px-5 py-6">
+                    <div className="bg-gradient-to-br from-[rgb(var(--vocado-accent-rgb)/0.2)] via-[#FAF7F2] to-[rgb(var(--vocado-accent-rgb)/0.15)] rounded-[24px] p-6 border-2 border-[rgb(var(--vocado-accent-rgb)/0.4)] shadow-[0_8px_32px_-8px_rgba(var(--vocado-accent-rgb),0.3)] relative overflow-hidden">
+                        {/* Decorative elements */}
+                        <div className="absolute top-0 right-0 text-[80px] opacity-10 select-none">🥑</div>
+                        <div className="absolute bottom-0 left-0 text-[60px] opacity-10 select-none">✨</div>
+
+                        <div className="relative z-10 text-center">
+                            <div className="flex items-center justify-center gap-2 mb-3">
+                                <span className="text-[32px] animate-bounce">🥑</span>
+                                <Trophy className="w-6 h-6 text-yellow-500" />
+                                <span className="text-[32px] animate-bounce" style={{ animationDelay: "0.1s" }}>🥑</span>
+                            </div>
+
+                            <h3 className="text-[18px] font-bold text-[#3A3A3A] mb-2">
+                                {ui.harvests || "Harvests"}
+                            </h3>
+
+                            <div className="flex items-center justify-center gap-3 mb-2">
+                                <div className="text-[48px] font-black text-[rgb(var(--vocado-accent-rgb))] drop-shadow-sm">
+                                    {userHarvestCount}
+                                </div>
+                            </div>
+
+                            <p className="text-[12px] text-[#3A3A3A]/70 font-medium">
+                                {profile.sourceLanguage === "Español" ? "¡Ciclos completos de 7 días!" :
+                                    profile.sourceLanguage === "Deutsch" ? "Abgeschlossene 7-Tage-Zyklen!" :
+                                        profile.sourceLanguage === "Français" ? "Cycles de 7 jours terminés !" :
+                                            profile.sourceLanguage === "Português" ? "Ciclos de 7 dias completos!" :
+                                                "Completed 7-day cycles!"}
+                            </p>
+
+                            {userHarvestCount === 0 && (
+                                <div className="mt-3 text-[11px] text-[#3A3A3A]/60 italic">
+                                    {profile.sourceLanguage === "Español" ? "Completa tu primer ciclo para cosechar 🌱" :
+                                        profile.sourceLanguage === "Deutsch" ? "Vervollständige deinen ersten Zyklus zum Ernten 🌱" :
+                                            profile.sourceLanguage === "Français" ? "Terminez votre premier cycle pour récolter 🌱" :
+                                                profile.sourceLanguage === "Português" ? "Complete seu primeiro ciclo para colher 🌱" :
+                                                    "Complete your first cycle to harvest 🌱"}
+                                </div>
+                            )}
+
+                            {userHarvestCount > 0 && (
+                                <div className="mt-4 flex items-center justify-center gap-1 flex-wrap">
+                                    {Array.from({ length: Math.min(userHarvestCount, 10) }).map((_, i) => (
+                                        <span
+                                            key={i}
+                                            className="text-[24px] inline-block animate-pulse"
+                                            style={{ animationDelay: `${i * 0.1}s` }}
+                                        >
+                                            🥑
+                                        </span>
+                                    ))}
+                                    {userHarvestCount > 10 && (
+                                        <span className="text-[14px] font-bold text-[rgb(var(--vocado-accent-rgb))]">
+                                            +{userHarvestCount - 10}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

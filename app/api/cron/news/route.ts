@@ -27,7 +27,7 @@ async function fetchTagesschau(category: string) {
     }
 }
 
-async function generateNewsContent(url: string, sourceLabel: string, level: string, title?: string, teaser?: string) {
+async function generateNewsContent(url: string, sourceLabel: string, targetLabel: string, level: string, title?: string, teaser?: string) {
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) throw new Error("Missing GEMINI_API_KEY")
 
@@ -56,7 +56,7 @@ async function generateNewsContent(url: string, sourceLabel: string, level: stri
 
     const prompt = buildNewsPrompt({
         sourceLabel: sourceLabel,
-        targetLabel: "Alemán",
+        targetLabel: targetLabel,  // Use the passed targetLabel
         level: level, // Use passed level
         rawText,
     })
@@ -153,53 +153,63 @@ export async function GET(req: Request) {
     }
 
     // 1. Fetch active user settings to determine what to generate
-    // We want to generate for every occurring (Level, SourceLanguage) tuple.
+    // We want to generate for every occurring (Level, SourceLanguage, TargetLanguage) tuple.
     const { data: profiles } = await supabaseAdmin
         .from("profiles")
-        .select("source_language, level")
+        .select("source_language, target_language, level")
 
-    // Map: Level -> Set of SourceLanguageCodes
-    // e.g. "A2" -> ["es", "en"], "B1" -> ["es"]
-    const demands = new Map<string, Set<string>>()
+    // Map: Level -> Map<SourceLang, Set<TargetLang>>
+    //  e.g. "A2" -> Map { "Deutsch" -> Set("Español", "English"), "English" -> Set("Deutsch") }
+    const demands = new Map<string, Map<string, Set<string>>>()
 
     // Helper to register demand
-    const addDemand = (level: string, langCode: string) => {
+    const addDemand = (level: string, sourceLangCode: string, targetLangCode: string) => {
         const lvl = (level || "A2").toUpperCase()
         if (!["A1", "A2", "B1", "B2", "C1", "C2"].includes(lvl)) return
 
-        let code = langCode.toLowerCase()
-        // normalize code from full name if needed
-        if (LANGUAGES[code]) {
-            // ok
-        } else {
-            const found = Object.keys(LANGUAGES).find(k => LANGUAGES[k].toLowerCase() === code)
-            if (found) code = found
-            else {
-                const foundName = Object.keys(LANGUAGES).find(k => LANGUAGES[k] === langCode)
-                if (foundName) code = foundName
-                else return // unsupported language
-            }
+        let sourceCode = sourceLangCode.toLowerCase()
+        let targetCode = targetLangCode.toLowerCase()
+
+        // normalize codes from full name if needed
+        const normalizeLang = (code: string) => {
+            if (LANGUAGES[code]) return code
+            const found = Object.keys(LANGUAGES).find(k => LANGUAGES[k].toLowerCase() === code.toLowerCase())
+            if (found) return found
+            const foundName = Object.keys(LANGUAGES).find(k => LANGUAGES[k] === code)
+            if (foundName) return foundName
+            return null
         }
+
+        sourceCode = normalizeLang(sourceCode) || sourceCode
+        targetCode = normalizeLang(targetCode) || targetCode
+
+        if (!LANGUAGES[sourceCode] || !LANGUAGES[targetCode]) return // unsupported language
 
         if (!demands.has(lvl)) {
-            demands.set(lvl, new Set())
+            demands.set(lvl, new Map())
         }
-        demands.get(lvl)!.add(code)
+        const levelMap = demands.get(lvl)!
+        if (!levelMap.has(sourceCode)) {
+            levelMap.set(sourceCode, new Set())
+        }
+        levelMap.get(sourceCode)!.add(targetCode)
     }
 
-    // Default Fallbacks (always generate ES/EN A2)
-    addDemand("A2", "es")
-    addDemand("A2", "en")
+    // Default Fallbacks (always generate de->es and en->de A2)
+    addDemand("A2", "de", "es")
+    addDemand("A2", "en", "de")
 
     if (profiles) {
         for (const p of profiles) {
-            if (p.source_language) {
-                addDemand(p.level || "A2", p.source_language)
+            if (p.source_language && p.target_language) {
+                addDemand(p.level || "A2", p.source_language, p.target_language)
             }
         }
     }
 
-    console.log(`Generation Demands:`, Array.from(demands.entries()).map(([lvl, set]) => `${lvl}:[${Array.from(set).join(",")}]`))
+    console.log(`Generation Demands:`, Array.from(demands.entries()).map(([lvl, langMap]) =>
+        `${lvl}:[${Array.from(langMap.entries()).map(([src, targets]) => `${src}->${Array.from(targets).join(",")}`).join(";")}]`
+    ))
 
     for (const category of categories) {
         const headlines = await fetchTagesschau(category)
@@ -211,126 +221,116 @@ export async function GET(req: Request) {
 
             const id = safeSegment(item.externalId || item.title || url)
 
-            // Iterate Levels
-            for (const [level, sourceCodes] of demands.entries()) {
-                let baseTextForLevel: string | null = null
+            // Iterate Levels -> SourceLangs -> TargetLangs
+            for (const [level, langMap] of demands.entries()) {
+                const baseTextsForLevel = new Map<string, string>() // targetCode -> summary text
 
-                // Sort to ensure deterministic order (maybe put 'en' or 'es' first as they are good anchors)
-                const sortedSources = Array.from(sourceCodes).sort()
-
-                for (const sourceCode of sortedSources) {
+                for (const [sourceCode, targetCodes] of langMap.entries()) {
                     const sourceLabel = LANGUAGES[sourceCode]
-                    const targetLabel = "Alemán"
-                    const configKey = `[${category}/${level}/${sourceCode}]`
 
-                    try {
-                        let generated: any = null
-                        let statusTag = "[Fresh]"
+                    for (const targetCode of targetCodes) {
+                        const targetLabel = LANGUAGES[targetCode]
+                        const configKey = `[${category} /${level}/${sourceCode} -> ${targetCode}]`
 
-                        if (baseTextForLevel) {
-                            console.log(`Reusing base text for ${configKey}`)
-                            // Reuse the base German text. 
-                            // We pass 'baseTextForLevel' as 'rawText' to the prompt builder.
-                            // The prompt builder sees: "Input article text: <German Summary>".
-                            // It will extract vocabulary and back-translate to Source.
-                            generated = await generateNewsContent(
-                                "", // url empty
-                                sourceLabel,
-                                level,
-                                item.title,
-                                baseTextForLevel // Pass the summary as "teaser/text" override logic
-                            )
-                            // Important: verify if generated.summary matches baseTextForLevel?
-                            // The AI *should* ideally keep the summary (Target) identical if input is identical to output.
-                            // But it might re-summarize. We can force it to be the same if we want perfect sync,
-                            // but allowing it to refine is also fine.
-                            // However, for pure optimization, we might accept the AI's re-output.
+                        try {
+                            let generated: any = null
+                            let statusTag = "[Fresh]"
 
-                            // Optimization 2: If we want to force the 'summary' to be identical to baseTextForLevel to save generation tokens,
-                            // we would need a different prompt task like "translate_vocab_only". 
-                            // For now, full generation is safer for quality, just skipping the fetch & simplify steps.
-                            statusTag = "[Reused]"
-                        } else {
-                            console.log(`Generating fresh BASE for ${configKey}`)
-                            generated = await generateNewsContent(url, sourceLabel, level, item.title, item.teaser)
+                            // Check if we can reuse a base text for this target language
+                            const cachedBase = baseTextsForLevel.get(targetCode)
 
-                            // Capture the generated TARGET summary to reuse as input for others
-                            if (Array.isArray(generated.summary)) {
-                                baseTextForLevel = generated.summary.join(" ")
-                            }
-                        }
+                            if (cachedBase) {
+                                console.log(`Reusing base text for ${configKey}`)
+                                generated = await generateNewsContent(
+                                    "", // url empty
+                                    sourceLabel,
+                                    targetLabel,
+                                    level,
+                                    item.title,
+                                    cachedBase // Pass the summary as "teaser/text" override logic
+                                )
+                                statusTag = "[Reused]"
+                            } else {
+                                console.log(`Generating fresh BASE for ${configKey}`)
+                                generated = await generateNewsContent(url, sourceLabel, targetLabel, level, item.title, item.teaser)
 
-                        const payload = {
-                            id: `news-${Date.now()}-${id}-${sourceCode}-${level}`,
-                            ui: {
-                                vocab: {
-                                    carousel: {
-                                        primaryLabel: `${sourceLabel}:`,
-                                        secondaryLabel: `${targetLabel}:`
-                                    }
+                                // Cache the generated TARGET summary to reuse for other source languages
+                                if (Array.isArray(generated.summary)) {
+                                    baseTextsForLevel.set(targetCode, generated.summary.join(" "))
                                 }
-                            },
-                            mode: "vocab",
-                            news: {
-                                sourceUrl: url,
-                                title: item.title,
-                                teaser: item.teaser,
-                                image: item.teaserImage?.imageVariants?.["1x1-840"] || item.teaserImage?.imageUrl,
-                                date: new Date().toISOString(),
-                                generatedAt: new Date().toISOString(),
-                                index: 0,
-                                category: category, // Save category for filtering
-                                level: level,
-                                ...generated
-                            },
-                            pool: generated.items.map((it: any, idx: number) => ({
-                                ...it,
-                                id: `news-${Date.now()}-${id}-${sourceCode}-${level}-${idx}`
-                            })),
-                            title: `Vocado Diario - ${item.title}`,
-                            chunking: { itemsPerGame: 8 },
-                            description: Array.isArray(generated.summary) ? generated.summary.join(" ") : "",
-                            source_language: sourceLabel,
-                            target_language: targetLabel
-                        }
+                            }
 
-                        // Save to Supabase
-                        await supabaseAdmin
-                            .from("daily_news")
-                            .delete()
-                            .eq("source_url", url)
-                            .eq("date", today)
-                            .eq("source_language", sourceLabel)
-                            .eq("level", level)
-
-                        const { error: insertError } = await supabaseAdmin
-                            .from("daily_news")
-                            .insert({
-                                id: crypto.randomUUID(),
-                                date: today,
-                                category: category,
-                                level: level,
+                            const payload = {
+                                id: `news - ${Date.now()} -${id} -${sourceCode} -${level} `,
+                                ui: {
+                                    vocab: {
+                                        carousel: {
+                                            primaryLabel: `${sourceLabel}: `,
+                                            secondaryLabel: `${targetLabel}: `
+                                        }
+                                    }
+                                },
+                                mode: "vocab",
+                                news: {
+                                    sourceUrl: url,
+                                    title: item.title,
+                                    teaser: item.teaser,
+                                    image: item.teaserImage?.imageVariants?.["1x1-840"] || item.teaserImage?.imageUrl,
+                                    date: new Date().toISOString(),
+                                    generatedAt: new Date().toISOString(),
+                                    index: 0,
+                                    category: category, // Save category for filtering
+                                    level: level,
+                                    ...generated
+                                },
+                                pool: generated.items.map((it: any, idx: number) => ({
+                                    ...it,
+                                    id: `news - ${Date.now()} -${id} -${sourceCode} -${level} -${idx} `
+                                })),
+                                title: `Vocado Diario - ${item.title} `,
+                                chunking: { itemsPerGame: 8 },
+                                description: Array.isArray(generated.summary) ? generated.summary.join(" ") : "",
                                 source_language: sourceLabel,
-                                target_language: targetLabel,
-                                source_url: url,
-                                title: item.title,
-                                json: JSON.stringify(payload)
-                            })
+                                target_language: targetLabel
+                            }
 
-                        if (insertError) throw new Error(insertError.message)
+                            // Save to Supabase
+                            await supabaseAdmin
+                                .from("daily_news")
+                                .delete()
+                                .eq("source_url", url)
+                                .eq("date", today)
+                                .eq("source_language", sourceLabel)
+                                .eq("level", level)
 
-                        results.processed++
-                        results.details.push(`Saved ${configKey} ${statusTag}`)
+                            const { error: insertError } = await supabaseAdmin
+                                .from("daily_news")
+                                .insert({
+                                    id: crypto.randomUUID(),
+                                    date: today,
+                                    category: category,
+                                    level: level,
+                                    source_language: sourceLabel,
+                                    target_language: targetLabel,
+                                    source_url: url,
+                                    title: item.title,
+                                    json: JSON.stringify(payload)
+                                })
 
-                    } catch (err) {
-                        console.error(`Error ${configKey}:`, err)
-                        results.errors++
-                        results.details.push(`Error ${configKey}: ${(err as Error).message}`)
+                            if (insertError) throw new Error(insertError.message)
+
+                            results.processed++
+                            results.details.push(`Saved ${configKey} ${statusTag} `)
+
+                        } catch (err) {
+                            console.error(`Error ${configKey}: `, err)
+                            results.errors++
+                            results.details.push(`Error ${configKey}: ${(err as Error).message} `)
+                        }
                     }
                 }
             }
         }
-    }
 
-    return NextResponse.json(results)
-}
+        return NextResponse.json(results)
+    }
