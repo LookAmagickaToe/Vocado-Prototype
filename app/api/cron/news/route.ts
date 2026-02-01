@@ -95,7 +95,19 @@ async function generateNewsContent(url: string, sourceLabel: string, targetLabel
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
             if (!text) throw new Error("Empty Gemini response")
 
-            return extractJson(text)
+            const parsed = extractJson(text)
+
+            // Normalize items
+            if (parsed && Array.isArray(parsed.items)) {
+                parsed.items = parsed.items.map((item: any) => ({
+                    ...item,
+                    pos: item.pos?.toLowerCase() || "other",
+                    // Ensure conjugation is null if not present or empty
+                    conjugation: item.conjugation || null
+                }))
+            }
+
+            return parsed
         } catch (err) {
             if (attempt === 3) throw err
             console.warn(`Retry ${attempt}/3 for ${url} (Level: ${level}). Error: ${(err as Error).message}`)

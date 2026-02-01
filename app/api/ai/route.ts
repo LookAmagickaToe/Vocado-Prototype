@@ -207,7 +207,7 @@ export function buildNewsPrompt({
     "If level is B1/B2: medium length sentences, limited subordinate clauses, clear connectors.",
     "If level is C1/C2: more natural flow, richer vocabulary, but still concise.",
     "Choose a fitting emoji for each item (emoji is required).",
-    "Always set pos for every item (verb, noun, adj, or other).",
+    "Always set pos for every item (strictly one of: \"verb\", \"noun\", \"adj\", or \"other\"). Do not use capital letters.",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
     "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
     // example removed

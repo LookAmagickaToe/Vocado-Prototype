@@ -149,7 +149,7 @@ const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
   (world.pool || []).map((pair) => ({
     source: pair.es,
     target: pair.de,
-    pos: pair.pos ?? "other",
+    pos: (pair.pos?.toLowerCase() ?? "other") as "verb" | "noun" | "adj" | "other",
     emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
     explanation: pair.explanation,
     example: pair.example,
@@ -192,7 +192,7 @@ const buildWorldFromItems = (
       [sourceCode]: item.source,
       [targetCode]: item.target,
       image: { type: "emoji", value: item.emoji?.trim() || "📰" } as any,
-      pos: item.pos,
+      pos: (item.pos?.toLowerCase() || "other") as "verb" | "noun" | "adj" | "other",
       explanation: explanationWithSyllables,
       example,
       conjugation: item.conjugation, // ✅ NEW
