@@ -203,7 +203,7 @@
       "worlds": "Mundos",
       "news": "Noticias",
       "vocables": "Vocabulario",
-      "profile": "Yo",
+      "leaderboard": "Ranking",
       "friends": "Amigos"
     },
     "onboarding": {
@@ -583,7 +583,7 @@
       "worlds": "Worlds",
       "news": "News",
       "vocables": "Vocables",
-      "profile": "Profile",
+      "leaderboard": "Leaderboard",
       "friends": "Friends"
     },
     "onboarding": {
@@ -961,9 +961,9 @@
     "nav": {
       "home": "Start",
       "worlds": "Welten",
-      "news": "News",
+      "news": "Nachrichten",
       "vocables": "Vokabeln",
-      "profile": "Profil",
+      "leaderboard": "Bestenliste",
       "friends": "Freunde"
     },
     "onboarding": {
@@ -1121,7 +1121,7 @@
       "progressTemplate": "Fortschritt: {matched}/{total} • Züge: {moves}",
       "rightPanel": {
         "title": "Gefundene Paare",
-        "emptyHint": "Finde ein Paar zum Beginnen."
+        "emptyHint": "Finde ein Paar, um zu starten."
       },
       "carousel": {
         "primaryLabel": "Spanisch:",
@@ -1343,7 +1343,7 @@
       "worlds": "Mondes",
       "news": "Actualités",
       "vocables": "Vocabulaire",
-      "profile": "Profil",
+      "leaderboard": "Classement",
       "friends": "Amis"
     },
     "onboarding": {
@@ -1723,7 +1723,7 @@
       "worlds": "Mundos",
       "news": "Notícias",
       "vocables": "Vocabulário",
-      "profile": "Eu",
+      "leaderboard": "Classificação",
       "friends": "Amigos"
     },
     "onboarding": {

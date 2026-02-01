@@ -811,12 +811,58 @@ export default function AppClient({
     nextWeeklySeeds: number,
     nextWeeklyWords: number,
     weekStart: string,
-    dailyState?: { date: string; games: number; upload: boolean; news: boolean }
+    dailyState?: { date: string; games: number; upload: boolean; news: boolean },
+    nextDailySeeds?: number,
+    today?: string
   ) => {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
+
+      // Calculate ripeness level (streak)
+      let ripenessLevel = 0
+      const todayDate = today || new Date().toISOString().split('T')[0]
+
+      // Get current ripeness data from profile
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("ripeness_level, last_played_date")
+          .eq("id", user.id)
+          .single()
+
+        if (profile) {
+          const currentLevel = profile.ripeness_level || 0
+          const lastPlayed = profile.last_played_date
+
+          if (lastPlayed) {
+            const lastDate = new Date(lastPlayed)
+            const currentDate = new Date(todayDate)
+            const daysDiff = Math.floor((currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+
+            if (daysDiff === 0) {
+              // Same day, no change
+              ripenessLevel = currentLevel
+            } else if (daysDiff === 1) {
+              // Next day, increment streak
+              ripenessLevel = currentLevel + 1
+            } else if (daysDiff > 1) {
+              // Missed days, decay streak
+              const decayDays = daysDiff - 1
+              ripenessLevel = Math.max(0, currentLevel - decayDays)
+            }
+          } else {
+            // First time playing, start at 1
+            ripenessLevel = 1
+          }
+        } else {
+          // New profile
+          ripenessLevel = 1
+        }
+      }
+
       const res = await fetch("/api/auth/profile/stats", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -824,10 +870,14 @@ export default function AppClient({
           seeds: nextSeeds,
           weeklySeeds: nextWeeklySeeds,
           weeklySeedsWeekStart: weekStart,
+          dailySeeds: nextDailySeeds,
+          dailySeedsDate: today,
           weeklyWords: nextWeeklyWords,
           weekStart,
           dailyState,
           dailyStateDate: dailyState?.date ?? undefined,
+          ripenessLevel,
+          lastPlayedDate: todayDate,
         }),
       })
       if (!res.ok) {
@@ -970,15 +1020,28 @@ export default function AppClient({
     const rawWeeklySeeds = window.localStorage.getItem(WEEKLY_SEEDS_STORAGE_KEY)
     let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
 
+    // Daily seeds tracking
+    const DAILY_SEEDS_STORAGE_KEY = "vocado_daily_seeds"
+    const DAILY_SEEDS_DATE_STORAGE_KEY = "vocado_daily_seeds_date"
+    const storedDailyDate = window.localStorage.getItem(DAILY_SEEDS_DATE_STORAGE_KEY)
+    if (storedDailyDate !== today) {
+      window.localStorage.setItem(DAILY_SEEDS_DATE_STORAGE_KEY, today)
+      window.localStorage.setItem(DAILY_SEEDS_STORAGE_KEY, "0")
+    }
+    const rawDailySeeds = window.localStorage.getItem(DAILY_SEEDS_STORAGE_KEY)
+    let dailySeeds = Number(rawDailySeeds || "0") || 0
+
     const finalSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     const seedsDelta = Math.max(0, finalSeeds - currentSeeds)
     if (seedsDelta > 0) {
       weeklySeeds += seedsDelta
       window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+      dailySeeds += seedsDelta
+      window.localStorage.setItem(DAILY_SEEDS_STORAGE_KEY, String(dailySeeds))
     }
 
     setSeeds(finalSeeds)
-    syncStatsToServer(finalSeeds, weeklySeeds, weeklyValue, weekStart, dailyState)
+    syncStatsToServer(finalSeeds, weeklySeeds, weeklyValue, weekStart, dailyState, dailySeeds, today)
 
     return {
       payout,

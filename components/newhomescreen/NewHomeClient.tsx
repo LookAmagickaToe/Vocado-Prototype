@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import clsx from "clsx"
 import WorldReviewOverlay, { type ReviewWord } from "./WorldReviewOverlay"
+import DailyChallenges from "./DailyChallenges"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabWorld } from "@/types/worlds"
@@ -49,6 +50,8 @@ type ProfileSettings = {
     dailyStateDate?: string
     onboardingDone?: boolean
     avatarUrl?: string
+    ripenessLevel?: number
+    lastPlayedDate?: string
 }
 
 type LastPlayed = {
@@ -348,11 +351,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [activeTab, setActiveTab] = useState("Home")
     const [seeds, setSeeds] = useState(profile.seeds ?? 0)
     const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "")
-    const [leaderboardScope, setLeaderboardScope] = useState<"weekly" | "overall">("weekly")
-    const [leaderboardEntries, setLeaderboardEntries] = useState<
-        Array<{ username: string; score: number; avatarUrl?: string | null }>
-    >([])
-    const [failedAvatarEntries, setFailedAvatarEntries] = useState<Set<string>>(new Set())
+    const [dailyChallenges, setDailyChallenges] = useState({
+        date: null as string | null,
+        newspaper: false,
+        vocab: false,
+        perfect: false,
+        points_earned: 0,
+    })
+    const [ripenessLevel, setRipenessLevel] = useState(0)
 
     // Profile & UserMenu state
     const [profileSettings, setProfileSettings] = useState({
@@ -678,34 +684,35 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         }
     }, [])
 
+    // Load daily challenges from profile
     useEffect(() => {
-        const loadLeaderboard = async () => {
+        const loadChallenges = async () => {
             try {
-                const session = await supabase.auth.getSession()
-                const token = session.data.session?.access_token
-                if (!token) return
-                const response = await fetch(`/api/leaderboard?scope=${leaderboardScope}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                })
-                if (!response.ok) return
-                const data = await response.json()
-                const entries = Array.isArray(data?.entries) ? data.entries : []
-                setLeaderboardEntries(entries)
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+
+                const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("daily_challenges, ripeness_level")
+                    .eq("id", user.id)
+                    .single()
+
+                if (profile?.daily_challenges) {
+                    setDailyChallenges(profile.daily_challenges)
+                }
+                if (typeof profile?.ripeness_level === "number") {
+                    setRipenessLevel(profile.ripeness_level)
+                }
             } catch {
                 // ignore
             }
         }
-        loadLeaderboard()
-    }, [leaderboardScope])
+        loadChallenges()
+    }, [])
 
-    // Friends / Leaderboard Data
-    const leaderboard = [
-        { name: "Maxime", score: 1240, avatar: "M" },
-        { name: "Sarah", score: 980, avatar: "S" },
-        { name: "Tom", score: 850, avatar: "T" },
-        { name: "You", score: 452, avatar: "ME", isMe: true },
-        { name: "Anna", score: 320, avatar: "A" },
-    ]
+    const handleChallengeClick = async (challengeId: string) => {
+        // Track challenge click for analytics if needed
+    }
 
     const generateUuid = () => {
         if (typeof crypto !== "undefined") {
@@ -1862,7 +1869,19 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         <div className={`min-h-screen bg-[${COLORS.bg}] font-sans text-[${COLORS.text}] pb-16 relative overflow-hidden selection:bg-[#E3EBC5] selection:text-[#2C3E30]`}>
 
             {/* --- HEADER --- */}
-            <header className="px-5 h-[56px] flex items-center justify-end fixed top-0 left-0 right-0 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]">
+            <header className="px-5 h-[56px] flex items-center justify-between fixed top-0 left-0 right-0 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm z-40 border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]">
+                {/* Left: Ripeness Cycle */}
+                <div className="flex-1 flex justify-start items-center">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--vocado-accent-rgb)/0.15)] border border-[rgb(var(--vocado-accent-rgb)/0.3)]">
+                        <span className="text-[14px]">
+                            {ripenessLevel <= 2 ? "🫘" : ripenessLevel <= 6 ? "🌿" : "🥑"}
+                        </span>
+                        <span className="text-[13px] font-semibold text-[#3A3A3A]">
+                            {ripenessLevel}
+                        </span>
+                    </div>
+                </div>
+
                 {/* Center: Title / Learned Today */}
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
                     <h1 className="text-[20px] font-semibold tracking-tight text-[#3A3A3A]">
@@ -1873,7 +1892,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 {/* Right: Avatar & Seeds */}
                 <div className="flex-1 flex justify-end items-center gap-2.5">
                     <span className="text-[12px] font-medium text-[#3A3A3A]/70 tracking-wide">{seeds} 🌱</span>
-                    <div className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => router.push("/profile")}
+                        className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] overflow-hidden hover:border-[rgb(var(--vocado-accent-rgb)/0.5)] transition-colors"
+                    >
                         <img
                             src={avatarUrl || FALLBACK_AVATAR}
                             alt="Profile"
@@ -1884,7 +1907,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                 target.src = FALLBACK_AVATAR
                             }}
                         />
-                    </div>
+                    </button>
                 </div>
             </header>
 
@@ -2207,80 +2230,13 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     </div>
                 </section>
 
-                {/* --- 4. LEADERBOARD --- */}
-                <section className="space-y-2">
-                    <h2 className="font-serif text-[16px] text-[#3A3A3A] pl-1 tracking-tighter">
-                        {ui.leaderboardTitle}
-                    </h2>
-                    <div className="bg-[#FAF7F2] rounded-[24px] px-4 pt-2.5 pb-3 border border-[#3A3A3A]/5 shadow-[0_4px_20px_-8px_rgba(58,58,58,0.03)]">
-                        <div className="flex items-center justify-center gap-2 mb-1.5">
-                            {[
-                                { id: "weekly", label: ui.leaderboardWeekly },
-                                { id: "overall", label: ui.leaderboardOverall },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => setLeaderboardScope(tab.id as "weekly" | "overall")}
-                                    className={[
-                                        "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
-                                        leaderboardScope === tab.id
-                                            ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
-                                            : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
-                                    ].join(" ")}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="space-y-0.5">
-                            {leaderboardEntries.slice(0, 5).map((entry, index) => {
-                                const entryKey = `${entry.username}-${index}`
-                                const showImage =
-                                    entry.avatarUrl && !failedAvatarEntries.has(entryKey)
-                                return (
-                                    <div
-                                        key={entryKey}
-                                        className="flex items-center justify-between px-1 py-1 text-[12px]"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-6 w-6 rounded-full border border-[#E3EBC5]/80 overflow-hidden bg-[#FFF] flex items-center justify-center">
-                                                {showImage ? (
-                                                    <img
-                                                        src={entry.avatarUrl!}
-                                                        alt={entry.username}
-                                                        className="h-full w-full object-cover"
-                                                        onError={() => {
-                                                            setFailedAvatarEntries((prev) => {
-                                                                const next = new Set(prev)
-                                                                next.add(entryKey)
-                                                                return next
-                                                            })
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <span className="text-[12px] font-semibold text-[#3A3A3A]">
-                                                        {entry.username?.charAt(0)?.toUpperCase() ?? "U"}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-[#3A3A3A] text-[13px]">{entry.username}</span>
-                                        </div>
-                                        <span className="font-semibold text-[#3A3A3A]/70">
-                                            {entry.score} 🌱
-                                        </span>
-                                    </div>
-                                )
-                            })}
-                            {leaderboardEntries.length === 0 && (
-                                <div className="text-center text-[12px] text-[#3A3A3A]/50">
-                                    —
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </section>
+                {/* --- 4. DAILY CHALLENGES --- */}
+                <DailyChallenges
+                    challenges={dailyChallenges}
+                    onChallengeClick={(id) => console.log("Challenge clicked:", id)}
+                    sourceLanguage={profileSettings.sourceLanguage}
+                    ripenessLevel={ripenessLevel}
+                />
 
             </main>
 

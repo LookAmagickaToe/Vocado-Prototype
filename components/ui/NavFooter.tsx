@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Star, Briefcase, BookOpen, User, Newspaper } from "lucide-react"
+import { Star, Briefcase, BookOpen, Trophy, Newspaper } from "lucide-react"
 import clsx from "clsx"
 import { getUiSettings } from "@/lib/ui-settings"
 
@@ -13,7 +13,7 @@ type NavFooterProps = {
         worlds?: string
         news?: string
         vocables?: string
-        profile?: string
+        leaderboard?: string
     }
 }
 
@@ -42,7 +42,7 @@ export default function NavFooter({ showOnGame = false, labels }: NavFooterProps
     const isHome = pathname === "/"
     const isWorlds = pathname === "/worlds"
     const isVocables = pathname === "/vocables"
-    const isProfile = pathname === "/profile"
+    const isLeaderboard = pathname === "/leaderboard"
     const isNews = pathname === "/news"
     const isGame = pathname === "/play"
 
@@ -76,10 +76,10 @@ export default function NavFooter({ showOnGame = false, labels }: NavFooterProps
                 onClick={() => router.push("/vocables")}
             />
             <NavTab
-                icon={User}
-                label={effectiveLabels.profile ?? "Ich"}
-                active={isProfile}
-                onClick={() => router.push("/profile")}
+                icon={Trophy}
+                label={effectiveLabels.leaderboard ?? "Leaderboard"}
+                active={isLeaderboard}
+                onClick={() => router.push("/leaderboard")}
             />
         </nav>
     )

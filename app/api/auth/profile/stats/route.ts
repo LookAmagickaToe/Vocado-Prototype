@@ -25,6 +25,8 @@ export async function POST(req: Request) {
     const body = await req.json()
     const seeds = Number.isFinite(body?.seeds) ? Number(body.seeds) : null
     const weeklySeeds = Number.isFinite(body?.weeklySeeds) ? Number(body.weeklySeeds) : null
+    const dailySeeds = Number.isFinite(body?.dailySeeds) ? Number(body.dailySeeds) : null
+    const dailySeedsDate = typeof body?.dailySeedsDate === "string" ? body.dailySeedsDate.trim() : null
     const weeklyWords = Number.isFinite(body?.weeklyWords) ? Number(body.weeklyWords) : null
     const weekStart = typeof body?.weekStart === "string" ? body.weekStart.trim() : null
     const weeklySeedsWeekStart =
@@ -34,15 +36,51 @@ export async function POST(req: Request) {
     const dailyState = body?.dailyState && typeof body.dailyState === "object" ? body.dailyState : null
     const dailyStateDate =
       typeof body?.dailyStateDate === "string" ? body.dailyStateDate.trim() : null
+    const ripenessLevel = Number.isFinite(body?.ripenessLevel) ? Number(body.ripenessLevel) : null
+    const lastPlayedDate = typeof body?.lastPlayedDate === "string" ? body.lastPlayedDate.trim() : null
 
-    const payload: Record<string, number | string | null> = {}
+    const payload: Record<string, number | string | null | object> = {}
     if (seeds !== null && seeds >= 0) payload.seeds = Math.floor(seeds)
     if (weeklySeeds !== null && weeklySeeds >= 0) payload.weekly_seeds = Math.floor(weeklySeeds)
     if (weeklySeedsWeekStart) payload.weekly_seeds_week_start = weeklySeedsWeekStart
+    if (dailySeeds !== null && dailySeeds >= 0) payload.daily_seeds = Math.floor(dailySeeds)
+    if (dailySeedsDate) payload.daily_seeds_date = dailySeedsDate
     if (weeklyWords !== null && weeklyWords >= 0) payload.weekly_words = Math.floor(weeklyWords)
     if (weekStart) payload.weekly_words_week_start = weekStart
     if (dailyState) payload.daily_state = dailyState
     if (dailyStateDate) payload.daily_state_date = dailyStateDate
+
+    // Ripeness cycle logic
+    if (ripenessLevel !== null && ripenessLevel >= 0 && lastPlayedDate) {
+      // Check if user completed a harvest cycle (reached day 7)
+      if (ripenessLevel >= 7) {
+        // Get current harvest count
+        const { data: currentProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("harvest_count")
+          .eq("id", userId)
+          .single()
+
+        const currentHarvestCount = currentProfile?.harvest_count || 0
+        payload.harvest_count = currentHarvestCount + 1
+        payload.ripeness_level = 0 // Reset cycle after harvest
+      } else {
+        payload.ripeness_level = Math.floor(ripenessLevel)
+      }
+      payload.last_played_date = lastPlayedDate
+
+      // Update longest streak if this is a new record
+      const { data: currentProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("longest_streak")
+        .eq("id", userId)
+        .single()
+
+      const currentLongestStreak = currentProfile?.longest_streak || 0
+      if (ripenessLevel > currentLongestStreak) {
+        payload.longest_streak = Math.floor(ripenessLevel)
+      }
+    }
 
     if (!Object.keys(payload).length) {
       return NextResponse.json({ ok: true })

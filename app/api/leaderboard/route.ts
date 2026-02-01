@@ -10,6 +10,16 @@ const getWeekStartIso = () => {
   return date.toISOString()
 }
 
+const getTodayStartIso = () => {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
+
+const formatDateOnly = (date: Date) => {
+  return date.toISOString().split('T')[0]
+}
+
 async function getUserId(req: Request) {
   const auth = req.headers.get("authorization") || ""
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""
@@ -32,19 +42,24 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const scope = searchParams.get("scope") === "weekly" ? "weekly" : "overall"
+    const scopeParam = searchParams.get("scope") || "weekly"
+    const scope = ["daily", "weekly", "overall"].includes(scopeParam) ? scopeParam : "weekly"
     const weekStart = getWeekStartIso()
+    const todayStart = getTodayStartIso()
 
     let data: any[] | null = null
     let error: any = null
-    const baseSelect = "id,username,seeds,weekly_seeds,weekly_seeds_week_start"
+    const baseSelect = "id,username,seeds,weekly_seeds,weekly_seeds_week_start,daily_seeds,daily_seeds_date,harvest_count"
     const withAvatarSelect = `${baseSelect},avatar_url`
 
     const withAvatar = await supabaseAdmin
       .from("profiles")
       .select(withAvatarSelect)
-      .order(scope === "weekly" ? "weekly_seeds" : "seeds", { ascending: false })
-      .limit(20)
+      .order(
+        scope === "daily" ? "daily_seeds" : scope === "weekly" ? "weekly_seeds" : "seeds",
+        { ascending: false }
+      )
+      .limit(50)
 
     data = withAvatar.data ?? null
     error = withAvatar.error ?? null
@@ -53,8 +68,11 @@ export async function GET(req: Request) {
       const fallback = await supabaseAdmin
         .from("profiles")
         .select(baseSelect)
-        .order(scope === "weekly" ? "weekly_seeds" : "seeds", { ascending: false })
-        .limit(20)
+        .order(
+          scope === "daily" ? "daily_seeds" : scope === "weekly" ? "weekly_seeds" : "seeds",
+          { ascending: false }
+        )
+        .limit(50)
       data = fallback.data ?? null
       error = fallback.error ?? null
     }
@@ -80,18 +98,38 @@ export async function GET(req: Request) {
         }
       }
 
+      let validDay = false
+      const today = formatDateOnly(new Date())
+      if (row.daily_seeds_date) {
+        try {
+          const rowDay = formatDateOnly(new Date(row.daily_seeds_date))
+          if (rowDay === today) {
+            validDay = true
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const weeklyScore = validWeek ? Number(row.weekly_seeds ?? 0) || 0 : 0
+      const dailyScore = validDay ? Number(row.daily_seeds ?? 0) || 0 : 0
+
+      let score = Number(row.seeds ?? 0) || 0
+      if (scope === "daily") score = dailyScore
+      else if (scope === "weekly") score = weeklyScore
+
       return {
         id: row.id,
         username: row.username || "User",
-        score: scope === "weekly" ? weeklyScore : Number(row.seeds ?? 0) || 0,
+        score,
         avatarUrl: typeof row.avatar_url === "string" && row.avatar_url ? row.avatar_url : null,
+        harvestCount: Number(row.harvest_count ?? 0) || 0,
       }
     })
 
     const entries = rows
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+      .slice(0, 20)
 
     const enriched = await Promise.all(
       entries.map(async (entry) => {
