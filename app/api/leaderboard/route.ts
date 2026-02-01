@@ -43,7 +43,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const scopeParam = searchParams.get("scope") || "weekly"
-    const scope = ["daily", "weekly", "overall"].includes(scopeParam) ? scopeParam : "weekly"
+    const scope = ["daily", "weekly", "overall", "harvest"].includes(scopeParam) ? scopeParam : "weekly"
     const weekStart = getWeekStartIso()
     const todayStart = getTodayStartIso()
 
@@ -52,13 +52,16 @@ export async function GET(req: Request) {
     const baseSelect = "id,username,seeds,weekly_seeds,weekly_seeds_week_start,daily_seeds,daily_seeds_date,harvest_count"
     const withAvatarSelect = `${baseSelect},avatar_url`
 
+    // Determine sort column
+    let sortColumn = "seeds"
+    if (scope === "daily") sortColumn = "daily_seeds"
+    else if (scope === "weekly") sortColumn = "weekly_seeds"
+    else if (scope === "harvest") sortColumn = "harvest_count"
+
     const withAvatar = await supabaseAdmin
       .from("profiles")
       .select(withAvatarSelect)
-      .order(
-        scope === "daily" ? "daily_seeds" : scope === "weekly" ? "weekly_seeds" : "seeds",
-        { ascending: false }
-      )
+      .order(sortColumn, { ascending: false })
       .limit(50)
 
     data = withAvatar.data ?? null
@@ -68,10 +71,7 @@ export async function GET(req: Request) {
       const fallback = await supabaseAdmin
         .from("profiles")
         .select(baseSelect)
-        .order(
-          scope === "daily" ? "daily_seeds" : scope === "weekly" ? "weekly_seeds" : "seeds",
-          { ascending: false }
-        )
+        .order(sortColumn, { ascending: false })
         .limit(50)
       data = fallback.data ?? null
       error = fallback.error ?? null
@@ -113,17 +113,19 @@ export async function GET(req: Request) {
 
       const weeklyScore = validWeek ? Number(row.weekly_seeds ?? 0) || 0 : 0
       const dailyScore = validDay ? Number(row.daily_seeds ?? 0) || 0 : 0
+      const harvestCount = Number(row.harvest_count ?? 0) || 0
 
       let score = Number(row.seeds ?? 0) || 0
       if (scope === "daily") score = dailyScore
       else if (scope === "weekly") score = weeklyScore
+      else if (scope === "harvest") score = harvestCount
 
       return {
         id: row.id,
         username: row.username || "User",
         score,
         avatarUrl: typeof row.avatar_url === "string" && row.avatar_url ? row.avatar_url : null,
-        harvestCount: Number(row.harvest_count ?? 0) || 0,
+        harvestCount,
       }
     })
 

@@ -40,6 +40,17 @@ export async function POST(req: Request) {
         const now = new Date()
         const today = now.toISOString().slice(0, 10) // YYYY-MM-DD
 
+        // Helper for week start (Monday)
+        const getWeekStartIso = (d: Date) => {
+            const day = d.getDay()
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+            const monday = new Date(d)
+            monday.setDate(diff)
+            monday.setHours(0, 0, 0, 0)
+            return monday.toISOString()
+        }
+        const currentWeekStart = getWeekStartIso(now)
+
         // Parse current daily_challenges
         let dailyChallenges = profile.daily_challenges || {
             date: null,
@@ -80,12 +91,15 @@ export async function POST(req: Request) {
 
         dailyChallenges.points_earned = (dailyChallenges.points_earned || 0) + pointsEarned
 
+        // Check if all challenges are now completed
+        const allChallengesComplete = dailyChallenges.newspaper && dailyChallenges.vocab && dailyChallenges.perfect
+
         // Handle streak
         let ripenessLevel = profile.ripeness_level || 0
         let longestStreak = profile.longest_streak || 0
         const lastPlayedDate = profile.last_played_date
 
-        if (should_check_streak && lastPlayedDate !== today) {
+        if (should_check_streak && allChallengesComplete && lastPlayedDate !== today) {
             // Check if this is consecutive day
             const yesterday = new Date(now)
             yesterday.setDate(yesterday.getDate() - 1)
@@ -114,14 +128,26 @@ export async function POST(req: Request) {
             dailySeeds = 0
         }
 
-        dailySeeds += daily_seed_increment
+        dailySeeds += daily_seed_increment + pointsEarned
 
         // Calculate total seeds
-        const totalSeeds = (profile.seeds || 0) + payout
+        // Payout is from the game itself, pointsEarned is the bonus from completing a challenge
+        const totalSeeds = (profile.seeds || 0) + payout + pointsEarned
+
+        // Handle weekly points
+        let weeklySeeds = profile.weekly_seeds || 0
+        const weeklySeedsWeekStart = profile.weekly_seeds_week_start
+
+        if (weeklySeedsWeekStart !== currentWeekStart) {
+            weeklySeeds = 0
+        }
+
+        // Add both game payout and challenge bonus to weekly points
+        weeklySeeds += payout + pointsEarned
 
         // Handle harvest count (every 7 days of streak)
         let harvestCount = profile.harvest_count || 0
-        if (ripenessLevel > 0 && ripenessLevel % 7 === 0 && should_check_streak && lastPlayedDate !== today) {
+        if (ripenessLevel > 0 && ripenessLevel % 7 === 0 && should_check_streak && allChallengesComplete && lastPlayedDate !== today) {
             harvestCount++
         }
 
@@ -132,10 +158,12 @@ export async function POST(req: Request) {
                 daily_challenges: dailyChallenges,
                 ripeness_level: ripenessLevel,
                 longest_streak: longestStreak,
-                last_played_date: should_check_streak ? today : lastPlayedDate,
+                last_played_date: (should_check_streak && allChallengesComplete) ? today : lastPlayedDate,
                 daily_seeds: dailySeeds,
                 daily_seeds_date: new Date().toISOString(),
                 seeds: totalSeeds,
+                weekly_seeds: weeklySeeds,
+                weekly_seeds_week_start: currentWeekStart,
                 harvest_count: harvestCount,
             })
             .eq("id", user.id)
@@ -155,6 +183,7 @@ export async function POST(req: Request) {
             total_seeds: totalSeeds,
             ripeness_level: ripenessLevel,
             daily_seeds: dailySeeds,
+            weekly_seeds: weeklySeeds,
             harvest_count: harvestCount,
         })
 

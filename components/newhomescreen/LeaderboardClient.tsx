@@ -16,7 +16,7 @@ type LeaderboardClientProps = {
 }
 
 export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
-    const [leaderboardScope, setLeaderboardScope] = useState<"daily" | "weekly" | "overall">("weekly")
+    const [leaderboardScope, setLeaderboardScope] = useState<"daily" | "weekly" | "overall" | "harvest">("weekly")
     const [leaderboardEntries, setLeaderboardEntries] = useState<
         Array<{ username: string; score: number; avatarUrl?: string | null; harvestCount?: number }>
     >([])
@@ -124,11 +124,12 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
                             { id: "daily", label: ui.leaderboardDaily },
                             { id: "weekly", label: ui.leaderboardWeekly },
                             { id: "overall", label: ui.leaderboardOverall },
+                            { id: "harvest", label: ui.harvests },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 type="button"
-                                onClick={() => setLeaderboardScope(tab.id as "daily" | "weekly" | "overall")}
+                                onClick={() => setLeaderboardScope(tab.id as "daily" | "weekly" | "overall" | "harvest")}
                                 className={[
                                     "rounded-full px-5 py-1.5 text-[12px] font-medium border transition-colors",
                                     leaderboardScope === tab.id
@@ -202,8 +203,8 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
 
                                     {/* Right: Harvest Count & Score */}
                                     <div className="ml-auto flex items-center gap-2">
-                                        {/* Harvest Count */}
-                                        {(entry.harvestCount ?? 0) > 0 && (
+                                        {/* Harvest Count (show if NOT in harvest scope and > 0) */}
+                                        {leaderboardScope !== "harvest" && (entry.harvestCount ?? 0) > 0 && (
                                             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgb(var(--vocado-accent-rgb)/0.15)]">
                                                 <span className="text-[11px]">🥑</span>
                                                 <span className="text-[10px] font-semibold text-[#3A3A3A]">
@@ -214,7 +215,7 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
 
                                         {/* Score */}
                                         <span className="text-[14px] font-semibold text-[#3A3A3A]/70">
-                                            {entry.score.toLocaleString()} 🌱
+                                            {entry.score.toLocaleString()} {leaderboardScope === "harvest" ? "🥑" : "🌱"}
                                         </span>
                                     </div>
                                 </div>
