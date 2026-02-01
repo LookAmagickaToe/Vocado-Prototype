@@ -565,7 +565,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
       const merged = apiNews.map((apiWorld: VocabWorld) => {
         const localMatch = localCached?.find((w) => w.id === apiWorld.id)
-        return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 5 } }
+        return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 8 } }
       })
 
       const elapsed = (performance.now() - fnStartTime).toFixed(0)
@@ -1444,7 +1444,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const placeholders = Array.from({ length: Math.max(0, 5 - base.length) }, (_, i) => ({
       id: `placeholder-${i}`,
       title: "",
-      chunking: { itemsPerGame: 5 },
+      chunking: { itemsPerGame: 8 },
       mode: "vocab",
       pool: [],
       news: {
