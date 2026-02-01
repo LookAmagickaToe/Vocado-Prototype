@@ -1151,6 +1151,45 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
 
+    // Call profile update API in background
+    const updateProfile = async () => {
+      try {
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token
+
+        if (token) {
+          const response = await fetch("/api/profile/update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              payout,
+              challenge_type: "newspaper",
+              daily_seed_increment: payout,
+              should_check_streak: true,
+              moves,
+              pairs_count: pairsCount,
+            }),
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            // Update local state with authoritative server data
+            setSeeds(data.total_seeds)
+            window.localStorage.setItem(SEEDS_STORAGE_KEY, String(data.total_seeds))
+          }
+        }
+      } catch (error) {
+        console.error("Failed to update profile:", error)
+      }
+    }
+
+    // Fire and forget
+    updateProfile()
+
+    // Keep existing localStorage logic for backward compatibility
     const storedSeeds = Number(window.localStorage.getItem(SEEDS_STORAGE_KEY) || "0") || 0
     const serverSeeds = profile.seeds || 0
     const currentSeeds = Math.max(storedSeeds, serverSeeds)

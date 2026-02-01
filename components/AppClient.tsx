@@ -959,6 +959,41 @@ export default function AppClient({
     const multiplier = (isNew ? firstMultiplier : 1) * (greatScore ? greatMultiplier : 1) * df
     const payout = Math.round(baseScore * multiplier)
 
+    // Call profile update API in background
+    const updateProfile = async () => {
+      try {
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token
+
+        if (token) {
+          // Determine challenge type
+          let challengeType = "vocab"
+          if (pairsCount === 8 && moves <= 14) {
+            challengeType = "perfect"
+          }
+
+          await fetch("/api/profile/update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              payout,
+              challenge_type: challengeType,
+              daily_seed_increment: payout,
+              should_check_streak: true,
+              moves,
+              pairs_count: pairsCount,
+            }),
+          })
+        }
+      } catch (error) {
+        console.error("Failed to update profile:", error)
+      }
+    }
+    updateProfile()
+
     const newBest = Math.max(baseScore, sBest)
     bestMap[key] = newBest
     window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestMap))
