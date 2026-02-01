@@ -163,6 +163,18 @@ const buildWorldFromItems = (
   ui: any
 ): VocabWorld => {
   const id = `news-${Date.now()}`
+
+  // Map language labels to codes
+  const langMap: Record<string, string> = {
+    "Español": "es",
+    "English": "en",
+    "Deutsch": "de",
+    "Français": "fr",
+    "Português": "pt"
+  }
+  const sourceCode = langMap[sourceLabel] || "es"
+  const targetCode = langMap[targetLabel] || "de"
+
   const pool = items.map((item, index) => {
     const baseSrs = initializeSRS()
     const hardSrs = { ...baseSrs, bucket: "hard" as const, nextReviewAt: new Date().toISOString() }
@@ -177,8 +189,8 @@ const buildWorldFromItems = (
         : explanation
     return {
       id: `${id}-${index}`,
-      es: item.source,
-      de: item.target,
+      [sourceCode]: item.source,
+      [targetCode]: item.target,
       image: { type: "emoji", value: item.emoji?.trim() || "📰" } as any,
       pos: item.pos,
       explanation: explanationWithSyllables,
@@ -1326,10 +1338,21 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const newItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
       if (!newItems.length) return
 
+      // Map language labels to codes
+      const langMap: Record<string, string> = {
+        "Español": "es",
+        "English": "en",
+        "Deutsch": "de",
+        "Français": "fr",
+        "Português": "pt"
+      }
+      const sourceCode = langMap[sourceLabel] || "es"
+      const targetCode = langMap[targetLabel] || "de"
+
       const newPairs = newItems.map((item, idx) => ({
         id: `${world.id}-custom-${Date.now()}-${idx}`,
-        es: item.source,
-        de: item.target,
+        [sourceCode]: item.source,
+        [targetCode]: item.target,
         pos: item.pos,
         image: { type: "emoji", value: item.emoji || "📝" } as any,
         explanation: item.explanation,

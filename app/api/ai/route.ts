@@ -192,7 +192,7 @@ export function buildNewsPrompt({
     : ""
   return [
     "You are summarizing a news article and extracting vocabulary.",
-    `Summary language must be: "${sourceLabel}".`,
+    `Summary language must be: "${targetLabel}" (the target language that the user is learning).`,
     `Vocabulary pairs must use source language "${sourceLabel}" and target language "${targetLabel}".`,
     levelLine,
     "Return ONLY valid JSON with this shape:",
