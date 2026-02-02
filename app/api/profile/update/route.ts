@@ -25,6 +25,7 @@ export async function POST(req: Request) {
             moves, // for perfect challenge check
             pairs_count, // for perfect challenge check
             vocab_increment = 0, // for vocab challenge tracking
+            client_date, // YYYY-MM-DD from client
         } = body
 
         // Fetch current profile
@@ -38,8 +39,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Profile not found" }, { status: 404 })
         }
 
-        const now = new Date()
-        const today = now.toISOString().slice(0, 10) // YYYY-MM-DD
+        // Use client date if provided, otherwise server date fallback
+        const today = client_date || new Date().toISOString().slice(0, 10)
+        // Reference date for calculations (treated as UTC midnight of that day)
+        const now = new Date(today)
 
         // Helper for week start (Monday)
         const getWeekStartIso = (d: Date) => {
@@ -62,8 +65,13 @@ export async function POST(req: Request) {
             vocab_progress: 0,
         }
 
-        // Reset daily challenges if date changed
         const challengeDate = dailyChallenges.date?.slice(0, 10)
+        let prevAllComplete = false
+        if (challengeDate === today) {
+            prevAllComplete = dailyChallenges.newspaper && dailyChallenges.vocab && dailyChallenges.perfect
+        }
+
+        // Reset daily challenges if date changed
         if (challengeDate !== today) {
             dailyChallenges = {
                 date: today,
@@ -91,13 +99,11 @@ export async function POST(req: Request) {
             pointsEarned = 15
         }
 
-        // Always check perfect challenge if data provided, regardless of challenge_type (since client might send composite)
-        // Checks if ONE game was perfect.
+        // Always check perfect challenge if data provided, regardless of challenge_type
         if (!dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
             dailyChallenges.perfect = true
-            pointsEarned += 20 // accumulative if multiple challenges finished at once? usually unlikely but safe.
+            pointsEarned += 20
         } else if (challenge_type === "perfect" && !dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
-            // Fallback if client explicitly requested perfect but logic above covers it.
             dailyChallenges.perfect = true
             pointsEarned += 20
         }
@@ -105,28 +111,47 @@ export async function POST(req: Request) {
         dailyChallenges.points_earned = (dailyChallenges.points_earned || 0) + pointsEarned
 
         // Check if all challenges are now completed
-        const allChallengesComplete = dailyChallenges.newspaper && dailyChallenges.vocab && dailyChallenges.perfect
+        const newAllComplete = dailyChallenges.newspaper && dailyChallenges.vocab && dailyChallenges.perfect
+        const justCompleted = !prevAllComplete && newAllComplete
 
         // Handle streak
         let ripenessLevel = profile.ripeness_level || 0
         let longestStreak = profile.longest_streak || 0
         const lastPlayedDate = profile.last_played_date
 
-        if (should_check_streak && allChallengesComplete && lastPlayedDate !== today) {
-            // Check if this is consecutive day
+        if (should_check_streak) {
             const yesterday = new Date(now)
             yesterday.setDate(yesterday.getDate() - 1)
             const yesterdayStr = yesterday.toISOString().slice(0, 10)
 
-            if (lastPlayedDate === yesterdayStr) {
-                // Consecutive day - increment streak
+            // Check if streak is alive (played yesterday or already today)
+            // Note: If last played is today, it's alive. If yesterday, it's alive.
+            // If older, it's broken.
+            const isAlive = lastPlayedDate === today || lastPlayedDate === yesterdayStr
+
+            if (!isAlive && !justCompleted) {
+                // Streak broken AND we didn't just restart it by completing a set (though completion implies we played today, 
+                // but if we were at 0, we stay 0 until completion. If we were at 5 and missed a day, we go to 0).
+                // Actually reset rule: "Not completing any resets it". Meaning if I check in today and last played was 2 days ago,
+                // my streak is 0.
+                if (lastPlayedDate) {
+                    ripenessLevel = 0
+                }
+            }
+
+            // If it was broken (e.g. 2 days ago), we reset to 0 above.
+            // Now, if we Just Completed the set, we increment.
+            // Logic: 
+            // - If Alive (e.g. 5): JustCompleted -> 6. No -> 5.
+            // - If Broken (e.g. 5->0): JustCompleted -> 1. No -> 0.
+
+            // Re-eval reset robustly:
+            if (lastPlayedDate && lastPlayedDate < yesterdayStr) {
+                ripenessLevel = 0
+            }
+
+            if (justCompleted) {
                 ripenessLevel++
-            } else if (lastPlayedDate && lastPlayedDate < yesterdayStr) {
-                // Streak broken - reset to 1
-                ripenessLevel = 1
-            } else if (!lastPlayedDate) {
-                // First time playing
-                ripenessLevel = 1
             }
 
             longestStreak = Math.max(longestStreak, ripenessLevel)
@@ -159,8 +184,9 @@ export async function POST(req: Request) {
         weeklySeeds += payout + pointsEarned
 
         // Handle harvest count (every 7 days of streak)
+        // Only increment harvest if we JUST completed the milestone (implied by justCompleted transition)
         let harvestCount = profile.harvest_count || 0
-        if (ripenessLevel > 0 && ripenessLevel % 7 === 0 && should_check_streak && allChallengesComplete && lastPlayedDate !== today) {
+        if (justCompleted && ripenessLevel > 0 && ripenessLevel % 7 === 0) {
             harvestCount++
         }
 
@@ -171,7 +197,7 @@ export async function POST(req: Request) {
                 daily_challenges: dailyChallenges,
                 ripeness_level: ripenessLevel,
                 longest_streak: longestStreak,
-                last_played_date: (should_check_streak && allChallengesComplete) ? today : lastPlayedDate,
+                last_played_date: should_check_streak ? today : lastPlayedDate,
                 daily_seeds: dailySeeds,
                 daily_seeds_date: new Date().toISOString(),
                 seeds: totalSeeds,

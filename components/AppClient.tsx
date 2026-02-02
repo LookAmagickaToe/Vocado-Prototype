@@ -985,6 +985,7 @@ export default function AppClient({
               should_check_streak: true,
               moves,
               pairs_count: pairsCount,
+              client_date: new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(new Date().getDate()).padStart(2, "0"),
             }),
           })
         }

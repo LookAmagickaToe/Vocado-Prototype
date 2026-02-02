@@ -698,7 +698,20 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     .single()
 
                 if (profile?.daily_challenges) {
-                    setDailyChallenges(profile.daily_challenges)
+                    const today = new Date().toISOString().slice(0, 10)
+                    const challengeDate = profile.daily_challenges.date?.slice(0, 10)
+
+                    if (challengeDate === today) {
+                        setDailyChallenges(profile.daily_challenges)
+                    } else {
+                        setDailyChallenges({
+                            date: today,
+                            newspaper: false,
+                            vocab: false,
+                            perfect: false,
+                            points_earned: 0,
+                        })
+                    }
                 }
                 if (typeof profile?.ripeness_level === "number") {
                     setRipenessLevel(profile.ripeness_level)

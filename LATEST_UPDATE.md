@@ -1,11 +1,14 @@
 # All Tasks Completed
 
-1.  **Strict Streak Logic**: Streaks now only increment when **all 3** daily challenges are completed.
-2.  **Weekly Points**: Game payouts and Daily Challenge bonuses (10/15/20) now count towards Weekly Points.
-3.  **UI Updates**: Streak text updated, Daily Challenge cards now show correct points (10, 15, 20).
-4.  **Harvest Leaderboard**: Added "Harvests" category to leaderboards, ranking by avocados harvested.
-5.  **Refined Challenge Logic**:
-    -   **Vocab Challenge ("Revise 20 words")**: Now tracks cumulative progress across sessions/buckets.
-    -   **Perfect Challenge**: Now unlockable from Memory Mode, News, and Custom Worlds (generic check).
+1.  **Refined Streak Logic**:
+    -   **Partial Save**: Completing 1 or 2 challenges saves your streak (prevents reset).
+    -   **Strict Increment**: Streak only grows on 3/3 completion.
+    -   **Reset**: Missing a day completely resets streak to 0.
+2.  **Client-Side Reset**: Daily challenges now visually reset immediately if your local cache is stale (yesterday's data).
+3.  **Refined Challenge Logic**:
+    -   **Vocab**: Tracks cumulative progress.
+    -   **Perfect**: Unlockable from all game modes.
+4.  **Harvest Leaderboard**: Added.
+5.  **Weekly Points**: Aggregation logic fixed.
 
 Please verify the changes in the app!

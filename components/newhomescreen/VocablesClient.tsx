@@ -479,6 +479,10 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       const token = session.data.session?.access_token
       if (!token) return
 
+      // Construct local YYYY-MM-DD
+      const d = new Date()
+      const clientDate = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")
+
       await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -489,7 +493,8 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           pairs_count: pairs,
           should_check_streak: true,
           // challenge_type is inferred in backend based on data, but we can pass generic
-          challenge_type: pairs === 8 && moves <= 14 ? "perfect" : "vocab"
+          challenge_type: pairs === 8 && moves <= 14 ? "perfect" : "vocab",
+          client_date: clientDate,
         }),
       })
     } catch {
