@@ -1389,7 +1389,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const sourceCode = langMap[sourceLabel] || "es"
       const targetCode = langMap[targetLabel] || "de"
 
-      const newPairs = newItems.map((item, idx) => ({
+      // Check for duplicates
+      const existingWords = new Set(((world.pool || []) as any[]).map(p => p[sourceCode]?.toLowerCase()?.trim()))
+
+      const validItems = newItems.filter(item => {
+        const w = item.source?.toLowerCase()?.trim()
+        return w && !existingWords.has(w)
+      })
+
+      if (validItems.length === 0) return
+
+      const newPairs = validItems.map((item, idx) => ({
         id: `${world.id}-custom-${Date.now()}-${idx}`,
         [sourceCode]: item.source,
         [targetCode]: item.target,
@@ -1399,7 +1409,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         example: item.example,
         conjugation: item.conjugation,
         srs: initializeSRS(),
-      }))
+      })) as any[]
 
       const updatedPool = [...(world.pool || []), ...newPairs]
       const updatedWorld = { ...world, pool: updatedPool }
@@ -1874,6 +1884,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
               </div>
               <div
                 className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none"
+                style={{ WebkitTouchCallout: "none" }}
                 onContextMenu={handleContextMenu}
                 onTouchStart={(e) => {
                   // For mobile: use a timer to simulate long press if contextmenu doesn't fire nicely
