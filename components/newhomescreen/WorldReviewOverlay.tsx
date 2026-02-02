@@ -7,7 +7,7 @@ import ConjugationCard from "@/components/games/vocab/ConjugationCard"
 
 // Design system colors
 const COLORS = {
-    bg: "#F6F2EB",
+    bg: "#F2F0E9",
     bgCard: "#FAF7F2",
     accent: "rgb(var(--vocado-accent-rgb))",
     text: "#3A3A3A",

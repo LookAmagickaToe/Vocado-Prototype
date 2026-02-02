@@ -100,10 +100,11 @@ export async function POST(req: Request) {
         }
 
         // Always check perfect challenge if data provided, regardless of challenge_type
-        if (!dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
+        // Checks if ONE game was perfect (>= 8 pairs in <= 14 moves).
+        if (!dailyChallenges.perfect && pairs_count >= 8 && moves && moves <= 14) {
             dailyChallenges.perfect = true
             pointsEarned += 20
-        } else if (challenge_type === "perfect" && !dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
+        } else if (challenge_type === "perfect" && !dailyChallenges.perfect && pairs_count >= 8 && moves && moves <= 14) {
             dailyChallenges.perfect = true
             pointsEarned += 20
         }

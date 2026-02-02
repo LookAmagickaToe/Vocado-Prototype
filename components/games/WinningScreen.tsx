@@ -124,7 +124,7 @@ export default function WinningScreen({
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="relative w-full max-w-lg h-[78vh] max-h-[720px] rounded-2xl bg-[#F6F2EB] border border-[#3A3A3A]/10 p-6 shadow-xl flex flex-col"
+        className="relative w-full max-w-lg h-[78vh] max-h-[720px] rounded-2xl bg-[#F2F0E9] border border-[#3A3A3A]/10 p-6 shadow-xl flex flex-col"
       >
         {awardSummary && (
           <div className="absolute right-5 top-5 flex items-center gap-3">
@@ -175,7 +175,7 @@ export default function WinningScreen({
             <div className="mt-6 rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-4">
               <div className="text-sm font-medium text-[#3A3A3A]">{reviewTitle}</div>
 
-              <div className="mt-3 rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center">
+              <div className="mt-3 rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center">
                 <div className="flex justify-center">
                   {summaryItem!.image.type === "emoji" ? (
                     <div className="text-5xl">{summaryItem!.image.value}</div>
@@ -240,7 +240,7 @@ export default function WinningScreen({
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       type="button"
-                      className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
+                      className="rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
                       onClick={(e) => {
                         e.stopPropagation()
                         setCarouselIndex!((i) => Math.max(0, i - 1))
@@ -252,7 +252,7 @@ export default function WinningScreen({
 
                     <div className="flex-1 flex flex-col gap-2">
                       <div
-                        className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center cursor-pointer select-none relative active:scale-[0.98] transition-all"
+                        className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center cursor-pointer select-none relative active:scale-[0.98] transition-all"
                         onClick={(e) => {
                           e.stopPropagation()
                           setIsFlipped(true)
@@ -290,7 +290,7 @@ export default function WinningScreen({
 
                     <button
                       type="button"
-                      className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
+                      className="rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
                       onClick={(e) => {
                         e.stopPropagation()
                         setCarouselIndex!((i) => Math.min(matchedOrder!.length - 1, i + 1))

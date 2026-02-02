@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#F2F0E9] text-[#3A3A3A] flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-4">
         <img
           src="/card/card-back.png"

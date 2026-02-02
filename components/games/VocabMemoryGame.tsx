@@ -505,14 +505,14 @@ export default function VocabMemoryGame({
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
+                    className="rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
                     onClick={() => setCarouselIndex((i) => Math.max(0, i - 1))}
                     disabled={carouselIndex === 0}
                   >
                     ←
                   </button>
 
-                  <div className="flex-1 rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center">
+                  <div className="flex-1 rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center">
                     <div className="flex justify-center">
                       {carouselPair.image.type === "emoji" ? (
                         <div className="text-5xl">{carouselPair.image.value}</div>
@@ -538,7 +538,7 @@ export default function VocabMemoryGame({
 
                   <button
                     type="button"
-                    className="rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
+                    className="rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] disabled:opacity-40"
                     onClick={() =>
                       setCarouselIndex((i) => Math.min(matchedOrder.length - 1, i + 1))
                     }
@@ -550,7 +550,7 @@ export default function VocabMemoryGame({
 
                 {/* EXPLANATION */}
                 <div className="mt-4 text-sm font-medium text-[#3A3A3A]">{explanationTitle}</div>
-                <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-3">
+                <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-3">
                   <div className="text-xs text-[#3A3A3A]/80 leading-relaxed">
                     {carouselPair.explanation ?? "No explanation added yet."}
                   </div>

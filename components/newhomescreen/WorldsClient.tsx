@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase/client"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
-    bg: "#F6F2EB",
+    bg: "#F2F0E9",
     bgCard: "#FAF7F2",
     accent: "rgb(var(--vocado-accent-rgb))",
     text: "#3A3A3A",
@@ -804,7 +804,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     }
 
     return (
-        <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
+        <div className="min-h-screen bg-[#F2F0E9] font-sans text-[#3A3A3A] pb-20">
             <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)] h-[56px] flex items-center justify-between px-5">
                 <div className="h-5 w-5" />
                 <h1 className="text-[18px] font-semibold text-[#3A3A3A]">{ui.title}</h1>
@@ -851,7 +851,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 value={promptText}
                                 onChange={(e) => setPromptText(e.target.value)}
                                 placeholder={ui.newWorldPlaceholder}
-                                className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+                                className="w-full px-3 py-2 rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
                                 onKeyDown={(e) => e.key === "Enter" && handleCreateWorld()}
                             />
                             {promptError && (
@@ -891,7 +891,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" || e.key === " ") handleListClick(list.id)
                                 }}
-                                className="w-full flex items-center gap-4 p-4 text-left hover:bg-[#F6F2EB] transition-colors"
+                                className="w-full flex items-center gap-4 p-4 text-left hover:bg-[#F2F0E9] transition-colors"
                             >
                                 <div className="w-10 h-10 rounded-xl bg-[#E3EBC5]/40 flex items-center justify-center">
                                     {expandedListId === list.id ? (
@@ -929,7 +929,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                     setRenameValue(list.name)
                                                     setOpenListMenuId(null)
                                                 }}
-                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F2F0E9]"
                                             >
                                                 {ui.listMenuRename}
                                             </button>
@@ -940,7 +940,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                     setConfirmListAction({ type: "empty", listId: list.id })
                                                     setOpenListMenuId(null)
                                                 }}
-                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F2F0E9]"
                                             >
                                                 {ui.listMenuEmpty}
                                             </button>
@@ -951,7 +951,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                     setConfirmListAction({ type: "delete", listId: list.id })
                                                     setOpenListMenuId(null)
                                                 }}
-                                                className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F6F2EB]"
+                                                className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F2F0E9]"
                                             >
                                                 {ui.listMenuDelete}
                                             </button>
@@ -968,7 +968,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.2 }}
-                                        className="border-t border-[#3A3A3A]/5 bg-[#F6F2EB]/50"
+                                        className="border-t border-[#3A3A3A]/5 bg-[#F2F0E9]/50"
                                     >
                                         {list.worldIds.map(worldId => {
                                             const world = worldMap.get(worldId)
@@ -979,7 +979,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                             return (
                                                 <div key={worldId} className="relative">
                                                     {/* World Row */}
-                                                    <div className="w-full flex items-center gap-2 px-6 py-3 text-left hover:bg-[#F6F2EB] transition-colors">
+                                                    <div className="w-full flex items-center gap-2 px-6 py-3 text-left hover:bg-[#F2F0E9] transition-colors">
                                                         <button
                                                             onClick={(e) => handleWorldClick(worldId, e)}
                                                             className="flex items-center gap-3 flex-1 text-left"
@@ -1021,7 +1021,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                             setMoveWorldId(worldId)
                                                                             setOpenWorldMenuId(null)
                                                                         }}
-                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F6F2EB]"
+                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#3A3A3A] hover:bg-[#F2F0E9]"
                                                                     >
                                                                         {ui.moveLabel}
                                                                     </button>
@@ -1031,7 +1031,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                                                             e.stopPropagation()
                                                                             deleteWorld(worldId)
                                                                         }}
-                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F6F2EB]"
+                                                                        className="w-full px-3 py-2 text-[12px] text-left text-[#B45353] hover:bg-[#F2F0E9]"
                                                                     >
                                                                         {ui.deleteLabel}
                                                                     </button>
@@ -1252,7 +1252,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                                 type="text"
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+                                className="w-full px-3 py-2 rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[14px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
                                 placeholder={ui.listMenuRenamePlaceholder}
                             />
                             <div className="flex items-center gap-2 justify-end">

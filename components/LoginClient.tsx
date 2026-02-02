@@ -165,7 +165,7 @@ export default function LoginClient() {
   }, [googleClientIdMissing])
 
   return (
-    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#F2F0E9] text-[#3A3A3A] flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl border border-[#3A3A3A]/10 bg-[#FAF7F2] p-6 shadow-xl">
         <div className="flex flex-col items-center text-center">
           <img
@@ -187,7 +187,7 @@ export default function LoginClient() {
             value={emailOrUsername}
             onChange={(e) => setEmailOrUsername(e.target.value)}
             placeholder="Email or username"
-            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
           />
 
           {isSignUp && (
@@ -196,7 +196,7 @@ export default function LoginClient() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username"
-              className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+              className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
             />
           )}
 
@@ -205,7 +205,7 @@ export default function LoginClient() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
+            className="w-full rounded-lg border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm text-[#3A3A3A] placeholder:text-[#3A3A3A]/40 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)]"
           />
         </div>
 

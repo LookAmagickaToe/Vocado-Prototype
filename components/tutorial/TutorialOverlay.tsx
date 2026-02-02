@@ -59,7 +59,7 @@ const ModalWrapper = ({ children, title, subtitle, onTerminate }: { children: Re
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="relative w-full max-w-lg rounded-3xl border border-[rgb(var(--vocado-divider-rgb)/0.2)] bg-[#F6F2EB] p-8 shadow-2xl text-[#3A3A3A] overflow-hidden"
+            className="relative w-full max-w-lg rounded-3xl border border-[rgb(var(--vocado-divider-rgb)/0.2)] bg-[#F2F0E9] p-8 shadow-2xl text-[#3A3A3A] overflow-hidden"
         >
             <div className="absolute top-6 right-6">
                 <button onClick={onTerminate} className="text-neutral-400 hover:text-neutral-600 transition-colors">

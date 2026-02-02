@@ -17,10 +17,10 @@ import TutorialOverlay, { type TutorialStep } from "@/components/tutorial/Tutori
 
 // --- THEME CONSTANTS ---
 const COLORS = {
-    bg: "#F6F2EB",       // Main Cream
+    bg: "#F2F0E9",       // Main Cream
     bgDark: "#FAF7F2",   // Secondary (slightly lighter/different tone per spec, but spec said 'minimal dunkleres Beige' which usually means slightly more defined. Let's use F2EFE8 for inset areas if needed, or stick to spec hexes)
-    // Actually spec says: Main: #F6F2EB / #FAF7F2. Secondary: minimal dark beige.
-    // Let's interpret: Screen BG = #F6F2EB. Cards/Input = #FAF7F2 (or slightly distinct).
+    // Actually spec says: Main: #F2F0E9 / #FAF7F2. Secondary: minimal dark beige.
+    // Let's interpret: Screen BG = #F2F0E9. Cards/Input = #FAF7F2 (or slightly distinct).
     accent: "rgb(var(--vocado-accent-rgb))",   // Desaturated Avocado
     text: "#3A3A3A",     // Warm Dark Grey
 }
@@ -1908,7 +1908,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     <button
                         type="button"
                         onClick={() => router.push("/profile")}
-                        className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] overflow-hidden hover:border-[rgb(var(--vocado-accent-rgb)/0.5)] transition-colors"
+                        className="h-8 w-8 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] overflow-hidden hover:border-[rgb(var(--vocado-accent-rgb)/0.5)] transition-colors"
                     >
                         <img
                             src={avatarUrl || FALLBACK_AVATAR}
@@ -2054,7 +2054,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                         <button
                                             type="button"
                                             onClick={handleAddTranslation}
-                                            className="absolute right-3 top-3 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A]/70 hover:text-[#3A3A3A] flex items-center justify-center"
+                                            className="absolute right-3 top-3 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[#3A3A3A]/70 hover:text-[#3A3A3A] flex items-center justify-center"
                                         >
                                             <Plus className="w-4 h-4" strokeWidth={1.8} />
                                         </button>

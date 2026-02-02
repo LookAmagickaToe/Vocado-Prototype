@@ -3,8 +3,8 @@
   "short_name": "Vocado",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F6F2EB",
-  "theme_color": "#F6F2EB",
+  "background_color": "#F2F0E9",
+  "theme_color": "#F2F0E9",
   "icons": [
     {
       "src": "/favicon_io/android-chrome-192x192.png",

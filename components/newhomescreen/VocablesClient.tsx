@@ -22,7 +22,7 @@ import {
 
 // --- THEME CONSTANTS ---
 const COLORS = {
-  bg: "#F6F2EB",
+  bg: "#F2F0E9",
   bgCard: "#FAF7F2",
   accent: "rgb(var(--vocado-accent-rgb))",
   text: "#3A3A3A",
@@ -617,7 +617,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
+    <div className="min-h-screen bg-[#F2F0E9] font-sans text-[#3A3A3A] pb-20">
       <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)] h-[56px] flex items-center justify-between px-5">
         {reviewQueue.length > 0 || memoryWorld ? (
           <button
@@ -630,7 +630,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
               setShowBack(false)
               setActiveReviewLabel(null)
             }}
-            className="h-9 w-9 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] text-[#3A3A3A] flex items-center justify-center"
+            className="h-9 w-9 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[#3A3A3A] flex items-center justify-center"
             aria-label={ui.backLabel}
           >
             ←
@@ -767,7 +767,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
                         setMemoryAssigned(new Set())
                         setActiveReviewLabel(null)
                       }}
-                      className="justify-self-center rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-4 py-2 text-sm text-[#3A3A3A]"
+                      className="justify-self-center rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-4 py-2 text-sm text-[#3A3A3A]"
                     >
                       {ui.menuLabel}
                     </button>

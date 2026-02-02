@@ -1458,7 +1458,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   }, [newsWorlds])
 
   return (
-    <div className="min-h-screen bg-[#F6F2EB] text-[#3A3A3A] pb-24">
+    <div className="min-h-screen bg-[#F2F0E9] text-[#3A3A3A] pb-24">
       <div className="sticky top-0 z-40">
         <div className="relative">
           <div className="absolute inset-x-0 top-0 h-[56px] bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)]" />
@@ -1902,7 +1902,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       type="button"
                       onClick={() => setCarouselIndex((i) => Math.max(0, i - 1))}
                       disabled={carouselIndex === 0}
-                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       ←
                     </button>
@@ -1915,12 +1915,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         setCarouselIndex((i) => Math.min(items.length - 1, i + 1))
                       }
                       disabled={carouselIndex >= items.length - 1}
-                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       →
                     </button>
                   </div>
-                  <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] p-4 text-center">
+                  <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center">
                     <div className="text-4xl">{currentItem.emoji ?? "📰"}</div>
                     <div className="mt-2 text-sm">
                       <span className="text-[#3A3A3A]/50">{sourceLabel}:</span>{" "}
@@ -2002,7 +2002,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             >
               <button
                 onClick={handleAddSelectionToVocab}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-[#F6F2EB] text-[#3A3A3A] transition-colors text-sm font-medium text-left"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-[#F2F0E9] text-[#3A3A3A] transition-colors text-sm font-medium text-left"
               >
                 <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
                   {isAddingSelection ? (

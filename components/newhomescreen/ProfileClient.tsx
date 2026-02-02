@@ -245,7 +245,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
     }
 
     return (
-        <div className="min-h-screen bg-[#F6F2EB] font-sans text-[#3A3A3A] pb-20">
+        <div className="min-h-screen bg-[#F2F0E9] font-sans text-[#3A3A3A] pb-20">
             <div className="sticky top-0 z-40 bg-[rgb(var(--vocado-footer-bg-rgb)/0.95)] backdrop-blur-sm border-b border-[rgb(var(--vocado-divider-rgb)/0.2)] h-[56px] flex items-center px-5">
                 <div className="h-5 w-5" />
                 <h1 className="flex-1 text-center text-[18px] font-semibold text-[#3A3A3A]">
@@ -262,7 +262,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         <button
                             type="button"
                             onClick={() => setShowAvatarPicker((prev) => !prev)}
-                            className="relative h-20 w-20 rounded-full border border-[#3A3A3A]/10 bg-[#F6F2EB] overflow-hidden"
+                            className="relative h-20 w-20 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] overflow-hidden"
                         >
                             <img
                                 src={draft.avatarUrl || googleAvatar || FALLBACK_AVATAR}
@@ -287,7 +287,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                                     onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
                                     onBlur={() => setIsEditingName(false)}
                                     placeholder={ui.namePlaceholder}
-                                    className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-[16px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40"
+                                    className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[16px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/40"
                                 />
                             ) : (
                                 <button
@@ -372,7 +372,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         <select
                             value={draft.sourceLanguage}
                             onChange={(e) => setDraft((prev) => ({ ...prev, sourceLanguage: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-[14px] text-[#3A3A3A]"
+                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
                         >
                             <option value="">{ui.autoLabel}</option>
                             {LANGUAGES.map((lang) => (
@@ -390,7 +390,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         <select
                             value={draft.targetLanguage}
                             onChange={(e) => setDraft((prev) => ({ ...prev, targetLanguage: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-[14px] text-[#3A3A3A]"
+                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
                         >
                             <option value="">{ui.autoLabel}</option>
                             {LANGUAGES.map((lang) => (
@@ -408,7 +408,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         <select
                             value={draft.level}
                             onChange={(e) => setDraft((prev) => ({ ...prev, level: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] px-3 py-2 text-[14px] text-[#3A3A3A]"
+                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
                         >
                             {LEVELS.map((level) => (
                                 <option key={level} value={level}>

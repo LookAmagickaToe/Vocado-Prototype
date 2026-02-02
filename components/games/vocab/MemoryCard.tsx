@@ -63,7 +63,7 @@ export default function MemoryCard({
       type="button"
       onClick={onClick}
       disabled={cleared}
-      className="relative aspect-square rounded-xl border border-[#3A3A3A]/10 bg-[#F6F2EB] shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)] disabled:opacity-40 disabled:cursor-default touch-manipulation"
+      className="relative aspect-square rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-[rgb(var(--vocado-accent-rgb)/0.4)] disabled:opacity-40 disabled:cursor-default touch-manipulation"
     >
       {celebrate && <ParticleBurst />}
 

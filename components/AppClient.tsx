@@ -3271,7 +3271,7 @@ export default function AppClient({
   const welcomeOverlay = null
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F6F2EB] text-[#3A3A3A] px-3 sm:px-6 pb-24">
+    <div className="min-h-screen overflow-x-hidden bg-[#F2F0E9] text-[#3A3A3A] px-3 sm:px-6 pb-24">
       <div className="mx-auto w-full max-w-6xl">
         <div className="grid grid-cols-12 gap-4 items-start">
           {/* STICKY HEADER */}
