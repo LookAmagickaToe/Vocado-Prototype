@@ -222,6 +222,32 @@ type VocabSRS = {
 
 ---
 
+### 7. 🔥 Streaks & Daily Challenges
+
+**Description**: A habit-building system that rewards consistency and daily engagement.
+
+**Streak System (Ripeness)**:
+- **Concept**: User's knowledge "ripens" over consecutive days of play.
+- **Levels**: 0 (Seed) → 7 (Ripe Avocado).
+- **Mechanic**: Play at least one game to increase ripeness. Miss a day, and ripeness resets to 0 (Rotten).
+- **Harvest**: Every 7 days, users "Harvest" their progress for a huge bonus, resetting ripeness but incrementing `harvest_count`.
+
+**Daily Challenges**:
+Three daily goals to boost engagement:
+1. 📰 **Newspaper**: Read or play a News World. (+10 pts)
+2. 📝 **Vocab**: Review 20 vocabulary words. (+15 pts)
+3. 🎯 **Perfect Score**: Complete a game with ≥8 pairs in ≤14 moves. (+20 pts)
+
+**Tracking**:
+- Stored in `profiles.daily_challenges` JSONB.
+- Resets automatically at midnight (client-local time).
+
+**Implementation**:
+- Logic: `/app/api/profile/update/route.ts` handles all streak/challenge logic atomically.
+- UI: `VocablesClient.tsx` (popups), `ProfileClient.tsx` (stats).
+
+---
+
 ## Technical Architecture
 
 ### Stack Overview
@@ -279,6 +305,15 @@ CREATE TABLE profiles (
   seeds INTEGER DEFAULT 0,
   xp INTEGER DEFAULT 0,
   gemini_api_calls INTEGER DEFAULT 0,
+  daily_challenges JSONB DEFAULT '{}', -- Track daily progress (vocab, newspaper, perfect)
+  daily_seeds INTEGER DEFAULT 0,       -- Seeds earned today
+  daily_seeds_date TIMESTAMPTZ,        -- Date for daily reset
+  ripeness_level INTEGER DEFAULT 0,    -- Current streak level (0-7+)
+  longest_streak INTEGER DEFAULT 0,    -- All-time best streak
+  harvest_count INTEGER DEFAULT 0,     -- Number of weekly harvests
+  last_played_date DATE,               -- For streak calculation
+  weekly_seeds INTEGER DEFAULT 0,      -- Weekly leaderboard score
+  weekly_seeds_week_start DATE,        -- Weekly reset date
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

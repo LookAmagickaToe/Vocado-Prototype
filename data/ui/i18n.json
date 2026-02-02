@@ -196,7 +196,8 @@
       "nameLabel": "Nombre",
       "namePlaceholder": "Tu nombre",
       "avatarLabel": "Foto de perfil",
-      "logout": "Cerrar sesión"
+      "logout": "Cerrar sesión",
+      "playTutorial": "Ver Tutorial"
     },
     "nav": {
       "home": "Inicio",
@@ -261,7 +262,35 @@
       "dailyChallenge": "Desafío diario",
       "newsReader": "Lector de noticias",
       "finalDesc": "¡Buena suerte en tu viaje! No olvides revisar los desafíos diarios y la clasificación.",
-      "finish": "Terminar tutorial"
+      "finish": "Terminar tutorial",
+      "slides": [
+        {
+          "title": "Bienvenido a Vocado 🌿",
+          "body": "Aumenta tu vocabulario a través del juego, noticias del mundo real y juegos de memoria con IA."
+        },
+        {
+          "title": "Aprende de las Noticias 📰",
+          "body": "Convertimos los titulares de Tagesschau en tu patio de juegos personal, adaptado a tu nivel."
+        },
+        {
+          "title": "Juega para Recordar 🃏",
+          "body": "Empareja palabras para completar niveles. Domina palabras con modos de conjugación especializados."
+        },
+        {
+          "title": "El Ciclo de Crecimiento de 7 Días 🥑",
+          "body": "Juega 7 días seguidos para anclar tu conocimiento de forma segura en la memoria a largo plazo antes de que se 'pudra' nuevamente. 🥑"
+        },
+        {
+          "title": "Metas Diarias 🎯",
+          "body": "Aumenta tu XP con tres desafíos frescos diarios: Periódico, Vocabulario y Puntuaciones Perfectas."
+        },
+        {
+          "title": "Magia de IA ✨",
+          "body": "Crea mundos personalizados de cualquier tema. Solo escribe 'En la panadería' y empieza a jugar."
+        }
+      ],
+      "continueButton": "Continuar",
+      "letsPlayButton": "Plantemos una semilla 🫘"
     },
     "generation": {
       "meaningOf": "Significado de {source}.",
@@ -576,7 +605,8 @@
       "nameLabel": "Name",
       "namePlaceholder": "Your name",
       "avatarLabel": "Profile picture",
-      "logout": "Log out"
+      "logout": "Log out",
+      "playTutorial": "Play Tutorial"
     },
     "nav": {
       "home": "Home",
@@ -641,7 +671,35 @@
       "dailyChallenge": "Daily Challenge",
       "newsReader": "News Reader",
       "finalDesc": "Good luck on your journey! Don't forget to check out the daily challenges and the leaderboard.",
-      "finish": "Finish Tutorial"
+      "finish": "Finish Tutorial",
+      "slides": [
+        {
+          "title": "Welcome to Vocado 🌿",
+          "body": "Grow your vocabulary through play, real-world news, and AI-powered memory games."
+        },
+        {
+          "title": "Learn from the News 📰",
+          "body": "We turn Tagesschau headlines into your personal playground, tailored to your level."
+        },
+        {
+          "title": "Play to Remember 🃏",
+          "body": "Match pairs to clear levels. Master words with specialized conjugation modes."
+        },
+        {
+          "title": "The 7-Day Growth Cycle 🥑",
+          "body": "Play 7 days in a row to securely anchor your knowledge in long-term memory before it 'rots' again. 🥑"
+        },
+        {
+          "title": "Daily Goals 🎯",
+          "body": "Boost XP with three fresh challenges daily: Newspaper, Vocab, and Perfect Scores."
+        },
+        {
+          "title": "AI Magic ✨",
+          "body": "Create custom worlds from any theme. Just type 'At the bakery' and start playing."
+        }
+      ],
+      "continueButton": "Continue",
+      "letsPlayButton": "Let's plant a seed 🫘"
     },
     "generation": {
       "meaningOf": "Meaning of {source}.",
@@ -956,7 +1014,8 @@
       "nameLabel": "Name",
       "namePlaceholder": "Dein Name",
       "avatarLabel": "Profilbild",
-      "logout": "Abmelden"
+      "logout": "Abmelden",
+      "playTutorial": "Tutorial ansehen"
     },
     "nav": {
       "home": "Start",
@@ -1021,7 +1080,35 @@
       "dailyChallenge": "Tagesziel",
       "newsReader": "Zeitungsleser",
       "finalDesc": "Viel Glück! Vergiss nicht, die täglichen Ziele und die Rangliste zu prüfen.",
-      "finish": "Tutorial beenden"
+      "finish": "Tutorial beenden",
+      "slides": [
+        {
+          "title": "Willkommen bei Vocado 🌿",
+          "body": "Erweitere deinen Wortschatz durch Spiel, echte Nachrichten und KI-gestützte Gedächtnisspiele."
+        },
+        {
+          "title": "Lerne aus den Nachrichten 📰",
+          "body": "Wir verwandeln Tagesschau-Schlagzeilen in deinen persönlichen Spielplatz, angepasst an dein Niveau."
+        },
+        {
+          "title": "Spiele um zu Merken 🃏",
+          "body": "Finde Paare, um Level abzuschließen. Meistere Wörter mit speziellen Konjugationsmodi."
+        },
+        {
+          "title": "Der 7-Tage-Wachstumszyklus 🥑",
+          "body": "Spiele 7 Tage in Folge, um dein Wissen sicher im Langzeitgedächtnis zu verankern, bevor es wieder \"verrottet\". 🥑"
+        },
+        {
+          "title": "Tägliche Ziele 🎯",
+          "body": "Steigere XP mit drei frischen täglichen Herausforderungen: Zeitung, Vokabeln und Perfekte Punktzahlen."
+        },
+        {
+          "title": "KI-Magie ✨",
+          "body": "Erstelle individuelle Welten aus jedem Thema. Tippe einfach 'In der Bäckerei' und beginne zu spielen."
+        }
+      ],
+      "continueButton": "Weiter",
+      "letsPlayButton": "Lass uns einen Samen pflanzen 🫘"
     },
     "generation": {
       "meaningOf": "Bedeutung von {source}.",
@@ -1336,7 +1423,8 @@
       "nameLabel": "Nom",
       "namePlaceholder": "Votre nom",
       "avatarLabel": "Photo de profil",
-      "logout": "Se déconnecter"
+      "logout": "Se déconnecter",
+      "playTutorial": "Voir le Tutoriel"
     },
     "nav": {
       "home": "Accueil",
@@ -1401,7 +1489,35 @@
       "dailyChallenge": "Défi quotidien",
       "newsReader": "Lecteur d'actus",
       "finalDesc": "Bonne chance ! N'oublie pas les objectifs quotidiens et le classement.",
-      "finish": "Terminer le tutoriel"
+      "finish": "Terminer le tutoriel",
+      "slides": [
+        {
+          "title": "Bienvenue sur Vocado 🌿",
+          "body": "Développez votre vocabulaire grâce au jeu, aux actualités du monde réel et aux jeux de mémoire alimentés par l'IA."
+        },
+        {
+          "title": "Apprenez des Actualités 📰",
+          "body": "Nous transformons les gros titres de Tagesschau en votre terrain de jeu personnel, adapté à votre niveau."
+        },
+        {
+          "title": "Jouez pour Mémoriser 🃏",
+          "body": "Associez des paires pour terminer les niveaux. Maîtrisez les mots avec des modes de conjugaison spécialisés."
+        },
+        {
+          "title": "Le Cycle de Croissance de 7 Jours 🥑",
+          "body": "Jouez 7 jours d'affilée pour ancrer solidement vos connaissances dans la mémoire à long terme avant qu'elles ne 'pourrissent' à nouveau. 🥑"
+        },
+        {
+          "title": "Objectifs Quotidiens 🎯",
+          "body": "Augmentez votre XP avec trois nouveaux défis quotidiens : Journal, Vocabulaire et Scores Parfaits."
+        },
+        {
+          "title": "Magie de l'IA ✨",
+          "body": "Créez des mondes personnalisés sur n'importe quel thème. Tapez simplement 'À la boulangerie' et commencez à jouer."
+        }
+      ],
+      "continueButton": "Continuer",
+      "letsPlayButton": "Plantons une graine 🫘"
     },
     "generation": {
       "meaningOf": "Signification de {source}.",
@@ -1716,7 +1832,8 @@
       "nameLabel": "Nome",
       "namePlaceholder": "Seu nome",
       "avatarLabel": "Foto de perfil",
-      "logout": "Sair"
+      "logout": "Sair",
+      "playTutorial": "Ver Tutorial"
     },
     "nav": {
       "home": "Início",
@@ -1781,7 +1898,35 @@
       "dailyChallenge": "Desafio diário",
       "newsReader": "Leitor de notícias",
       "finalDesc": "Boa sorte na sua jornada! Não se esqueça de verificar os desafios diários e a classificação.",
-      "finish": "Terminar tutorial"
+      "finish": "Terminar tutorial",
+      "slides": [
+        {
+          "title": "Bem-vindo ao Vocado 🌿",
+          "body": "Expanda seu vocabulário através de jogos, notícias do mundo real e jogos de memória com IA."
+        },
+        {
+          "title": "Aprenda com as Notícias 📰",
+          "body": "Transformamos as manchetes da Tagesschau em seu playground pessoal, adaptado ao seu nível."
+        },
+        {
+          "title": "Jogue para Lembrar 🃏",
+          "body": "Combine pares para completar níveis. Domine palavras com modos de conjugação especializados."
+        },
+        {
+          "title": "O Ciclo de Crescimento de 7 Dias 🥑",
+          "body": "Jogue 7 dias seguidos para ancorar seu conhecimento com segurança na memória de longo prazo antes que 'apodreça' novamente. 🥑"
+        },
+        {
+          "title": "Metas Diárias 🎯",
+          "body": "Aumente XP com três desafios diários frescos: Jornal, Vocabulário e Pontuações Perfeitas."
+        },
+        {
+          "title": "Magia da IA ✨",
+          "body": "Crie mundos personalizados de qualquer tema. Digite apenas 'Na padaria' e comece a jogar."
+        }
+      ],
+      "continueButton": "Continuar",
+      "letsPlayButton": "Vamos plantar uma semente 🫘"
     },
     "generation": {
       "meaningOf": "Significado de {source}.",

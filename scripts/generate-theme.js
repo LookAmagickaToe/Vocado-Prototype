@@ -1,4 +1,16 @@
-@tailwind base;
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+
+// Read colors from JSON
+const colorsPath = path.join(__dirname, '../data/theme/colors.json');
+const colors = JSON.parse(fs.readFileSync(colorsPath, 'utf8'));
+
+// Generate CSS content
+const generateCSS = () => {
+    const { light, dark } = colors;
+
+    return `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -12,9 +24,9 @@
   :root {
     --font-sans: var(--font-geist-sans);
     --font-mono: var(--font-geist-mono);
-    --background: 40 28% 88%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
+    --background: ${light.background.hue} ${light.background.saturation}% ${light.background.lightness}%;
+    --foreground: ${light.foreground.hue} ${light.foreground.saturation}% ${light.foreground.lightness}%;
+    --card: ${light.card.hue} ${light.card.saturation}% ${light.card.lightness}%;
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
@@ -26,11 +38,11 @@
     --muted-foreground: 0 0% 45.1%;
     --accent: 0 0% 96.1%;
     --accent-foreground: 0 0% 9%;
-    --vocado-accent-rgb: 92 184 70;
-    --vocado-accent-dark-rgb: 72 150 58;
-    --vocado-header-bg-rgb: 234 230 223;
-    --vocado-footer-bg-rgb: 244 241 236;
-    --vocado-divider-rgb: 58 58 58;
+    --vocado-accent-rgb: ${light.vocadoAccent.r} ${light.vocadoAccent.g} ${light.vocadoAccent.b};
+    --vocado-accent-dark-rgb: ${light.vocadoAccentDark.r} ${light.vocadoAccentDark.g} ${light.vocadoAccentDark.b};
+    --vocado-header-bg-rgb: ${light.vocadoHeader.r} ${light.vocadoHeader.g} ${light.vocadoHeader.b};
+    --vocado-footer-bg-rgb: ${light.vocadoFooter.r} ${light.vocadoFooter.g} ${light.vocadoFooter.b};
+    --vocado-divider-rgb: ${light.vocadoDivider.r} ${light.vocadoDivider.g} ${light.vocadoDivider.b};
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
@@ -52,9 +64,9 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
+    --background: ${dark.background.hue} ${dark.background.saturation}% ${dark.background.lightness}%;
+    --foreground: ${dark.foreground.hue} ${dark.foreground.saturation}% ${dark.foreground.lightness}%;
+    --card: ${dark.card.hue} ${dark.card.saturation}% ${dark.card.lightness}%;
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
@@ -95,3 +107,13 @@
     @apply bg-background text-foreground;
   }
 }
+`;
+};
+
+// Write to globals.css
+const globalsPath = path.join(__dirname, '../app/globals.css');
+const cssContent = generateCSS();
+fs.writeFileSync(globalsPath, cssContent, 'utf8');
+
+console.log('✅ Generated globals.css from colors.json');
+console.log(`Background color: ${colors.light.background.hue}° ${colors.light.background.saturation}% ${colors.light.background.lightness}%`);

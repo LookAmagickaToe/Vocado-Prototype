@@ -13,7 +13,7 @@ import type { VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
 import { formatTemplate } from "@/lib/ui"
 import { calculateNextReview, initializeSRS } from "@/lib/srs"
-import TutorialOverlay, { type TutorialStep } from "@/components/tutorial/TutorialOverlay"
+import TutorialOverlay from "@/components/tutorial/TutorialOverlay"
 
 // --- THEME CONSTANTS ---
 const COLORS = {
@@ -368,8 +368,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         newsCategory: profile.newsCategory,
         onboardingDone: profile.onboardingDone,
     })
-    const [showTutorial, setShowTutorial] = useState(!profile.onboardingDone)
-    const [tutorialStep, setTutorialStep] = useState<TutorialStep>("welcome")
+    const [showTutorial, setShowTutorial] = useState(false)
     const [savingProfile, setSavingProfile] = useState(false)
     const [profileError, setProfileError] = useState<string | null>(null)
 
@@ -550,9 +549,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
     useEffect(() => {
         const initProfile = async () => {
-            // Check tutorial persistence immediately
-            if (typeof window !== "undefined" && window.localStorage.getItem("vocado-onboarding-done")) {
-                setShowTutorial(false)
+            // Check tutorial persistence from localStorage first (fast)
+            let localTutorialSeen = false
+            if (typeof window !== "undefined") {
+                localTutorialSeen = !!window.localStorage.getItem("vocado-tutorial-seen")
             }
 
             // 1. Get User Metadata
@@ -563,7 +563,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             // 2. Fetch DB Profile
             let dbRow: any = null
             if (userId) {
-                const baseSelect = "level,source_language,target_language,news_category,seeds,username"
+                const baseSelect = "level,source_language,target_language,news_category,seeds,username,tutorial_seen"
                 const withAvatar = await supabase
                     .from("profiles")
                     .select(`${baseSelect},avatar_url`)
@@ -608,9 +608,27 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
             const finalAvatar = localSettings?.avatarUrl || dbRow?.avatar_url || googleAvatar || FALLBACK_AVATAR
             setAvatarUrl(finalAvatar)
+
+            // 7. Check tutorial_seen from DB (cross-device persistence)
+            const dbTutorialSeen = dbRow?.tutorial_seen === true
+            if (!localTutorialSeen && !dbTutorialSeen) {
+                setShowTutorial(true)
+            }
         }
 
         initProfile()
+    }, [])
+
+    // Check for tutorial query parameter
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search)
+            if (params.get("tutorial") === "true") {
+                setShowTutorial(true)
+                // Clean up URL
+                window.history.replaceState({}, "", "/")
+            }
+        }
     }, [])
 
     useEffect(() => {
@@ -1268,8 +1286,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 window.localStorage.setItem("vocado-onboarding-done", "true")
             }
 
-            // Advance tutorial
-            setTutorialStep("tour_intro")
+            // Tutorial is now managed separately via localStorage
         } catch (err) {
             console.error(err)
             setProfileError((err as Error).message)
@@ -2279,28 +2296,25 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             />
             {showTutorial && (
                 <TutorialOverlay
-                    step={tutorialStep}
-                    ui={ui}
-                    initialLevel={profileSettings.level}
-                    initialSource={profileSettings.sourceLanguage}
-                    initialTarget={profileSettings.targetLanguage}
-                    initialNews={profileSettings.newsCategory}
-                    initialAvatar={avatarUrl}
-                    onNext={() => {
-                        if (tutorialStep === "final") {
-                            setShowTutorial(false)
-                        } else {
-                            if (tutorialStep === "tour_intro") {
-                                setShowTutorial(false)
-                            } else {
-                                setTutorialStep("tour_intro")
-                            }
+                    sourceLanguage={profileSettings.sourceLanguage}
+                    onComplete={async () => {
+                        // Save to localStorage (instant)
+                        if (typeof window !== "undefined") {
+                            localStorage.setItem("vocado-tutorial-seen", "true")
                         }
+
+                        // Save to Supabase (cross-device persistence)
+                        const userRes = await supabase.auth.getUser()
+                        const userId = userRes.data.user?.id
+                        if (userId) {
+                            await supabase
+                                .from("profiles")
+                                .update({ tutorial_seen: true })
+                                .eq("id", userId)
+                        }
+
+                        setShowTutorial(false)
                     }}
-                    onTerminate={() => setShowTutorial(false)}
-                    onSaveProfile={handleSaveOnboardingProfile}
-                    savingProfile={savingProfile}
-                    profileError={profileError}
                 />
             )}
         </div >

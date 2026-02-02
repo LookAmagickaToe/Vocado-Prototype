@@ -59,6 +59,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
             levelLabel: uiSettings?.onboarding?.levelLabel ?? "Level",
             save: uiSettings?.profile?.save ?? "Save",
             autoLabel: uiSettings?.profile?.autoLabel ?? "Auto",
+            playTutorial: uiSettings?.profile?.playTutorial ?? "Play Tutorial",
             logout: uiSettings?.profile?.logout ?? uiSettings?.home?.logout ?? "Log out",
             nav: uiSettings?.nav ?? {},
         }),
@@ -433,7 +434,14 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                 </div>
             </div>
 
-            <div className="px-4 pt-6">
+            <div className="px-4 pt-4 space-y-2">
+                <button
+                    type="button"
+                    onClick={() => router.push("/?tutorial=true")}
+                    className="w-full rounded-xl border border-[#3A3A3A]/10 bg-[#FAF7F2] px-4 py-2 text-[14px] font-medium text-[#3A3A3A] hover:bg-[#F0EDE6] transition-colors"
+                >
+                    {ui.playTutorial}
+                </button>
                 <button
                     type="button"
                     onClick={async () => {

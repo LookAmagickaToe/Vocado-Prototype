@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabPair, VocabWorld } from "@/types/worlds"
@@ -462,6 +462,8 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const currentEntry = reviewQueue[reviewIndex]
 
+  const [challengePopup, setChallengePopup] = useState<{ message: string, points: number } | null>(null)
+
   // Centralized profile sync (replaces syncStatsToServer)
   const syncProfileUpdate = async ({
     payout = 0,
@@ -483,7 +485,7 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
       const d = new Date()
       const clientDate = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")
 
-      await fetch("/api/profile/update", {
+      const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -497,6 +499,22 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           client_date: clientDate,
         }),
       })
+
+      if (res.ok) {
+        const data = await res.json()
+        // Check if we just completed the vocab challenge
+        // Logic: specific points earned from this update AND vocab challenge is now true (and likely wasn't before, though API handles the transition points)
+        if (data.success && data.challenge_points_earned > 0) {
+          // Check if it's the vocab challenge (approximate by checking vocab state)
+          if (data.profile?.daily_challenges?.vocab && !(profile as any).daily_challenges?.vocab) {
+            setChallengePopup({
+              message: "Revised 20 words",
+              points: data.challenge_points_earned
+            })
+            setTimeout(() => setChallengePopup(null), 4000)
+          }
+        }
+      }
     } catch {
       // ignore sync errors
     }
@@ -985,6 +1003,22 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
           </div>
         </>
       )}
+
+      <AnimatePresence>
+        {challengePopup && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 pointer-events-none"
+          >
+            <div className="bg-[#FAF7F2] rounded-full px-5 py-2.5 shadow-xl border border-[rgb(var(--vocado-accent-rgb))] flex items-center gap-3">
+              <span className="text-[13px] font-semibold text-[#3A3A3A]">{challengePopup.message}</span>
+              <span className="text-[12px] font-bold text-[rgb(var(--vocado-accent-rgb))]">+{challengePopup.points} pts</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Navigation Footer */}
       <NavFooter labels={ui.nav} />

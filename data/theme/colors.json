@@ -1,0 +1,67 @@
+{
+    "light": {
+        "background": {
+            "hue": 40,
+            "saturation": 28,
+            "lightness": 88,
+            "comment": "Main app background - darker and creamier than before (was 48 25% 93%)"
+        },
+        "foreground": {
+            "hue": 0,
+            "saturation": 0,
+            "lightness": 3.9
+        },
+        "card": {
+            "hue": 0,
+            "saturation": 0,
+            "lightness": 100
+        },
+        "vocadoAccent": {
+            "r": 92,
+            "g": 184,
+            "b": 70,
+            "comment": "Main green accent color"
+        },
+        "vocadoAccentDark": {
+            "r": 72,
+            "g": 150,
+            "b": 58,
+            "comment": "Darker green for hover states"
+        },
+        "vocadoHeader": {
+            "r": 234,
+            "g": 230,
+            "b": 223,
+            "comment": "Header background"
+        },
+        "vocadoFooter": {
+            "r": 244,
+            "g": 241,
+            "b": 236,
+            "comment": "Footer background"
+        },
+        "vocadoDivider": {
+            "r": 58,
+            "g": 58,
+            "b": 58,
+            "comment": "Divider lines"
+        }
+    },
+    "dark": {
+        "background": {
+            "hue": 0,
+            "saturation": 0,
+            "lightness": 3.9
+        },
+        "foreground": {
+            "hue": 0,
+            "saturation": 0,
+            "lightness": 98
+        },
+        "card": {
+            "hue": 0,
+            "saturation": 0,
+            "lightness": 3.9
+        }
+    }
+}
