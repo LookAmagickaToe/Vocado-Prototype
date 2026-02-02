@@ -28,8 +28,8 @@ async function fetchTagesschau(category: string) {
 }
 
 async function generateNewsContent(url: string, sourceLabel: string, targetLabel: string, level: string, title?: string, teaser?: string) {
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) throw new Error("Missing GEMINI_API_KEY")
+    const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error("Missing GEMINI_API_KEY_NEWS (or fallback GEMINI_API_KEY)")
 
     // Rate limit safeguard: wait 500ms before processing
     await new Promise(resolve => setTimeout(resolve, 500))

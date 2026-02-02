@@ -221,9 +221,9 @@ export function buildNewsPrompt({
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY_WORLDS || process.env.GEMINI_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 })
+    return NextResponse.json({ error: "Missing GEMINI_API_KEY_WORLDS (or fallback GEMINI_API_KEY)" }, { status: 500 })
   }
 
   // Track usage
