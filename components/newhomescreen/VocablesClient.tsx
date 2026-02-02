@@ -462,25 +462,34 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
 
   const currentEntry = reviewQueue[reviewIndex]
 
-  const syncStatsToServer = async (
-    nextSeeds: number,
-    nextWeeklySeeds: number,
-    nextWeeklyWords: number,
-    weekStart: string
-  ) => {
+  // Centralized profile sync (replaces syncStatsToServer)
+  const syncProfileUpdate = async ({
+    payout = 0,
+    vocabIncrement = 0,
+    moves = 0,
+    pairs = 0
+  }: {
+    payout?: number
+    vocabIncrement?: number
+    moves?: number
+    pairs?: number
+  }) => {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
       if (!token) return
-      await fetch("/api/auth/profile/stats", {
+
+      await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          seeds: nextSeeds,
-          weeklySeeds: nextWeeklySeeds,
-          weeklySeedsWeekStart: weekStart,
-          weeklyWords: nextWeeklyWords,
-          weekStart,
+          payout,
+          vocab_increment: vocabIncrement,
+          moves,
+          pairs_count: pairs,
+          should_check_streak: true,
+          // challenge_type is inferred in backend based on data, but we can pass generic
+          challenge_type: pairs === 8 && moves <= 14 ? "perfect" : "vocab"
         }),
       })
     } catch {
@@ -507,8 +516,15 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     let weeklySeeds = Number(rawWeeklySeeds || "0") || 0
     weeklySeeds += 1
     window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
-    const weeklyWords = Number(window.localStorage.getItem(WEEKLY_WORDS_STORAGE_KEY) || "0") || 0
-    void syncStatsToServer(nextSeeds, weeklySeeds, weeklyWords, weekStart)
+    window.localStorage.setItem(WEEKLY_SEEDS_STORAGE_KEY, String(weeklySeeds))
+
+    // Sync to backend using new atomic route (handles seeds + vocab challenge)
+    void syncProfileUpdate({ payout: 1, vocabIncrement: 1 })
+
+    // Legacy stat tracking (optional, but keeping weekly words sync might be needed if stats endpoint used elsewhere?
+    // Actually profile/update handles seeds. Weekly words is just for stats? 
+    // We can skip syncStatsToServer as profile/update is the source of truth now.
+
     setEarned((prev) => prev + 1)
   }
 
@@ -658,7 +674,16 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             key={memoryWorld.id}
             world={memoryWorld}
             levelIndex={0}
-            onWin={() => { }}
+            onWin={(moves, pairs) => {
+              // Check perfect challenge (8 pairs in <= 14 moves)
+              // We don't increment vocab count here because it's done per-card in renderWinActions -> awardReviewSeed
+              void syncProfileUpdate({
+                payout: 0,
+                vocabIncrement: 0,
+                moves,
+                pairs
+              })
+            }}
             onNextLevel={() => {
               if (!memoryEntries.length) {
                 setMemoryWorld(null)

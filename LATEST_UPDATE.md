@@ -4,5 +4,8 @@
 2.  **Weekly Points**: Game payouts and Daily Challenge bonuses (10/15/20) now count towards Weekly Points.
 3.  **UI Updates**: Streak text updated, Daily Challenge cards now show correct points (10, 15, 20).
 4.  **Harvest Leaderboard**: Added "Harvests" category to leaderboards, ranking by avocados harvested.
+5.  **Refined Challenge Logic**:
+    -   **Vocab Challenge ("Revise 20 words")**: Now tracks cumulative progress across sessions/buckets.
+    -   **Perfect Challenge**: Now unlockable from Memory Mode, News, and Custom Worlds (generic check).
 
 Please verify the changes in the app!

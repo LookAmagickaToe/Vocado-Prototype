@@ -24,6 +24,7 @@ export async function POST(req: Request) {
             should_check_streak = false,
             moves, // for perfect challenge check
             pairs_count, // for perfect challenge check
+            vocab_increment = 0, // for vocab challenge tracking
         } = body
 
         // Fetch current profile
@@ -57,7 +58,8 @@ export async function POST(req: Request) {
             newspaper: false,
             vocab: false,
             perfect: false,
-            points_earned: 0
+            points_earned: 0,
+            vocab_progress: 0,
         }
 
         // Reset daily challenges if date changed
@@ -68,25 +70,36 @@ export async function POST(req: Request) {
                 newspaper: false,
                 vocab: false,
                 perfect: false,
-                points_earned: 0
+                points_earned: 0,
+                vocab_progress: 0,
             }
         }
 
         // Update challenge based on type
         let pointsEarned = 0
+        // Update vocab progress if increment provided
+        if (vocab_increment > 0) {
+            dailyChallenges.vocab_progress = (dailyChallenges.vocab_progress || 0) + vocab_increment
+        }
+
         if (challenge_type === "newspaper" && !dailyChallenges.newspaper) {
             dailyChallenges.newspaper = true
             pointsEarned = 10
-        } else if (challenge_type === "vocab" && !dailyChallenges.vocab) {
-            // TODO: Track total words revised today to check if >= 20
+        } else if (!dailyChallenges.vocab && (dailyChallenges.vocab_progress || 0) >= 20) {
+            // Vocab challenge: 20 words revised total today
             dailyChallenges.vocab = true
             pointsEarned = 15
-        } else if (challenge_type === "perfect" && !dailyChallenges.perfect) {
-            // Check if perfect: 8 pairs in <= 14 moves
-            if (pairs_count === 8 && moves && moves <= 14) {
-                dailyChallenges.perfect = true
-                pointsEarned = 20
-            }
+        }
+
+        // Always check perfect challenge if data provided, regardless of challenge_type (since client might send composite)
+        // Checks if ONE game was perfect.
+        if (!dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
+            dailyChallenges.perfect = true
+            pointsEarned += 20 // accumulative if multiple challenges finished at once? usually unlikely but safe.
+        } else if (challenge_type === "perfect" && !dailyChallenges.perfect && pairs_count === 8 && moves && moves <= 14) {
+            // Fallback if client explicitly requested perfect but logic above covers it.
+            dailyChallenges.perfect = true
+            pointsEarned += 20
         }
 
         dailyChallenges.points_earned = (dailyChallenges.points_earned || 0) + pointsEarned
