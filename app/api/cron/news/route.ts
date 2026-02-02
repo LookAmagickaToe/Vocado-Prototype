@@ -189,10 +189,23 @@ export async function GET(req: Request) {
                         item.teaser
                     )
 
+                    // Check for existing template first to preserve ID and avoid breaking FKs
+                    const { data: existing } = await supabaseAdmin
+                        .from("daily_news_templates")
+                        .select("id")
+                        .eq("date", today)
+                        .eq("category", category)
+                        .eq("level", level)
+                        .eq("source_url", url)
+                        .maybeSingle()
+
+                    const templateId = existing?.id || crypto.randomUUID()
+
                     // Save template to daily_news_templates table
                     const { error: templateError } = await supabaseAdmin
                         .from("daily_news_templates")
                         .upsert({
+                            id: templateId,
                             date: today,
                             category: category,
                             level: level,
