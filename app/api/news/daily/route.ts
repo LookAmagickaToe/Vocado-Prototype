@@ -44,36 +44,90 @@ export async function GET(req: Request) {
     const targetLabel = LANGUAGES[targetShortCode] || "Deutsch"
 
     try {
+        // 1. First, try to get cached translated news
         const queryStartTime = Date.now()
-        const { data: rows, error } = await supabaseAdmin
+        const { data: cachedNews, error: cacheError } = await supabaseAdmin
             .from("daily_news")
             .select("json")
             .eq("date", today)
             .eq("category", category)
-            .eq("source_language", sourceLabel)
+            .eq("target_language", targetLabel)
             .eq("level", level)
             .limit(5)
 
         const queryTime = Date.now() - queryStartTime
-        console.log(`[/api/news/daily] Query completed in ${queryTime}ms - found ${rows?.length || 0} rows`)
+        console.log(`[/api/news/daily] Cache query completed in ${queryTime}ms - found ${cachedNews?.length || 0} cached items`)
 
-        if (error) throw new Error(error.message)
-        if (!rows || rows.length === 0) {
+        if (cachedNews && cachedNews.length > 0) {
+            // Return cached translations
+            const items = cachedNews.map((row) => {
+                if (typeof row.json === "string") {
+                    return JSON.parse(row.json)
+                }
+                return row.json
+            })
+
             const totalTime = Date.now() - startTime
-            console.log(`[/api/news/daily] No results found - total time: ${totalTime}ms`)
+            console.log(`[/api/news/daily] Success (cached) - ${items.length} items returned in ${totalTime}ms total`)
+            return NextResponse.json({ items, cached: true })
+        }
+
+        // 2. No cached translations - fetch templates for on-demand translation
+        console.log(`[/api/news/daily] No cached news, fetching templates for translation`)
+
+        const { data: templates, error: templateError } = await supabaseAdmin
+            .from("daily_news_templates")
+            .select("*")
+            .eq("date", today)
+            .eq("category", category)
+            .eq("level", level)
+            .limit(5)
+
+        if (templateError) throw new Error(templateError.message)
+
+        if (!templates || templates.length === 0) {
+            const totalTime = Date.now() - startTime
+            console.log(`[/api/news/daily] No templates found - total time: ${totalTime}ms`)
             return NextResponse.json({ items: [] })
         }
 
-        const items = rows.map((row) => {
-            if (typeof row.json === "string") {
-                return JSON.parse(row.json)
+        console.log(`[/api/news/daily] Found ${templates.length} templates, triggering translations`)
+
+        // 3. Trigger translation for each template
+        const translationPromises = templates.map(async (template) => {
+            try {
+                // Call internal translation API
+                const translateResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/news/translate`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            templateId: template.id,
+                            targetLanguage: targetLabel,
+                            sourceLanguage: "Deutsch"
+                        })
+                    }
+                )
+
+                if (!translateResponse.ok) {
+                    console.error(`Translation failed for template ${template.id}`)
+                    return null
+                }
+
+                const result = await translateResponse.json()
+                return result.data
+            } catch (err) {
+                console.error(`Translation error for template ${template.id}:`, err)
+                return null
             }
-            return row.json
         })
 
+        const translatedItems = (await Promise.all(translationPromises)).filter(Boolean)
+
         const totalTime = Date.now() - startTime
-        console.log(`[/api/news/daily] Success - ${items.length} items returned in ${totalTime}ms total`)
-        return NextResponse.json({ items })
+        console.log(`[/api/news/daily] Success (translated on-demand) - ${translatedItems.length} items returned in ${totalTime}ms total`)
+        return NextResponse.json({ items: translatedItems, cached: false })
 
     } catch (error) {
         const totalTime = Date.now() - startTime

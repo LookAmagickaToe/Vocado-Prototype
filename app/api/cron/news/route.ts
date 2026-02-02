@@ -156,72 +156,12 @@ export async function GET(req: Request) {
         results.details.push("✅ Old news cleaned up")
     }
 
-    const LANGUAGES: Record<string, string> = {
-        es: "Español",
-        en: "English",
-        fr: "Français",
-        pt: "Português",
-        de: "Deutsch"
-    }
+    // NEW APPROACH: Generate German templates for all levels (A1-C2)
+    // Translations will be done on-demand when users request them
+    const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    const TEMPLATE_LANGUAGE = "Deutsch"  // Always German for templates
 
-    // 1. Fetch active user settings to determine what to generate
-    // We want to generate for every occurring (Level, SourceLanguage, TargetLanguage) tuple.
-    const { data: profiles } = await supabaseAdmin
-        .from("profiles")
-        .select("source_language, target_language, level")
-
-    // Map: Level -> Map<SourceLang, Set<TargetLang>>
-    //  e.g. "A2" -> Map { "Deutsch" -> Set("Español", "English"), "English" -> Set("Deutsch") }
-    const demands = new Map<string, Map<string, Set<string>>>()
-
-    // Helper to register demand
-    const addDemand = (level: string, sourceLangCode: string, targetLangCode: string) => {
-        const lvl = (level || "A2").toUpperCase()
-        if (!["A1", "A2", "B1", "B2", "C1", "C2"].includes(lvl)) return
-
-        let sourceCode = sourceLangCode.toLowerCase()
-        let targetCode = targetLangCode.toLowerCase()
-
-        // normalize codes from full name if needed
-        const normalizeLang = (code: string) => {
-            if (LANGUAGES[code]) return code
-            const found = Object.keys(LANGUAGES).find(k => LANGUAGES[k].toLowerCase() === code.toLowerCase())
-            if (found) return found
-            const foundName = Object.keys(LANGUAGES).find(k => LANGUAGES[k] === code)
-            if (foundName) return foundName
-            return null
-        }
-
-        sourceCode = normalizeLang(sourceCode) || sourceCode
-        targetCode = normalizeLang(targetCode) || targetCode
-
-        if (!LANGUAGES[sourceCode] || !LANGUAGES[targetCode]) return // unsupported language
-
-        if (!demands.has(lvl)) {
-            demands.set(lvl, new Map())
-        }
-        const levelMap = demands.get(lvl)!
-        if (!levelMap.has(sourceCode)) {
-            levelMap.set(sourceCode, new Set())
-        }
-        levelMap.get(sourceCode)!.add(targetCode)
-    }
-
-    // Default Fallbacks (always generate de->es and en->de A2)
-    addDemand("A2", "de", "es")
-    addDemand("A2", "en", "de")
-
-    if (profiles) {
-        for (const p of profiles) {
-            if (p.source_language && p.target_language) {
-                addDemand(p.level || "A2", p.source_language, p.target_language)
-            }
-        }
-    }
-
-    console.log(`Generation Demands:`, Array.from(demands.entries()).map(([lvl, langMap]) =>
-        `${lvl}:[${Array.from(langMap.entries()).map(([src, targets]) => `${src}->${Array.from(targets).join(",")}`).join(";")}]`
-    ))
+    console.log(`[cron/news] Generating German templates for levels:`, LEVELS)
 
     for (const category of categories) {
         const headlines = await fetchTagesschau(category)
@@ -231,115 +171,47 @@ export async function GET(req: Request) {
             const url = item.detailsweb || item.details || item.shareurl || item.url
             if (!url) continue
 
-            const id = safeSegment(item.externalId || item.title || url)
 
-            // Iterate Levels -> SourceLangs -> TargetLangs
-            for (const [level, langMap] of demands.entries()) {
-                const baseTextsForLevel = new Map<string, string>() // targetCode -> summary text
+            // Generate template for each level
+            for (const level of LEVELS) {
+                const configKey = `[${category}/${level}/template-de]`
 
-                for (const [sourceCode, targetCodes] of langMap.entries()) {
-                    const sourceLabel = LANGUAGES[sourceCode]
+                try {
+                    console.log(`Generating ${configKey}`)
 
-                    for (const targetCode of targetCodes) {
-                        const targetLabel = LANGUAGES[targetCode]
-                        const configKey = `[${category} /${level}/${sourceCode} -> ${targetCode}]`
+                    // Generate German template
+                    const generated = await generateNewsContent(
+                        url,
+                        TEMPLATE_LANGUAGE,  // source = German
+                        TEMPLATE_LANGUAGE,  // target = German  
+                        level,
+                        item.title,
+                        item.teaser
+                    )
 
-                        try {
-                            let generated: any = null
-                            let statusTag = "[Fresh]"
+                    // Save template to daily_news_templates table
+                    const { error: templateError } = await supabaseAdmin
+                        .from("daily_news_templates")
+                        .upsert({
+                            date: today,
+                            category: category,
+                            level: level,
+                            source_url: url,
+                            title: item.title,
+                            template_json: generated
+                        }, {
+                            onConflict: 'date,category,level,source_url'
+                        })
 
-                            // Check if we can reuse a base text for this target language
-                            const cachedBase = baseTextsForLevel.get(targetCode)
+                    if (templateError) throw new Error(templateError.message)
 
-                            if (cachedBase) {
-                                console.log(`Reusing base text for ${configKey}`)
-                                generated = await generateNewsContent(
-                                    "", // url empty
-                                    sourceLabel,
-                                    targetLabel,
-                                    level,
-                                    item.title,
-                                    cachedBase // Pass the summary as "teaser/text" override logic
-                                )
-                                statusTag = "[Reused]"
-                            } else {
-                                console.log(`Generating fresh BASE for ${configKey}`)
-                                generated = await generateNewsContent(url, sourceLabel, targetLabel, level, item.title, item.teaser)
+                    results.processed++
+                    results.details.push(`✅ Template saved: ${configKey}`)
 
-                                // Cache the generated TARGET summary to reuse for other source languages
-                                if (Array.isArray(generated.summary)) {
-                                    baseTextsForLevel.set(targetCode, generated.summary.join(" "))
-                                }
-                            }
-
-                            const payload = {
-                                id: `news-${Date.now()}-${id}-${sourceCode}-${level}`,
-                                ui: {
-                                    vocab: {
-                                        carousel: {
-                                            primaryLabel: `${sourceLabel}:`,
-                                            secondaryLabel: `${targetLabel}:`
-                                        }
-                                    }
-                                },
-                                mode: "vocab",
-                                news: {
-                                    sourceUrl: url,
-                                    title: item.title,
-                                    teaser: item.teaser,
-                                    image: item.teaserImage?.imageVariants?.["1x1-840"] || item.teaserImage?.imageUrl,
-                                    date: new Date().toISOString(),
-                                    generatedAt: new Date().toISOString(),
-                                    index: 0,
-                                    category: category, // Save category for filtering
-                                    level: level,
-                                    ...generated
-                                },
-                                pool: generated.items.map((it: any, idx: number) => ({
-                                    ...it,
-                                    id: `news-${Date.now()}-${id}-${sourceCode}-${level}-${idx}`
-                                })),
-                                title: `Vocado Diario - ${item.title}`,
-                                chunking: { itemsPerGame: 8 },
-                                description: Array.isArray(generated.summary) ? generated.summary.join(" ") : "",
-                                source_language: sourceLabel,
-                                target_language: targetLabel
-                            }
-
-                            // Save to Supabase
-                            await supabaseAdmin
-                                .from("daily_news")
-                                .delete()
-                                .eq("source_url", url)
-                                .eq("date", today)
-                                .eq("source_language", sourceLabel)
-                                .eq("level", level)
-
-                            const { error: insertError } = await supabaseAdmin
-                                .from("daily_news")
-                                .insert({
-                                    id: crypto.randomUUID(),
-                                    date: today,
-                                    category: category,
-                                    level: level,
-                                    source_language: sourceLabel,
-                                    target_language: targetLabel,
-                                    source_url: url,
-                                    title: item.title,
-                                    json: JSON.stringify(payload)
-                                })
-
-                            if (insertError) throw new Error(insertError.message)
-
-                            results.processed++
-                            results.details.push(`Saved ${configKey} ${statusTag} `)
-
-                        } catch (err) {
-                            console.error(`Error ${configKey}: `, err)
-                            results.errors++
-                            results.details.push(`Error ${configKey}: ${(err as Error).message} `)
-                        }
-                    }
+                } catch (err) {
+                    console.error(`Error ${configKey}:`, err)
+                    results.errors++
+                    results.details.push(`❌ Error ${configKey}: ${(err as Error).message}`)
                 }
             }
         }

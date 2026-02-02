@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Play } from "lucide-react"
-import ConjugationCard from "@/components/games/vocab/ConjugationCard"
+
 
 // Design system colors
 const COLORS = {
@@ -429,12 +429,6 @@ export default function WorldReviewOverlay({
                                         >
                                             <X size={12} />
                                         </button>
-                                        {/* Conjugation Table (Restored with new design) */}
-                                        {word.pos === "verb" && word.conjugation?.sections && (
-                                            <div className="col-span-full px-2 pb-4 pt-2">
-                                                <ConjugationCard conjugation={word.conjugation} />
-                                            </div>
-                                        )}
                                     </div>
                                 ))}
 
