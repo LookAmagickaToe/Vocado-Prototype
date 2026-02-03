@@ -44,37 +44,7 @@ export async function GET(req: Request) {
     const targetLabel = LANGUAGES[targetShortCode] || "Deutsch"
 
     try {
-        // 1. First, try to get cached translated news
-        const queryStartTime = Date.now()
-        const { data: cachedNews, error: cacheError } = await supabaseAdmin
-            .from("daily_news")
-            .select("json")
-            .eq("date", today)
-            .eq("category", category)
-            .eq("target_language", targetLabel)
-            .eq("level", level)
-            .limit(5)
-
-        const queryTime = Date.now() - queryStartTime
-        console.log(`[/api/news/daily] Cache query completed in ${queryTime}ms - found ${cachedNews?.length || 0} cached items`)
-
-        if (cachedNews && cachedNews.length > 0) {
-            // Return cached translations
-            const items = cachedNews.map((row) => {
-                if (typeof row.json === "string") {
-                    return JSON.parse(row.json)
-                }
-                return row.json
-            })
-
-            const totalTime = Date.now() - startTime
-            console.log(`[/api/news/daily] Success (cached) - ${items.length} items returned in ${totalTime}ms total`)
-            return NextResponse.json({ items, cached: true })
-        }
-
-        // 2. No cached translations - fetch templates for on-demand translation
-        console.log(`[/api/news/daily] No cached news, fetching templates for translation`)
-
+        // 1. Fetch templates for today (limit 5)
         const { data: templates, error: templateError } = await supabaseAdmin
             .from("daily_news_templates")
             .select("*")
@@ -91,12 +61,40 @@ export async function GET(req: Request) {
             return NextResponse.json({ items: [] })
         }
 
-        console.log(`[/api/news/daily] Found ${templates.length} templates, triggering translations`)
+        // 2. Check which templates are already translated and cached
+        const templateIds = templates.map(t => t.id)
+        const { data: cachedNews, error: cacheError } = await supabaseAdmin
+            .from("daily_news")
+            .select("json, template_id")
+            .in("template_id", templateIds)
+            .eq("target_language", targetLabel)
 
-        // 3. Trigger translation for each template
-        const translationPromises = templates.map(async (template) => {
+        const cachedMap = new Map()
+        if (cachedNews) {
+            cachedNews.forEach(item => {
+                if (item.template_id) {
+                    let content = item.json
+                    if (typeof content === "string") {
+                        try { content = JSON.parse(content) } catch (e) {
+                            console.error("Failed to parse cached JSON:", e)
+                        }
+                    }
+                    cachedMap.set(item.template_id, content)
+                }
+            })
+        }
+
+        console.log(`[/api/news/daily] Found ${templates.length} templates. Cached: ${cachedMap.size}. Needs translation: ${templates.length - cachedMap.size}`)
+
+        // 3. Translate missing items
+        const resultsPromises = templates.map(async (template) => {
+            // Return cached if exists
+            if (cachedMap.has(template.id)) {
+                return cachedMap.get(template.id)
+            }
+
+            // Translate on demand
             try {
-                // Call internal translation API
                 const translateResponse = await fetch(
                     `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/news/translate`,
                     {
@@ -123,11 +121,11 @@ export async function GET(req: Request) {
             }
         })
 
-        const translatedItems = (await Promise.all(translationPromises)).filter(Boolean)
+        const items = (await Promise.all(resultsPromises)).filter(Boolean)
 
         const totalTime = Date.now() - startTime
-        console.log(`[/api/news/daily] Success (translated on-demand) - ${translatedItems.length} items returned in ${totalTime}ms total`)
-        return NextResponse.json({ items: translatedItems, cached: false })
+        console.log(`[/api/news/daily] Success - ${items.length} items returned in ${totalTime}ms total`)
+        return NextResponse.json({ items, cached: false })
 
     } catch (error) {
         const totalTime = Date.now() - startTime
