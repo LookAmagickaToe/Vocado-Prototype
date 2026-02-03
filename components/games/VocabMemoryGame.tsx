@@ -319,14 +319,18 @@ export default function VocabMemoryGame({
 
   const carouselItem = useMemo(() => {
     if (!carouselPair) return null
+    // Defensive defaults for potential missing data in older cached items
+    const safeImage = carouselPair.image || { type: "emoji", value: (carouselPair as any).emoji || "❓" }
+    const es = carouselPair.es || (carouselPair as any).target || "?"
+    const de = carouselPair.de || (carouselPair as any).source || "?"
+
     return {
       id: carouselPair.id,
-      image: carouselPair.image,
-      primaryLabel: carouselPair.es,
-      secondaryLabel: carouselPair.de,
+      image: safeImage,
+      primaryLabel: es,
+      secondaryLabel: de,
       explanation: carouselPair.explanation,
-      conjugation: carouselPair.conjugation, // ✅ NEW
-
+      conjugation: carouselPair.conjugation,
     }
   }, [carouselPair])
   const explanationTitle = world.ui?.winning?.explanationTitle ?? "Explicación"
@@ -505,7 +509,7 @@ export default function VocabMemoryGame({
               </div>
             </div>
 
-            {carouselPair ? (
+            {carouselItem ? (
               <>
                 {/* CAROUSEL */}
                 <div className="mt-3 flex items-center gap-2">
@@ -520,12 +524,12 @@ export default function VocabMemoryGame({
 
                   <div className="flex-1 rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center">
                     <div className="flex justify-center">
-                      {carouselPair.image.type === "emoji" ? (
-                        <div className="text-5xl">{carouselPair.image.value}</div>
+                      {carouselItem.image.type === "emoji" ? (
+                        <div className="text-5xl">{carouselItem.image.value}</div>
                       ) : (
                         <img
-                          src={carouselPair.image.src}
-                          alt={carouselPair.image.alt ?? "vocab image"}
+                          src={carouselItem.image.src}
+                          alt={carouselItem.image.alt ?? "vocab image"}
                           className="h-20 w-20 object-contain"
                         />
                       )}
@@ -533,12 +537,12 @@ export default function VocabMemoryGame({
 
                     <div className="mt-3 text-sm">
                       <span className="text-[#3A3A3A]/60">{primaryLabel}</span>{" "}
-                      <span className="font-semibold text-[#3A3A3A]">{carouselPair.es}</span>
+                      <span className="font-semibold text-[#3A3A3A]">{carouselItem.primaryLabel}</span>
                     </div>
 
                     <div className="text-sm">
                       <span className="text-[#3A3A3A]/60">{secondaryLabel}</span>{" "}
-                      <span className="font-semibold text-[#3A3A3A]">{carouselPair.de}</span>
+                      <span className="font-semibold text-[#3A3A3A]">{carouselItem.secondaryLabel}</span>
                     </div>
                   </div>
 
@@ -558,12 +562,12 @@ export default function VocabMemoryGame({
                 <div className="mt-4 text-sm font-medium text-[#3A3A3A]">{explanationTitle}</div>
                 <div className="mt-2 max-h-64 overflow-auto rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-3">
                   <div className="text-xs text-[#3A3A3A]/80 leading-relaxed">
-                    {carouselPair.explanation ?? "No explanation added yet."}
+                    {carouselItem.explanation ?? "No explanation added yet."}
                   </div>
 
-                  {carouselPair.conjugation && (
+                  {carouselItem.conjugation && (
                     <div className="mt-4">
-                      <ConjugationCard conjugation={carouselPair.conjugation} />
+                      <ConjugationCard conjugation={carouselItem.conjugation} />
                     </div>
                   )}
                 </div>
