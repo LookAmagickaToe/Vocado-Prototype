@@ -33,10 +33,16 @@ function renderModelForSlot(slot: Slot): CardModel {
 }
 
 
+
 function buildDeck(pairs: VocabWorld["pool"]): CardModel[] {
   return pairs.flatMap((p) => {
-    const word = WORD_SIDE === "es" ? p.es : p.de
-    const other = WORD_SIDE === "es" ? p.de : p.es
+    // Defensive defaults for news items which might miss these fields
+    const safeImage = p.image || { type: "emoji", value: (p as any).emoji || "🧩" }
+    const es = p.es || (p as any).target || "?"
+    const de = p.de || (p as any).source || "?"
+
+    const word = WORD_SIDE === "es" ? es : de
+    const other = WORD_SIDE === "es" ? de : es
 
     const wordCard: CardModel = {
       key: `${p.id}-word`,
@@ -50,11 +56,11 @@ function buildDeck(pairs: VocabWorld["pool"]): CardModel[] {
       pairId: p.id,
       kind: "image",
       front: {
-        title: p.image.type === "emoji" ? p.image.value : undefined,
+        title: safeImage.type === "emoji" ? safeImage.value : undefined,
         subtitle: other,
       },
-      imageSrc: p.image.type === "image" ? p.image.src : undefined,
-      imageAlt: p.image.type === "image" ? p.image.alt : undefined,
+      imageSrc: safeImage.type === "image" ? safeImage.src : undefined,
+      imageAlt: safeImage.type === "image" ? safeImage.alt : undefined,
     }
 
     return [wordCard, imageCard]

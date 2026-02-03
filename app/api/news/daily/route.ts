@@ -126,6 +126,17 @@ export async function GET(req: Request) {
                         content.news.title = item.title
                         content.title = `Vocado Diario - ${item.title}`
                     }
+
+                    // Hotfix: Ensure pool items have correct structure for VocabMemoryGame
+                    if (content && content.pool && Array.isArray(content.pool)) {
+                        content.pool = content.pool.map((p: any) => ({
+                            ...p,
+                            es: p.es || p.target, // Target language
+                            de: p.de || p.source, // Source language
+                            image: p.image || { type: "emoji", value: p.emoji || "🧩" }
+                        }))
+                    }
+
                     cachedMap.set(item.template_id, content)
                 }
             })

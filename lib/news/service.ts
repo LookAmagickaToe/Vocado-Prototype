@@ -123,7 +123,11 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         },
         pool: translatedJson.items.map((it: any, idx: number) => ({
             ...it,
-            id: `news-trans-${template.id}-${targetLanguage}-${idx}`
+            id: `news-trans-${template.id}-${targetLanguage}-${idx}`,
+            // Map for game compatibility
+            es: it.target,
+            de: it.source,
+            image: { type: "emoji", value: it.emoji || "🧩" }
         })),
         title: `Vocado Diario - ${template.title}`,
         chunking: { itemsPerGame: 8 },
