@@ -11,7 +11,8 @@ type Challenge = {
     completed: boolean
     reward: number
     linkTo: string
-    progress?: string
+    progress?: number
+    maxProgress?: number
 }
 
 type DailyChallengesProps = {
@@ -20,10 +21,56 @@ type DailyChallengesProps = {
         vocab: boolean
         perfect: boolean
         points_earned: number
+        vocab_progress?: number
     }
     onChallengeClick: (id: string) => void
     sourceLanguage: string
     ripenessLevel?: number
+}
+
+function ProgressRing({ progress, total, completed }: { progress: number; total: number; completed: boolean }) {
+    if (completed) {
+        return <CheckCircle2 className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
+    }
+
+    if (progress <= 0) {
+        return <Circle className="w-5 h-5 text-[#3A3A3A]/30" />
+    }
+
+    const radius = 9
+    const circumference = 2 * Math.PI * radius
+    const percentage = Math.min(100, (progress / total) * 100)
+    const offset = circumference - (percentage / 100) * circumference
+
+    return (
+        <div className="relative w-5 h-5">
+            {/* Background Circle */}
+            <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 24 24">
+                <circle
+                    cx="12"
+                    cy="12"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="text-[#3A3A3A]/10"
+                />
+                {/* Progress Circle */}
+                <circle
+                    cx="12"
+                    cy="12"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    className="text-[rgb(var(--vocado-accent-rgb))] transition-all duration-500 ease-out"
+                />
+            </svg>
+        </div>
+    )
 }
 
 export default function DailyChallenges({
@@ -210,6 +257,8 @@ export default function DailyChallenges({
             completed: challenges.vocab,
             reward: 15,
             linkTo: "/vocables",
+            progress: challenges.vocab_progress ?? 0,
+            maxProgress: 20,
         },
         {
             id: "perfect",
@@ -274,13 +323,13 @@ export default function DailyChallenges({
                                     : "bg-white border-[#3A3A3A]/10 hover:border-[#3A3A3A]/20",
                             ].join(" ")}
                         >
-                            {/* Icon & Checkmark */}
+                            {/* Icon & Checkmark / Progress */}
                             <div className="flex-shrink-0">
-                                {challenge.completed ? (
-                                    <CheckCircle2 className="w-5 h-5 text-[rgb(var(--vocado-accent-rgb))]" />
-                                ) : (
-                                    <Circle className="w-5 h-5 text-[#3A3A3A]/30" />
-                                )}
+                                <ProgressRing
+                                    progress={challenge.progress ?? 0}
+                                    total={challenge.maxProgress ?? 1}
+                                    completed={challenge.completed}
+                                />
                             </div>
 
                             {/* Content */}

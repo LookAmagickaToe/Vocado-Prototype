@@ -358,6 +358,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         vocab: false,
         perfect: false,
         points_earned: 0,
+        vocab_progress: 0,
     })
     const [ripenessLevel, setRipenessLevel] = useState(0)
 
@@ -734,6 +735,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                             vocab: false,
                             perfect: false,
                             points_earned: 0,
+                            vocab_progress: 0,
                         })
                     }
                 }
