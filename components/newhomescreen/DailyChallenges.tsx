@@ -310,7 +310,7 @@ export default function DailyChallenges({
                                     {ripenessPhase.phase}
                                 </span>
                                 <span className="text-[10px] text-[#3A3A3A]/60">
-                                    {ripenessLevel} {ripenessLevel === 1 ? ui.days.slice(0, -1) : ui.days}
+                                    {Math.min(ripenessLevel, 7)} / 7 {ui.days}
                                 </span>
                             </div>
                             {/* Progress Bar with Avocado */}
