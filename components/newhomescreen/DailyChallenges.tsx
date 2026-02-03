@@ -212,40 +212,47 @@ export default function DailyChallenges({
 
     // Get ripeness phase based on streak days
     const getRipenessPhase = (days: number) => {
+        // Global progress for the 7-day cycle
+        const progress = Math.min(days, 7)
+        const maxProgress = 7
+
         if (days < 2) {
-            // Seed Phase: Days 0-1 (Max 2)
+            // Seed Phase: Days 0-1
             return {
                 emoji: "🫘",
                 phase: ui.seedPhase,
                 status: ui.needsWater,
-                progress: days,
-                maxProgress: 2,
+                progress,
+                maxProgress,
                 color: "rgb(139, 69, 19)" // Brown for seed
             }
         } else if (days < 5) {
+            // Sprout Phase: Days 2-4
             return {
                 emoji: "🌱",
                 phase: ui.sproutPhase,
                 status: ui.keepGrowing,
-                progress: days - 2,
-                maxProgress: 3,
+                progress,
+                maxProgress,
                 color: "rgb(107, 142, 35)" // Olive/Green for sprout
             }
         } else if (days < 7) {
+            // Tree Phase: Days 5-6
             return {
                 emoji: "🌳",
                 phase: ui.treePhase,
                 status: ui.keepGrowing,
-                progress: days - 5,
-                maxProgress: 2,
+                progress,
+                maxProgress,
                 color: "rgb(34, 139, 34)" // Forest green for tree
             }
         } else {
+            // Fruitful Phase: Days 7+
             return {
                 emoji: "🥑",
                 phase: ui.fruitfulPhase,
                 status: ui.harvestSuccess,
-                progress: Math.min(days - 7, 7), // Just fill it or loop
+                progress: 7, // Full
                 maxProgress: 7,
                 color: "rgb(var(--vocado-accent-rgb))" // Avocado green for fruitful
             }
@@ -306,15 +313,18 @@ export default function DailyChallenges({
                                     {ripenessLevel} {ripenessLevel === 1 ? ui.days.slice(0, -1) : ui.days}
                                 </span>
                             </div>
-                            {/* Progress Bar */}
-                            <div className="w-full h-1.5 bg-[#3A3A3A]/10 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{
-                                        width: `${(ripenessPhase.progress / ripenessPhase.maxProgress) * 100}%`,
-                                        backgroundColor: ripenessPhase.color
-                                    }}
-                                />
+                            {/* Progress Bar with Avocado */}
+                            <div className="flex items-center gap-2 w-full">
+                                <div className="flex-1 h-1.5 bg-[#3A3A3A]/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{
+                                            width: `${(ripenessPhase.progress / ripenessPhase.maxProgress) * 100}%`,
+                                            backgroundColor: ripenessPhase.color
+                                        }}
+                                    />
+                                </div>
+                                <span className="text-[16px] leading-none select-none">🥑</span>
                             </div>
                         </div>
                     </div>
