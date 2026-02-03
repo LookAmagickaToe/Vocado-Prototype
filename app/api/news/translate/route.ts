@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         const prompt = buildTranslationPrompt(template.template_json, targetLanguage)
 
         const rawModel = process.env.GEMINI_MODEL ?? DEFAULT_MODEL
-        const model = rawModel.startsWith("models/") ? rawModel : `models / ${rawModel} `
+        const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${apiKey}`,
