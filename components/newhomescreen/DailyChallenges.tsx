@@ -234,7 +234,7 @@ export default function DailyChallenges({
                 status: ui.keepGrowing,
                 progress,
                 maxProgress,
-                color: "rgb(107, 142, 35)" // Olive/Green for sprout
+                color: "rgb(150, 196, 94)" // Light green for sprout
             }
         } else if (days < 7) {
             // Tree Phase: Days 5-6
@@ -244,7 +244,7 @@ export default function DailyChallenges({
                 status: ui.keepGrowing,
                 progress,
                 maxProgress,
-                color: "rgb(34, 139, 34)" // Forest green for tree
+                color: "rgb(104, 163, 68)" // Medium green for tree
             }
         } else {
             // Fruitful Phase: Days 7+
