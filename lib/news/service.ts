@@ -33,6 +33,13 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         }
 
         if (worldData) {
+            // Hotfix: Ensure title is always from the source (DB column) and not overwritten by translation
+            if (worldData.news && existingTranslation.title) {
+                worldData.news.title = existingTranslation.title
+                // Also update the wrapper title
+                worldData.title = `Vocado Diario - ${existingTranslation.title}`
+            }
+
             console.log(`[translate] Returning cached data with keys: ${Object.keys(worldData).join(', ')}`)
             return {
                 success: true,
@@ -104,6 +111,7 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         },
         mode: "vocab",
         news: {
+            ...translatedJson,
             sourceUrl: template.source_url,
             title: template.title,
             teaser: translatedJson.summary?.[0] || "",
@@ -112,7 +120,6 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
             index: 0,
             category: template.category,
             level: template.level,
-            ...translatedJson
         },
         pool: translatedJson.items.map((it: any, idx: number) => ({
             ...it,
