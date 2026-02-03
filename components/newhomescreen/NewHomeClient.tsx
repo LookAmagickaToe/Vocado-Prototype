@@ -397,6 +397,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const [lastPlayed, setLastPlayed] = useState<LastPlayed | null>(null)
     const [showAttachMenu, setShowAttachMenu] = useState(false)
     const [createWorldError, setCreateWorldError] = useState<string | null>(null)
+    const [isTranslationSaved, setIsTranslationSaved] = useState(false)
 
     const cameraInputRef = useRef<HTMLInputElement | null>(null)
     const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -1559,6 +1560,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
     const handleAddTranslation = async () => {
         if (!translateResult) return
+
+        // Immediate UI feedback
+        setIsTranslationSaved(true)
+
         const word: ReviewWord = {
             id: `translate-${Date.now()}`,
             source: translateResult.source,
@@ -1575,9 +1580,19 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 world.title?.trim().toLowerCase() ===
                 translationWorldName.trim().toLowerCase()
         )
-        await saveOverlayWorld([word], existing?.id ?? null, translationWorldName, false)
+
+        // Save in background (concurrent with the delay)
+        const savePromise = saveOverlayWorld([word], existing?.id ?? null, translationWorldName, false)
+
+        // Wait at least 1 second for the user to see the checkmark
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // await save to ensure it completes before closing (optional, but good for error handling if we were showing errors)
+        await savePromise
+
         setTranslateResult(null)
         setInputText("")
+        setIsTranslationSaved(false)
     }
 
     const toggleTranslateMode = () => {
@@ -2083,9 +2098,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                                         <button
                                             type="button"
                                             onClick={handleAddTranslation}
-                                            className="absolute right-3 top-3 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[#3A3A3A]/70 hover:text-[#3A3A3A] flex items-center justify-center"
+                                            className="absolute right-3 top-3 h-7 w-7 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] text-[#3A3A3A]/70 hover:text-[#3A3A3A] flex items-center justify-center transition-all disabled:opacity-100"
+                                            disabled={isTranslationSaved}
                                         >
-                                            <Plus className="w-4 h-4" strokeWidth={1.8} />
+                                            {isTranslationSaved ? (
+                                                <Check className="w-4 h-4 text-[rgb(var(--vocado-accent-rgb))]" strokeWidth={2.5} />
+                                            ) : (
+                                                <Plus className="w-4 h-4" strokeWidth={1.8} />
+                                            )}
                                         </button>
                                         <div className="text-[13px] font-medium text-[#3A3A3A]">
                                             {translateResult.emoji ? `${translateResult.emoji} ` : ""}{translateResult.source} → {translateResult.target}
