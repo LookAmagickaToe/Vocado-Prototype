@@ -39,9 +39,9 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
     }
 
     // 3. Translate template using AI
-    console.log(`[translate] Translating ${templateId}: Deutsch -> ${targetLanguage}`)
+    console.log(`[translate] Translating ${templateId}: Deutsch -> ${targetLanguage} (native: ${sourceLanguage})`)
 
-    const prompt = buildTranslationPrompt(template.template_json, targetLanguage)
+    const prompt = buildTranslationPrompt(template.template_json, targetLanguage, sourceLanguage)
 
     const rawModel = process.env.GEMINI_MODEL ?? DEFAULT_MODEL
     const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`

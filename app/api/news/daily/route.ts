@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 
             // Translate on demand
             try {
-                const result = await translateNewsTemplate(template.id, targetLabel, "Deutsch")
+                const result = await translateNewsTemplate(template.id, targetLabel, sourceLabel)
                 return result.data
             } catch (err) {
                 console.error(`Translation error for template ${template.id}:`, err)
