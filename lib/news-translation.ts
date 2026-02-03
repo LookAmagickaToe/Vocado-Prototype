@@ -49,3 +49,13 @@ export function validateTranslation(original: any, translated: any): boolean {
         item.primary && item.secondary && item.emoji
     )
 }
+
+export function extractJson(text: string) {
+    const start = text.indexOf("{")
+    const end = text.lastIndexOf("}")
+    if (start >= 0 && end > start) {
+        const slice = text.slice(start, end + 1)
+        return JSON.parse(slice)
+    }
+    return JSON.parse(text)
+}

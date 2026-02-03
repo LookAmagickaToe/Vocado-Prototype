@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
+import { translateNewsTemplate } from "@/lib/news/service"
 
 export const runtime = "nodejs"
 
@@ -95,25 +96,7 @@ export async function GET(req: Request) {
 
             // Translate on demand
             try {
-                const translateResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/news/translate`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            templateId: template.id,
-                            targetLanguage: targetLabel,
-                            sourceLanguage: "Deutsch"
-                        })
-                    }
-                )
-
-                if (!translateResponse.ok) {
-                    console.error(`Translation failed for template ${template.id}`)
-                    return null
-                }
-
-                const result = await translateResponse.json()
+                const result = await translateNewsTemplate(template.id, targetLabel, "Deutsch")
                 return result.data
             } catch (err) {
                 console.error(`Translation error for template ${template.id}:`, err)

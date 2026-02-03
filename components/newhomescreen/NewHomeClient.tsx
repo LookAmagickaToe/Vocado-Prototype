@@ -52,6 +52,7 @@ type ProfileSettings = {
     avatarUrl?: string
     ripenessLevel?: number
     lastPlayedDate?: string
+    tutorialSeen?: boolean
 }
 
 type LastPlayed = {
@@ -368,7 +369,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         newsCategory: profile.newsCategory,
         onboardingDone: profile.onboardingDone,
     })
-    const [showTutorial, setShowTutorial] = useState(false)
+    const [showTutorial, setShowTutorial] = useState(!profile.tutorialSeen)
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const localSeen = window.localStorage.getItem("vocado-tutorial-seen") === "true"
+            if (localSeen && showTutorial) {
+                setShowTutorial(false)
+            }
+        }
+    }, [showTutorial])
     const [savingProfile, setSavingProfile] = useState(false)
     const [profileError, setProfileError] = useState<string | null>(null)
 
@@ -609,11 +619,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             const finalAvatar = localSettings?.avatarUrl || dbRow?.avatar_url || googleAvatar || FALLBACK_AVATAR
             setAvatarUrl(finalAvatar)
 
-            // 7. Check tutorial_seen from DB (cross-device persistence)
-            const dbTutorialSeen = dbRow?.tutorial_seen === true
-            if (!localTutorialSeen && !dbTutorialSeen) {
-                setShowTutorial(true)
-            }
+
         }
 
         initProfile()
