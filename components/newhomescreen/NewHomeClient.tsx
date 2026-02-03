@@ -360,7 +360,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         points_earned: 0,
         vocab_progress: 0,
     })
-    const [ripenessLevel, setRipenessLevel] = useState(0)
+    const [ripenessLevel, setRipenessLevel] = useState(profile.ripenessLevel ?? 0)
 
     // Profile & UserMenu state
     const [profileSettings, setProfileSettings] = useState({
@@ -739,14 +739,18 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         })
                     }
                 }
-                if (typeof profile?.ripeness_level === "number") {
-                    setRipenessLevel(profile.ripeness_level)
+                if (profile && "ripeness_level" in profile) {
+                    setRipenessLevel(Number(profile.ripeness_level) || 0)
                 }
             } catch {
                 // ignore
             }
         }
         loadChallenges()
+
+        const onFocus = () => loadChallenges()
+        window.addEventListener("focus", onFocus)
+        return () => window.removeEventListener("focus", onFocus)
     }, [])
 
     const handleChallengeClick = async (challengeId: string) => {
@@ -1912,7 +1916,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 <div className="flex-1 flex justify-start items-center">
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgb(var(--vocado-accent-rgb)/0.15)] border border-[rgb(var(--vocado-accent-rgb)/0.3)]">
                         <span className="text-[14px]">
-                            {ripenessLevel <= 2 ? "🫘" : ripenessLevel <= 6 ? "🌿" : "🥑"}
+                            {ripenessLevel < 2 ? "🫘" : ripenessLevel < 5 ? "🌱" : ripenessLevel < 7 ? "🌳" : "🥑"}
                         </span>
                         <span className="text-[13px] font-semibold text-[#3A3A3A]">
                             {ripenessLevel}

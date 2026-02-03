@@ -87,7 +87,8 @@ export async function POST(req: Request) {
         let pointsEarned = 0
         // Update vocab progress if increment provided
         if (vocab_increment > 0) {
-            dailyChallenges.vocab_progress = (dailyChallenges.vocab_progress || 0) + vocab_increment
+            const currentProgress = Number(dailyChallenges.vocab_progress) || 0
+            dailyChallenges.vocab_progress = currentProgress + vocab_increment
         }
 
         if (challenge_type === "newspaper" && !dailyChallenges.newspaper) {

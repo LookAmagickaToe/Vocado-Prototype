@@ -28,14 +28,14 @@ export default async function Page() {
   let profileRow: any = null
   const withAvatar = await supabaseAdmin
     .from("profiles")
-    .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start,daily_state,daily_state_date,onboarding_done,avatar_url,tutorial_seen")
+    .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start,daily_state,daily_state_date,onboarding_done,avatar_url,tutorial_seen,ripeness_level")
     .eq("id", userId)
     .maybeSingle()
 
   if (withAvatar.error && typeof withAvatar.error.message === "string" && withAvatar.error.message.includes("avatar_url")) {
     const fallback = await supabaseAdmin
       .from("profiles")
-      .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start,daily_state,daily_state_date,onboarding_done,tutorial_seen")
+      .select("level,source_language,target_language,news_category,seeds,weekly_seeds,weekly_seeds_week_start,weekly_words,weekly_words_week_start,daily_state,daily_state_date,onboarding_done,tutorial_seen,ripeness_level")
       .eq("id", userId)
       .maybeSingle()
     profileRow = fallback.data ?? null
@@ -60,6 +60,7 @@ export default async function Page() {
         onboardingDone: profileRow?.onboarding_done ?? false,
         avatarUrl: profileRow?.avatar_url ?? "",
         tutorialSeen: profileRow?.tutorial_seen ?? false,
+        ripenessLevel: profileRow?.ripeness_level ?? 0,
       }}
     />
   )

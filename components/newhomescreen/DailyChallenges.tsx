@@ -90,7 +90,8 @@ export default function DailyChallenges({
                 days: "días",
                 ripenessTitle: "🥑 El Ciclo de Madurez",
                 seedPhase: "Semilla",
-                bushPhase: "Arbusto",
+                sproutPhase: "Brote",
+                treePhase: "Árbol",
                 fruitfulPhase: "Fructífero",
                 needsWater: "Riega tu planta completando los 3 desafíos diarios",
                 keepGrowing: "Nutre tu planta completando los 3 desafíos diarios",
@@ -113,7 +114,8 @@ export default function DailyChallenges({
                 days: "Tage",
                 ripenessTitle: "🥑 Der Reifezyklus",
                 seedPhase: "Samen",
-                bushPhase: "Busch",
+                sproutPhase: "Keimling",
+                treePhase: "Baum",
                 fruitfulPhase: "Fruchtbar",
                 needsWater: "Gieße deine Pflanze, indem du alle 3 täglichen Herausforderungen meisterst",
                 keepGrowing: "Nähre deine Pflanze, indem du alle 3 täglichen Herausforderungen meisterst",
@@ -136,7 +138,8 @@ export default function DailyChallenges({
                 days: "days",
                 ripenessTitle: "🥑 The Ripeness Cycle",
                 seedPhase: "Seed",
-                bushPhase: "Little Bush",
+                sproutPhase: "Sprout",
+                treePhase: "Tree",
                 fruitfulPhase: "Fruitful",
                 needsWater: "Water your plant by accomplishing all 3 daily challenges",
                 keepGrowing: "Nurture your plant by accomplishing all 3 daily challenges",
@@ -159,7 +162,8 @@ export default function DailyChallenges({
                 days: "jours",
                 ripenessTitle: "🥑 Le Cycle de Maturité",
                 seedPhase: "Graine",
-                bushPhase: "Petit Buisson",
+                sproutPhase: "Pousse",
+                treePhase: "Arbre",
                 fruitfulPhase: "Fructueux",
                 needsWater: "Arrosez votre plante en accomplissant les 3 défis quotidiens",
                 keepGrowing: "Nourrissez votre plante en accomplissant les 3 défis quotidiens",
@@ -182,7 +186,8 @@ export default function DailyChallenges({
                 days: "dias",
                 ripenessTitle: "🥑 O Ciclo de Maturação",
                 seedPhase: "Semente",
-                bushPhase: "Pequeno Arbusto",
+                sproutPhase: "Broto",
+                treePhase: "Árvore",
                 fruitfulPhase: "Frutífero",
                 needsWater: "Regue sua planta completando todos os 3 desafios diários",
                 keepGrowing: "Nutra sua planta completando todos os 3 desafios diários",
@@ -207,7 +212,8 @@ export default function DailyChallenges({
 
     // Get ripeness phase based on streak days
     const getRipenessPhase = (days: number) => {
-        if (days <= 2) {
+        if (days < 2) {
+            // Seed Phase: Days 0-1 (Max 2)
             return {
                 emoji: "🫘",
                 phase: ui.seedPhase,
@@ -216,21 +222,30 @@ export default function DailyChallenges({
                 maxProgress: 2,
                 color: "rgb(139, 69, 19)" // Brown for seed
             }
-        } else if (days <= 6) {
+        } else if (days < 5) {
             return {
-                emoji: "🌿",
-                phase: ui.bushPhase,
+                emoji: "🌱",
+                phase: ui.sproutPhase,
                 status: ui.keepGrowing,
                 progress: days - 2,
-                maxProgress: 4,
-                color: "rgb(34, 139, 34)" // Forest green for bush
+                maxProgress: 3,
+                color: "rgb(107, 142, 35)" // Olive/Green for sprout
+            }
+        } else if (days < 7) {
+            return {
+                emoji: "🌳",
+                phase: ui.treePhase,
+                status: ui.keepGrowing,
+                progress: days - 5,
+                maxProgress: 2,
+                color: "rgb(34, 139, 34)" // Forest green for tree
             }
         } else {
             return {
                 emoji: "🥑",
                 phase: ui.fruitfulPhase,
                 status: ui.harvestSuccess,
-                progress: Math.min(days - 6, 7),
+                progress: Math.min(days - 7, 7), // Just fill it or loop
                 maxProgress: 7,
                 color: "rgb(var(--vocado-accent-rgb))" // Avocado green for fruitful
             }
