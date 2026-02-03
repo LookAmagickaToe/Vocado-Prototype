@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin"
 import { translateNewsTemplate } from "@/lib/news/service"
 
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
 
@@ -105,7 +106,7 @@ export async function GET(req: Request) {
         const templateIds = templates.map(t => t.id)
         const { data: cachedNews, error: cacheError } = await supabaseAdmin
             .from("daily_news")
-            .select("json, template_id")
+            .select("json, template_id, title")
             .in("template_id", templateIds)
             .eq("target_language", targetLabel)
 
@@ -118,6 +119,12 @@ export async function GET(req: Request) {
                         try { content = JSON.parse(content) } catch (e) {
                             console.error("Failed to parse cached JSON:", e)
                         }
+                    }
+
+                    // Hotfix: Ensure title is always from the source (DB column) and not overwritten by translation
+                    if (content && content.news && item.title) {
+                        content.news.title = item.title
+                        content.title = `Vocado Diario - ${item.title}`
                     }
                     cachedMap.set(item.template_id, content)
                 }
