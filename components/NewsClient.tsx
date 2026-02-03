@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useMemo, useState } from "react"
-import { BookmarkPlus, Check, Plus, Sparkles } from "lucide-react"
+import { BookmarkPlus, Check, Plus, RefreshCw, Sparkles } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 import { getUiSettings } from "@/lib/ui-settings"
@@ -373,7 +373,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const newsCacheKey = useMemo(() => {
     const levelKey = profileState.level || "A2"
-    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}|v3`
+    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}`
     return `vocado-news-cache:${sessionKey}`
   }, [category, profileState.level, sourceLabel, targetLabel])
 
@@ -1499,7 +1499,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
         {step === "input" && (
           <div className="mt-2 space-y-4">
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-center gap-2 flex-1">
               {([
                 { id: "world", label: ui.categoryOptions.world ?? "World" },
                 { id: "wirtschaft", label: ui.categoryOptions.wirtschaft ?? "Economy" },
@@ -1519,8 +1520,26 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   {item.label}
                 </button>
               ))}
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof window !== "undefined") {
+                    const sessionKey = `${category}|${profileState.level}|${profileState.sourceLanguage}|${profileState.targetLanguage}`
+                    const cacheKey = `${LOCAL_NEWS_CACHE_PREFIX}:${sessionKey}`
+                    window.localStorage.removeItem(cacheKey)
+                  }
+                  setNewsWorlds([])
+                  setIsLoadingHeadlines(true)
+                  await ensureDailyNewsList(category)
+                  setIsLoadingHeadlines(false)
+                }}
+                className="rounded-full p-2 border border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70 hover:bg-[#EBE7DF] hover:text-[#3A3A3A] transition-colors"
+                title="Refresh news from server"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
             </div>
-
             {isLoadingHeadlines ? (
               <div className="text-sm text-[#3A3A3A]/60 text-center">{ui.loadingDaily}</div>
             ) : (

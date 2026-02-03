@@ -83,11 +83,16 @@ async function generateNewsContent(url: string, sourceLabel: string, targetLabel
             )
 
             if (!response.ok) {
-                // If 429 or 500, throw to trigger retry
-                if (response.status === 429 || response.status >= 500) {
+                // 429 = quota exceeded - don't retry, it won't help
+                if (response.status === 429) {
+                    const errorData = await response.json().catch(() => ({}))
+                    throw new Error(`QUOTA_EXCEEDED: ${errorData.error?.message || 'API quota limit reached'}`)
+                }
+                // 500+ server errors - retry might help
+                if (response.status >= 500) {
                     throw new Error(`Gemini status ${response.status}`)
                 }
-                // Other errors might be fatal
+                // Other errors are fatal
                 throw new Error("Gemini failed")
             }
 
@@ -109,8 +114,13 @@ async function generateNewsContent(url: string, sourceLabel: string, targetLabel
 
             return parsed
         } catch (err) {
+            const errorMsg = (err as Error).message
+            // Don't retry quota errors - they won't succeed until quota resets
+            if (errorMsg.includes('QUOTA_EXCEEDED')) {
+                throw err
+            }
             if (attempt === 3) throw err
-            console.warn(`Retry ${attempt}/3 for ${url} (Level: ${level}). Error: ${(err as Error).message}`)
+            console.warn(`Retry ${attempt}/3 for ${url} (Level: ${level}). Error: ${errorMsg}`)
             // Exponential backoff: 1s, 2s, 3s
             await new Promise(resolve => setTimeout(resolve, attempt * 1000))
         }
@@ -156,9 +166,9 @@ export async function GET(req: Request) {
         results.details.push("✅ Old news cleaned up")
     }
 
-    // NEW APPROACH: Generate German templates for all levels (A1-C2)
-    // Translations will be done on-demand when users request them
-    const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    // NEW APPROACH: Generate German templates for common levels only
+    // Uncommon levels (A1, C1, C2) will be generated on-demand to save API quota
+    const LEVELS = ["A2", "B1", "B2"]
     const TEMPLATE_LANGUAGE = "Deutsch"  // Always German for templates
 
     console.log(`[cron/news] Generating German templates for levels:`, LEVELS)

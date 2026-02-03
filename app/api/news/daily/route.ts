@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
     try {
         // 1. Fetch templates for today (limit 5)
-        const { data: templates, error: templateError } = await supabaseAdmin
+        let { data: templates, error: templateError } = await supabaseAdmin
             .from("daily_news_templates")
             .select("*")
             .eq("date", today)
@@ -56,9 +56,48 @@ export async function GET(req: Request) {
 
         if (templateError) throw new Error(templateError.message)
 
+        // If we have fewer than 5 templates, generate more
+        if (!templates || templates.length < 5) {
+            const existingCount = templates?.length || 0
+            const needed = 5 - existingCount
+            console.log(`[/api/news/daily] Only ${existingCount} templates exist. Generating ${needed} more...`)
+
+            // Trigger template generation (this will be async, but we'll fetch again immediately)
+            try {
+                await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/news/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category,
+                        level,
+                        count: needed,
+                        date: today
+                    })
+                })
+
+                // Wait a moment for generation to complete
+                await new Promise(resolve => setTimeout(resolve, 1000))
+
+                // Fetch templates again
+                const { data: newTemplates } = await supabaseAdmin
+                    .from("daily_news_templates")
+                    .select("*")
+                    .eq("date", today)
+                    .eq("category", category)
+                    .eq("level", level)
+                    .limit(5)
+
+                templates = newTemplates || templates
+                console.log(`[/api/news/daily] After generation: ${templates?.length || 0} templates available`)
+            } catch (genError) {
+                console.error(`[/api/news/daily] Generation failed:`, genError)
+                // Continue with whatever templates we have
+            }
+        }
+
         if (!templates || templates.length === 0) {
             const totalTime = Date.now() - startTime
-            console.log(`[/api/news/daily] No templates found - total time: ${totalTime}ms`)
+            console.log(`[/api/news/daily] No templates found after generation attempt - total time: ${totalTime}ms`)
             return NextResponse.json({ items: [] })
         }
 
@@ -97,7 +136,25 @@ export async function GET(req: Request) {
             // Translate on demand
             try {
                 const result = await translateNewsTemplate(template.id, targetLabel, sourceLabel)
-                return result.data
+                // Parse the data if it's a cached database row with a json field
+                let worldData = result.data
+
+                if (worldData && typeof worldData === 'object' && 'json' in worldData) {
+                    // This is a raw database row, parse the json field
+                    const jsonField = worldData.json
+                    if (typeof jsonField === 'string') {
+                        try {
+                            worldData = JSON.parse(jsonField)
+                        } catch (e) {
+                            console.error(`Failed to parse JSON for template ${template.id}:`, e)
+                            return null
+                        }
+                    } else {
+                        worldData = jsonField
+                    }
+                }
+
+                return worldData
             } catch (err) {
                 console.error(`Translation error for template ${template.id}:`, err)
                 return null

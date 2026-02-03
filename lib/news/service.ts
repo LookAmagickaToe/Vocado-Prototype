@@ -20,10 +20,25 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
 
     if (existingTranslation) {
         console.log(`[translate] Cache hit for ${templateId} -> ${targetLanguage}`)
-        return {
-            success: true,
-            cached: true,
-            data: existingTranslation
+
+        // Parse the json field if it's a string
+        let worldData = existingTranslation.json
+        if (typeof worldData === 'string') {
+            try {
+                worldData = JSON.parse(worldData)
+            } catch (e) {
+                console.error(`Failed to parse cached JSON for ${templateId}:`, e)
+                // Fall through to re-translate
+            }
+        }
+
+        if (worldData) {
+            console.log(`[translate] Returning cached data with keys: ${Object.keys(worldData).join(', ')}`)
+            return {
+                success: true,
+                cached: true,
+                data: worldData
+            }
         }
     }
 
