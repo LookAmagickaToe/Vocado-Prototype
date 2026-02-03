@@ -119,7 +119,7 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
                     </div>
 
                     {/* Scope Toggle */}
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center w-full gap-2">
                         {[
                             { id: "daily", label: ui.leaderboardDaily },
                             { id: "weekly", label: ui.leaderboardWeekly },
@@ -131,7 +131,7 @@ export default function LeaderboardClient({ profile }: LeaderboardClientProps) {
                                 type="button"
                                 onClick={() => setLeaderboardScope(tab.id as "daily" | "weekly" | "overall" | "harvest")}
                                 className={[
-                                    "rounded-full px-5 py-1.5 text-[12px] font-medium border transition-colors",
+                                    "flex-1 rounded-full px-1 py-1.5 text-[11px] sm:text-[12px] font-medium border transition-colors truncate",
                                     leaderboardScope === tab.id
                                         ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
                                         : "border-[#3A3A3A]/10 bg-[#F2F0E9] text-[#3A3A3A]/70",

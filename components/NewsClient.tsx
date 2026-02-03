@@ -1501,25 +1501,25 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
           <div className="mt-2 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center justify-center gap-2 flex-1">
-              {([
-                { id: "world", label: ui.categoryOptions.world ?? "World" },
-                { id: "wirtschaft", label: ui.categoryOptions.wirtschaft ?? "Economy" },
-                { id: "sport", label: ui.categoryOptions.sport ?? "Sport" },
-              ] as const).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setCategory(item.id)}
-                  className={[
-                    "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
-                    category === item.id
-                      ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
-                      : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
-                  ].join("")}
-                >
-                  {item.label}
-                </button>
-              ))}
+                {([
+                  { id: "world", label: ui.categoryOptions.world ?? "World" },
+                  { id: "wirtschaft", label: ui.categoryOptions.wirtschaft ?? "Economy" },
+                  { id: "sport", label: ui.categoryOptions.sport ?? "Sport" },
+                ] as const).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCategory(item.id)}
+                    className={[
+                      "rounded-full px-4 py-1 text-[11px] font-medium border transition-colors",
+                      category === item.id
+                        ? "border-[rgb(var(--vocado-accent-rgb))] bg-[rgb(var(--vocado-accent-rgb)/0.2)] text-[#3A3A3A]"
+                        : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70",
+                    ].join("")}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
               <button
                 type="button"
@@ -1855,16 +1855,16 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
         {step === "summary" && (
           <div className="grid gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
-            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5 flex flex-col h-full">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 sm:p-5 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3 gap-x-2">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   <button
                     onClick={() => setStep("input")}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-[#3A3A3A]/5 hover:bg-[#3A3A3A]/10 text-[#3A3A3A]/70 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-[#3A3A3A]/5 hover:bg-[#3A3A3A]/10 text-[#3A3A3A]/70 transition-colors shrink-0"
                   >
                     <div className="rotate-180">➜</div>
                   </button>
-                  <div className="relative flex items-center bg-[#3A3A3A]/5 rounded-full p-1 h-9 md:h-12 w-fit select-none min-w-[160px] md:min-w-[240px]">
+                  <div className="relative flex items-center bg-[#3A3A3A]/5 rounded-full p-1 h-9 md:h-12 w-fit select-none min-w-[140px] md:min-w-[240px]">
                     <div
                       className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
                       style={{
@@ -1875,7 +1875,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     <button
                       type="button"
                       onClick={() => setShowTranslation(false)}
-                      className={`relative z-10 flex-1 px-2 md:px-4 text-xs md:text-base font-semibold text-center transition-colors ${!showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
+                      className={`relative z-10 flex-1 px-2 md:px-4 text-[10px] sm:text-xs md:text-base font-semibold text-center transition-colors truncate ${!showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
                         }`}
                     >
                       {targetLabel}
@@ -1883,26 +1883,26 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                     <button
                       type="button"
                       onClick={() => setShowTranslation(true)}
-                      className={`relative z-10 flex-1 px-2 md:px-4 text-xs md:text-base font-semibold text-center transition-colors ${showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
+                      className={`relative z-10 flex-1 px-2 md:px-4 text-[10px] sm:text-xs md:text-base font-semibold text-center transition-colors truncate ${showTranslation ? "text-[#3A3A3A]" : "text-[#3A3A3A]/60"
                         }`}
                     >
                       {sourceLabel}
                     </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
 
                   <button
                     type="button"
                     onClick={() => setStep("play")}
-                    className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center"
+                    className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center whitespace-nowrap"
                   >
                     🚀 Jetzt spielen
                   </button>
                 </div>
               </div>
               <div
-                className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none"
+                className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none break-words"
                 style={{ WebkitTouchCallout: "none" }}
                 onContextMenu={handleContextMenu}
                 onTouchStart={(e) => {
