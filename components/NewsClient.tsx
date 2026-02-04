@@ -118,6 +118,7 @@ type NewsPayload = {
   title?: string
   text?: string
   items?: ReviewItem[]
+  id?: string
 }
 
 const normalizeText = (value: unknown) => (typeof value === "string" ? value.trim() : "")
@@ -160,9 +161,10 @@ const buildWorldFromItems = (
   items: ReviewItem[],
   sourceLabel: string,
   targetLabel: string,
-  ui: any
+  ui: any,
+  idOverride?: string
 ): VocabWorld => {
-  const id = `news-${Date.now()}`
+  const id = idOverride || `news-${Date.now()}`
 
   // Map language labels to codes
   const langMap: Record<string, string> = {
@@ -846,7 +848,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         setSummarySource(parsed.summary_source || [])
         if (parsed.items) {
           setItems(parsed.items)
-          setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel, ui))
+          setItems(parsed.items)
+          setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel, ui, parsed.id))
         }
         setStep("summary")
       }

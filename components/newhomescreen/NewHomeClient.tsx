@@ -1512,7 +1512,28 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     setWorldMetaMap((prev) => ({ ...prev, [newWorld.id]: { listId } }))
 
                     setInputText("")
-                    router.push(`/play?world=${encodeURIComponent(newWorld.id)}&level=0`)
+
+                    // Save for News Reader
+                    if (typeof window !== "undefined") {
+                        const payload = {
+                            summary: newWorld.news?.summary || [],
+                            summary_source: newWorld.news?.summary_source || [],
+                            sourceUrl: newWorld.news?.sourceUrl || targetUrl,
+                            title: newWorld.title,
+                            id: newWorld.id, // Persist ID
+                            items: newWorld.pool.map((item: any) => ({
+                                source: item.es,
+                                target: item.de,
+                                pos: item.pos,
+                                emoji: item.image?.value || "📰",
+                                explanation: item.explanation,
+                                example: item.example,
+                                conjugation: item.conjugation,
+                            }))
+                        }
+                        window.localStorage.setItem("vocado-news-current", JSON.stringify(payload))
+                        window.location.href = "/news?summary=1"
+                    }
                     return
                 }
             }
@@ -1580,8 +1601,30 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 setStoredWorlds((prev) => [...prev, newWorld])
                 setWorldMetaMap((prev) => ({ ...prev, [newWorld.id]: { listId } }))
 
+
                 setInputText("")
-                router.push(`/play?world=${encodeURIComponent(newWorld.id)}&level=0`)
+
+                // Save for News Reader
+                if (typeof window !== "undefined") {
+                    const payload = {
+                        summary: newWorld.news?.summary || [],
+                        summary_source: newWorld.news?.summary_source || [],
+                        sourceUrl: topic, // Use topic as sourceUrl
+                        title: newWorld.title,
+                        id: newWorld.id, // Persist ID
+                        items: newWorld.pool.map((item: any) => ({
+                            source: item.es,
+                            target: item.de,
+                            pos: item.pos,
+                            emoji: item.image?.value || "📰",
+                            explanation: item.explanation,
+                            example: item.example,
+                            conjugation: item.conjugation,
+                        }))
+                    }
+                    window.localStorage.setItem("vocado-news-current", JSON.stringify(payload))
+                    window.location.href = "/news?summary=1"
+                }
                 return
             }
 
@@ -1708,11 +1751,22 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 targetLabel: profileSettings.targetLanguage || "Alemán",
                 level: profileSettings.level || undefined,
             })
-            const items = Array.isArray(result?.items) ? result.items : []
+            let items = Array.isArray(result?.items) ? result.items : []
+            if (!items.length && typeof result?.mode === "string" && result.mode === "conjugation") {
+                // If AI decided it's a specific conjugation or similar but didn't return items, maybe it returned a conjugation object?
+                // For now, let's just retry or handle empty.
+            }
+            // Fallback: if no items but we have a single word input, maybe the AI failed to parse JSON correctly but we can infer?
+            // Actually, let's just trust the AI but maybe the prompt needs "items" to be populated even for 1 word.
             if (!items.length) {
-                setTranslateError(ui.noWordsError)
-                setTranslateResult(null)
-                return
+                // Try one more fallback: maybe it returned a direct translation object?
+                if (result?.source && result?.target) {
+                    items = [result]
+                } else {
+                    setTranslateError(ui.noWordsError)
+                    setTranslateResult(null)
+                    return
+                }
             }
             const item = items[0]
             setTranslateResult({
@@ -1724,6 +1778,8 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 pos: normalizePos(item?.pos),
                 syllables: normalizeText(item?.syllables) || undefined,
             })
+            setInputText("")
+            setTranslateMode(false) // Reset button state
         } catch (err) {
             setTranslateError((err as Error).message)
         } finally {
