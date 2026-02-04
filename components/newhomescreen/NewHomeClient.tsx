@@ -1412,6 +1412,179 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 return
             }
 
+            const isStoryRequest = /^create a story/i.test(theme)
+            const isReadStoryRequest = /^read this story/i.test(theme)
+            // Basic URL check
+            const potentialUrl = theme.match(/(https?:\/\/[^\s]+)/)?.[0]
+            const isUrlRequest = Boolean(potentialUrl) || isReadStoryRequest
+
+            if (isUrlRequest) {
+                const targetUrl = potentialUrl || (isReadStoryRequest ? theme.replace(/^read this story:?\s*/i, "").trim() : "")
+                if (!targetUrl) {
+                    // If they typed "read this story" but no link, maybe fall back to normal generation or error?
+                    // For now, let's treat it as theme generation if no URL found?
+                    // actually, let's just create a story about "read this story" if no URL.
+                } else {
+                    const result = await callAi({
+                        task: "news",
+                        url: targetUrl,
+                        level: profileSettings.level || undefined,
+                        sourceLabel: profileSettings.sourceLanguage || "Español",
+                        targetLabel: profileSettings.targetLanguage || "Alemán",
+                        includeText: true,
+                    })
+
+                    const items = Array.isArray(result?.items) ? result.items : []
+                    const reviewItems = buildReviewItemsFromAi(items)
+                    const words = buildReviewWordsFromItems(reviewItems)
+
+                    if (!words.length) {
+                        setCreateWorldError(ui.noWordsError)
+                        return
+                    }
+
+                    // NEWS generates 'summary' (array of strings) in the target language.
+                    // We need to pass this to the world so it can be read.
+                    // Reuse 'news' structure for this generic import for now? 
+                    // Or ideally create a better 'story' structure in VocabWorld. 
+                    // Current VocabWorld has `news?: { summary: string[] }`. We can interpret that as "The Content".
+
+                    const summary = Array.isArray(result?.summary)
+                        ? result.summary
+                        : typeof result?.summary === "string"
+                            ? [result.summary]
+                            : []
+                    const summarySource = Array.isArray(result?.summary_source)
+                        ? result.summary_source
+                        : typeof result?.summary_source === "string"
+                            ? [result.summary_source]
+                            : []
+                    const title = result?.title || "Story"
+
+                    // CREATE WORLD IMMEDIATELY (Similar to News) 
+                    // Why? Because it has content (text) to read, it's not just a vocab list to review overlay.
+                    // BUT user might want to review words first? 
+                    // The prompt says: "generates a readable text and vocables out of it. It is being saved ot the worlds tab."
+                    // Let's save it directly and open it.
+
+                    const worldId = `story-${Date.now()}`
+                    const newWorld: VocabWorld = {
+                        ...buildWorldFromItems(
+                            reviewItems,
+                            profileSettings.sourceLanguage || "Español",
+                            profileSettings.targetLanguage || "Alemán",
+                            ui,
+                            worldId
+                        ),
+                        title: title,
+                        description: "Imported story/article.",
+                        mode: "vocab", // generic vocab mode
+                        news: {
+                            // abusing news field for generic text content
+                            summary: summary,
+                            summary_source: summarySource,
+                            title: title,
+                            category: "story", // custom category
+                            date: new Date().toISOString(),
+                            sourceUrl: targetUrl,
+                        }
+                    }
+
+                    // SAVE
+                    const session = await supabase.auth.getSession()
+                    const token = session.data.session?.access_token
+                    if (!token) throw new Error("Missing auth token")
+
+                    const listId = await ensureUnlistedListId(token)
+
+                    await fetch("/api/storage/worlds/save", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                            worlds: [newWorld],
+                            listId,
+                            positions: { [newWorld.id]: 0 },
+                        }),
+                    })
+
+                    // UPDATE STATE
+                    setStoredWorlds((prev) => [...prev, newWorld])
+                    setWorldMetaMap((prev) => ({ ...prev, [newWorld.id]: { listId } }))
+
+                    setInputText("")
+                    router.push(`/play?world=${encodeURIComponent(newWorld.id)}&level=0`)
+                    return
+                }
+            }
+
+            if (isStoryRequest) {
+                const topic = theme.replace(/^create a story\s*(about\s*)?:?\s*/i, "").trim() || "anything"
+                const result = await callAi({
+                    task: "story",
+                    topic: topic,
+                    level: profileSettings.level || undefined,
+                    sourceLabel: profileSettings.sourceLanguage || "Español",
+                    targetLabel: profileSettings.targetLanguage || "Alemán",
+                })
+
+                const items = Array.isArray(result?.items) ? result.items : []
+                const reviewItems = buildReviewItemsFromAi(items)
+                const words = buildReviewWordsFromItems(reviewItems)
+
+                if (!words.length) {
+                    setCreateWorldError(ui.noWordsError)
+                    return
+                }
+
+                const summary = Array.isArray(result?.story) ? result.story : []
+                const summarySource = Array.isArray(result?.story_source) ? result.story_source : []
+                const title = result?.title || "Story"
+
+                const worldId = `story-${Date.now()}`
+                const newWorld: VocabWorld = {
+                    ...buildWorldFromItems(
+                        reviewItems,
+                        profileSettings.sourceLanguage || "Español",
+                        profileSettings.targetLanguage || "Alemán",
+                        ui,
+                        worldId
+                    ),
+                    title: title,
+                    description: `Story about ${topic}`,
+                    mode: "vocab",
+                    news: {
+                        summary: summary,
+                        summary_source: summarySource,
+                        title: title,
+                        category: "story",
+                        date: new Date().toISOString(),
+                    }
+                }
+
+                // SAVE
+                const session = await supabase.auth.getSession()
+                const token = session.data.session?.access_token
+                if (!token) throw new Error("Missing auth token")
+                const listId = await ensureUnlistedListId(token)
+
+                await fetch("/api/storage/worlds/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        worlds: [newWorld],
+                        listId,
+                        positions: { [newWorld.id]: 0 },
+                    }),
+                })
+
+                setStoredWorlds((prev) => [...prev, newWorld])
+                setWorldMetaMap((prev) => ({ ...prev, [newWorld.id]: { listId } }))
+
+                setInputText("")
+                router.push(`/play?world=${encodeURIComponent(newWorld.id)}&level=0`)
+                return
+            }
+
             const result = await callAi({
                 task: "theme_list",
                 theme,
@@ -1885,6 +2058,14 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             setIsGenerating(false)
         }
     }
+
+    // Mock Leaderboard (Prevention of ReferenceError)
+    const leaderboard = [
+        { name: "You", score: seeds, avatar: <img src={avatarUrl || FALLBACK_AVATAR} alt="You" className="w-full h-full object-cover" />, isMe: true },
+        { name: "Alice", score: Math.max(0, seeds - 5), avatar: "👩‍🚀", isMe: false },
+        { name: "Bob", score: Math.max(0, seeds - 12), avatar: "👨‍🍳", isMe: false },
+        { name: "Charlie", score: Math.max(0, seeds - 25), avatar: "🧛", isMe: false },
+    ]
 
     // Render Friends Page if active
     if (activeTab === "Friends") {

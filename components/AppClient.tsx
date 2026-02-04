@@ -1648,6 +1648,7 @@ export default function AppClient({
       NEWS_STORAGE_KEY,
       JSON.stringify({
         summary: world.news.summary,
+        summary_source: world.news.summary_source ?? [],
         sourceUrl: world.news.sourceUrl,
         title: world.news.title ?? world.title,
         items:

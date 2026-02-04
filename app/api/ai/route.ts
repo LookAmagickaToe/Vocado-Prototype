@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server"
 //const DEFAULT_MODEL = "gemini-flash-latest"
 const DEFAULT_MODEL = "gemini-2.0-flash-lite-001"
 
-type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news"
+type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news" | "story"
 
 export function extractJson(text: string) {
   // Try to find array first if it looks like one
@@ -180,6 +180,39 @@ function buildThemePrompt({
   ].join("\n")
 }
 
+function buildStoryPrompt({
+  sourceLabel,
+  targetLabel,
+  topic,
+  level,
+}: {
+  sourceLabel: string
+  targetLabel: string
+  topic: string
+  level: string
+}) {
+  return [
+    "You are a creative writer and language teacher.",
+    `Write a short, engaging story (approx. 150 words) about: "${topic}".`,
+    `Language: Write the story in "${targetLabel}" (the target language).`,
+    `Target proficiency level: ${level}.`,
+    "Extract key vocabulary from your story.",
+    `Source language for explanations/translation: "${sourceLabel}".`,
+    "Return ONLY valid JSON with this shape:",
+    `{"title":"...","story":["..."],"story_source":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
+    "title: A creative title for the story in the TARGET language.",
+    "story: The content of the story, split into an array of paragraphs (strings).",
+    "story_source: The same story translated into the SOURCE language (for reference), split into paragraphs.",
+    "items: Extract 10-15 vocabulary items from the story.",
+    "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 4 sections with titles for 'Present', 'Simple Past', 'Perfect', and 'Future' in the TARGET language.",
+    "Structure: {\"infinitive\":\"...\",\"translation\":\"...\",\"sections\":[{\"title\":\"(Present)\",\"rows\":[[\"(pronoun)\",\"...\"],...]},{\"title\":\"(Past)\",\"rows\":[...] }, etc.]}.",
+    "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language. Do NOT use source language pronouns.",
+    "Choose a fitting emoji for each item.",
+    "explanation: 1-2 sentences explaining the word in the SOURCE language.",
+    "For verbs, provide syllable breakdown of the TARGET verb in 'syllables'.",
+  ].join("\n")
+}
+
 export function stripHtml(html: string) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -216,7 +249,7 @@ export function buildNewsPrompt({
     "Structure: {\"infinitive\":\"...\",\"translation\":\"...\",\"sections\":[{\"title\":\"(Present Tense)\",\"rows\":[[\"(pronoun)\",\"...\"],...]},{\"title\":\"(Past Tense)\",\"rows\":[...] }, etc.]}.",
     "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language (e.g. 'yo', 'tú' for Spanish, 'ich', 'du' for German). Do NOT use source language pronouns.",
     `summary: Write a comprehensive summary/article in ${targetLabel}. It MUST be at least 120 words long.`,
-    `summary_source: The SAME content as 'summary', but in ${sourceLabel} (the source language). This must also be at least 120 words long.`,
+    `summary_source: **REQUIRED**: The exact translation of the 'summary' into ${sourceLabel}. It MUST be a parallel text.`,
     "items: Extract at least 8 relevant vocabulary items from the text. More is better (up to 15).",
     "If level is A1/A2: use very short sentences, common words, present tense when possible, no complex clauses.",
     "If level is B1/B2: medium length sentences, limited subordinate clauses, clear connectors.",
@@ -407,6 +440,19 @@ export async function POST(req: NextRequest) {
       count,
       level,
       exclude,
+    })
+    parts = [{ text: prompt }]
+  } else if (task === "story") {
+    const topic = typeof body?.topic === "string" ? body.topic : ""
+    const level = typeof body?.level === "string" ? body.level : "A2"
+    if (!topic.trim()) {
+      return NextResponse.json({ error: "Missing topic" }, { status: 400 })
+    }
+    prompt = buildStoryPrompt({
+      sourceLabel,
+      targetLabel,
+      topic,
+      level,
     })
     parts = [{ text: prompt }]
   } else if (task === "news") {
