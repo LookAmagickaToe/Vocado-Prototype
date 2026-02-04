@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import { translateNewsTemplate } from "@/lib/news/service"
+import { translateNewsTemplatesBatch } from "@/lib/news/service"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -102,84 +102,11 @@ export async function GET(req: Request) {
             return NextResponse.json({ items: [] })
         }
 
-        // 2. Check which templates are already translated and cached
+        // 2. Batch Translate (handles caching internally)
         const templateIds = templates.map(t => t.id)
-        const { data: cachedNews, error: cacheError } = await supabaseAdmin
-            .from("daily_news")
-            .select("json, template_id, title")
-            .in("template_id", templateIds)
-            .eq("target_language", targetLabel)
+        const batchResults = await translateNewsTemplatesBatch(templateIds, targetLabel, sourceLabel)
 
-        const cachedMap = new Map()
-        if (cachedNews) {
-            cachedNews.forEach(item => {
-                if (item.template_id) {
-                    let content = item.json
-                    if (typeof content === "string") {
-                        try { content = JSON.parse(content) } catch (e) {
-                            console.error("Failed to parse cached JSON:", e)
-                        }
-                    }
-
-                    // Hotfix: Ensure title is always from the source (DB column) and not overwritten by translation
-                    if (content && content.news && item.title) {
-                        content.news.title = item.title
-                        content.title = `Vocado Diario - ${item.title}`
-                    }
-
-                    // Hotfix: Ensure pool items have correct structure for VocabMemoryGame
-                    if (content && content.pool && Array.isArray(content.pool)) {
-                        content.pool = content.pool.map((p: any) => ({
-                            ...p,
-                            es: p.es || p.target, // Target language
-                            de: p.de || p.source, // Source language
-                            image: p.image || { type: "emoji", value: p.emoji || "🧩" }
-                        }))
-                    }
-
-                    cachedMap.set(item.template_id, content)
-                }
-            })
-        }
-
-        console.log(`[/api/news/daily] Found ${templates.length} templates. Cached: ${cachedMap.size}. Needs translation: ${templates.length - cachedMap.size}`)
-
-        // 3. Translate missing items
-        const resultsPromises = templates.map(async (template) => {
-            // Return cached if exists
-            if (cachedMap.has(template.id)) {
-                return cachedMap.get(template.id)
-            }
-
-            // Translate on demand
-            try {
-                const result = await translateNewsTemplate(template.id, targetLabel, sourceLabel)
-                // Parse the data if it's a cached database row with a json field
-                let worldData = result.data
-
-                if (worldData && typeof worldData === 'object' && 'json' in worldData) {
-                    // This is a raw database row, parse the json field
-                    const jsonField = worldData.json
-                    if (typeof jsonField === 'string') {
-                        try {
-                            worldData = JSON.parse(jsonField)
-                        } catch (e) {
-                            console.error(`Failed to parse JSON for template ${template.id}:`, e)
-                            return null
-                        }
-                    } else {
-                        worldData = jsonField
-                    }
-                }
-
-                return worldData
-            } catch (err) {
-                console.error(`Translation error for template ${template.id}:`, err)
-                return null
-            }
-        })
-
-        const items = (await Promise.all(resultsPromises)).filter(Boolean)
+        const items = batchResults.results.map(r => r.data).filter(Boolean)
 
         const totalTime = Date.now() - startTime
         console.log(`[/api/news/daily] Success - ${items.length} items returned in ${totalTime}ms total`)

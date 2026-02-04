@@ -7,6 +7,19 @@ const DEFAULT_MODEL = "gemini-2.0-flash-lite-001"
 type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news"
 
 export function extractJson(text: string) {
+  // Try to find array first if it looks like one
+  const startArr = text.indexOf("[")
+  const startObj = text.indexOf("{")
+
+  if (startArr >= 0 && (startObj === -1 || startArr < startObj)) {
+    const end = text.lastIndexOf("]")
+    if (end > startArr) {
+      try {
+        return JSON.parse(text.slice(startArr, end + 1))
+      } catch (e) { }
+    }
+  }
+
   const start = text.indexOf("{")
   const end = text.lastIndexOf("}")
   if (start >= 0 && end > start) {
@@ -217,6 +230,96 @@ export function buildNewsPrompt({
     "Select vocabulary based on the user's level. Be generous: extract MORE words rather than fewer, to ensure the text is easy to understand. Include even moderately common words if they are relevant to the context.",
     "Input article text:",
     rawText,
+  ].join("\n")
+}
+
+
+export function buildBatchNewsPrompt({
+  articles,
+  sourceLabel,
+  targetLabel,
+  level
+}: {
+  articles: Array<{ id: string; title: string; text: string }>;
+  sourceLabel: string;
+  targetLabel: string;
+  level: string;
+}) {
+  const levelLine = `Target proficiency level: ${level}. Use vocabulary, sentence length, and grammar strictly appropriate for this level.`
+
+  return [
+    "You are simplifying and summarizing multiple German news articles.",
+    `Output language: "${targetLabel}" (German).`,
+    `Explanation/Source Context: "${sourceLabel}" (German).`,
+    levelLine,
+    "Return ONLY a JSON array where each element corresponds to one input article.",
+    "Order MUST match the input order.",
+    "Input:",
+    JSON.stringify(articles, null, 2),
+    "",
+    "Output JSON Array format:",
+    `[
+  {
+    "id": "(original id)",
+    "title": "(original title)",
+    "summary": ["(paragraph 1 in German, simplified)", ...],
+    "summary_source": ["(same as summary, for now)"],
+    "items": [
+       { "source": "(word in German)", "target": "(same word)", "pos": "...", "emoji": "...", "explanation": "(explanation in German)", "example": "..." }
+    ]
+  }
+]`,
+    "Requirements:",
+    "- 'summary': Write a comprehensive summary in German, simplified for the requested level (approx 120 words).",
+    "- 'summary_source': Duplicate of 'summary' (since source/target are both German for the template).",
+    "- 'items': Extract 8-15 vocabulary items relevant to the text.",
+    "   - 'source' and 'target' should be the SAME German word.",
+    "   - 'explanation': 1-2 sentences explaining the word in German.",
+    `- Adapt content strictly to Level ${level}.`,
+    "   - A1/A2: Simple sentences, common words, present tense.",
+    "   - B1/B2: Medium complexity, clear connectors.",
+    "- Ensure 'id' matches the input."
+  ].join("\n")
+}
+
+
+export function buildBatchTranslationPrompt({
+  articles,
+  sourceLabel,
+  targetLabel,
+}: {
+  articles: Array<{ id: string; title: string; summary: string[]; items: any[] }>;
+  sourceLabel: string;
+  targetLabel: string;
+}) {
+  return [
+    "You are translating multiple news articles from German.",
+    `Lesson Language (Target): "${targetLabel}".`,
+    `Explanation Language (Native): "${sourceLabel}".`,
+    "Return ONLY a JSON array where each element corresponds to one input article.",
+    "Order MUST match the input order.",
+    "Input:",
+    JSON.stringify(articles, null, 2),
+    "",
+    "Output JSON Array format:",
+    `[
+  {
+    "id": "(original id)",
+    "title": "(title in ${targetLabel})", 
+    "summary": ["(paragraph 1 in ${targetLabel})", ...],
+    "summary_source": ["(paragraph 1 in ${sourceLabel})", ...],
+    "items": [
+       { "source": "...", "target": "...", "pos": "...", "emoji": "...", "explanation": "..." }
+    ]
+  }
+]`,
+    "Requirements:",
+    `- 'summary': Translate the full article summary to ${targetLabel}.`,
+    `- 'summary_source': Translate the full article summary to ${sourceLabel}.`,
+    "- 'items': Extract/Translate vocabulary.",
+    `   - 'source' field: Translate to ${sourceLabel}.`,
+    `   - 'target' field: Translate to ${targetLabel}.`,
+    "- Ensure 'id' matches the input."
   ].join("\n")
 }
 

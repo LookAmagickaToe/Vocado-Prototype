@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import { fetchTagesschau, generateNewsContent } from "@/lib/news/generator"
+import { fetchTagesschau, generateNewsContentBatch } from "@/lib/news/generator"
 
 export const runtime = "nodejs"
 export const maxDuration = 300 // 5 minutes
@@ -40,28 +40,25 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, count: 0, message: "No new candidates" })
         }
 
-        console.log(`[/api/news/generate] Generating ${candidates.length} new templates...`)
+        // 4. Generate content for each candidate (BATCHED)
+        const results: { id: string; title: string }[] = []
+        const batchCandidates = candidates.map((item: any) => ({
+            url: item.detailsweb || item.details || item.shareurl || item.url,
+            title: item.title,
+            teaser: item.teaser
+        })).filter((c: any) => c.url)
 
-        const results = []
-        const TEMPLATE_LANGUAGE = "Deutsch"
+        console.log(`[/api/news/generate] Generating ${batchCandidates.length} new templates (Batch)...`)
 
-        // 4. Generate content for each candidate
-        for (const item of candidates) {
-            const url = item.detailsweb || item.details || item.shareurl || item.url
+        const batchResults = await generateNewsContentBatch(batchCandidates, level)
+
+        for (const res of batchResults) {
+            if (!res) continue
+            const { url, title, generated } = res as { url: string; title: string; generated: any }
+            // Save to DB
+            const templateId = crypto.randomUUID()
 
             try {
-                const generated = await generateNewsContent(
-                    url,
-                    TEMPLATE_LANGUAGE, // source = German
-                    TEMPLATE_LANGUAGE, // target = German
-                    level,
-                    item.title,
-                    item.teaser
-                )
-
-                const templateId = crypto.randomUUID()
-
-                // Save to DB
                 const { error } = await supabaseAdmin
                     .from("daily_news_templates")
                     .upsert({
@@ -70,7 +67,7 @@ export async function POST(req: Request) {
                         category: category,
                         level: level,
                         source_url: url,
-                        title: item.title,
+                        title: title,
                         template_json: generated
                     }, {
                         onConflict: 'date,category,level,source_url'
@@ -78,11 +75,10 @@ export async function POST(req: Request) {
 
                 if (error) throw error
 
-                results.push({ id: templateId, title: item.title })
-                console.log(`[/api/news/generate] Generated: ${item.title}`)
-
+                results.push({ id: templateId, title: title })
+                console.log(`[/api/news/generate] Generated: ${title}`)
             } catch (err) {
-                console.error(`[/api/news/generate] Failed to generate ${url}:`, err)
+                console.error(`[/api/news/generate] Failed to save ${url}:`, err)
             }
         }
 

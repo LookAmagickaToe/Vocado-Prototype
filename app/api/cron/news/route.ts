@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { buildNewsPrompt, extractJson, stripHtml } from "@/app/api/ai/route"
+import { fetchTagesschau, generateNewsContentBatch } from "@/lib/news/generator"
 
 export const runtime = "nodejs"
 export const maxDuration = 300 // 5 minutes for multiple AI calls
@@ -9,23 +10,7 @@ const TAGESSCHAU_BASE = "https://www.tagesschau.de/api2u/news/"
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
 const DEFAULT_MODEL = "gemini-flash-latest"
 
-async function fetchTagesschau(category: string) {
-    const ressort = category === "world" ? "ausland" : category
-    const query = ["ausland", "wirtschaft", "sport"].includes(ressort) ? `?ressort=${ressort}` : ""
 
-    try {
-        const res = await fetch(`${TAGESSCHAU_BASE}${query}`, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
-            }
-        })
-        if (!res.ok) return []
-        const data = await res.json()
-        return Array.isArray(data?.news) ? data.news : []
-    } catch {
-        return []
-    }
-}
 
 async function generateNewsContent(url: string, sourceLabel: string, targetLabel: string, level: string, title?: string, teaser?: string) {
     const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
@@ -176,29 +161,26 @@ export async function GET(req: Request) {
     for (const category of categories) {
         const headlines = await fetchTagesschau(category)
 
-        // LIMIT: 5 stories per category
-        for (const item of headlines.slice(0, maxPerCategory)) {
-            const url = item.detailsweb || item.details || item.shareurl || item.url
-            if (!url) continue
+        // Batch candidates for this category
+        const allCandidates = headlines.slice(0, maxPerCategory).map((item: any) => ({
+            url: item.detailsweb || item.details || item.shareurl || item.url,
+            title: item.title,
+            teaser: item.teaser
+        })).filter((c: any) => c.url)
 
+        if (allCandidates.length === 0) continue
 
-            // Generate template for each level
-            for (const level of LEVELS) {
+        // Iterate levels and generate batches
+        for (const level of LEVELS) {
+            const batchResults = await generateNewsContentBatch(allCandidates, level)
+
+            for (const res of batchResults) {
+                if (!res) continue
+                const { url, title, generated } = res
+
                 const configKey = `[${category}/${level}/template-de]`
 
                 try {
-                    console.log(`Generating ${configKey}`)
-
-                    // Generate German template
-                    const generated = await generateNewsContent(
-                        url,
-                        TEMPLATE_LANGUAGE,  // source = German
-                        TEMPLATE_LANGUAGE,  // target = German  
-                        level,
-                        item.title,
-                        item.teaser
-                    )
-
                     // Check for existing template first to preserve ID and avoid breaking FKs
                     const { data: existing } = await supabaseAdmin
                         .from("daily_news_templates")
@@ -211,7 +193,6 @@ export async function GET(req: Request) {
 
                     const templateId = existing?.id || crypto.randomUUID()
 
-                    // Save template to daily_news_templates table
                     const { error: templateError } = await supabaseAdmin
                         .from("daily_news_templates")
                         .upsert({
@@ -220,7 +201,7 @@ export async function GET(req: Request) {
                             category: category,
                             level: level,
                             source_url: url,
-                            title: item.title,
+                            title: title,
                             template_json: generated
                         }, {
                             onConflict: 'date,category,level,source_url'

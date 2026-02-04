@@ -370,16 +370,16 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         newsCategory: profile.newsCategory,
         onboardingDone: profile.onboardingDone,
     })
-    const [showTutorial, setShowTutorial] = useState(!profile.tutorialSeen)
+    const [showTutorial, setShowTutorial] = useState(false)
 
     useEffect(() => {
         if (typeof window !== "undefined") {
             const localSeen = window.localStorage.getItem("vocado-tutorial-seen") === "true"
-            if (localSeen && showTutorial) {
-                setShowTutorial(false)
+            if (!localSeen && !profile.tutorialSeen) {
+                setShowTutorial(true)
             }
         }
-    }, [showTutorial])
+    }, [profile.tutorialSeen])
     const [savingProfile, setSavingProfile] = useState(false)
     const [profileError, setProfileError] = useState<string | null>(null)
 
