@@ -16,11 +16,14 @@ export const metadata: Metadata = {
   },
 }
 
+import { SpeedInsights } from "@vercel/speed-insights/next"
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="font-sans antialiased">
         {children}
+        <SpeedInsights />
         <Script src="https://accounts.google.com/gsi/client" strategy="beforeInteractive" />
       </body>
     </html>
