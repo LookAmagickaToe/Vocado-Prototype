@@ -24,6 +24,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing listId" }, { status: 400 })
     }
 
+    // Ignore non-UUID list IDs (e.g. temporary client IDs)
+    // If it's not a UUID, it can't be in the DB, so consider it deleted.
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_REGEX.test(listId)) {
+      return NextResponse.json({ deletedListId: listId })
+    }
+
     const { data: files, error: filesError } = await supabaseAdmin
       .from("world_files")
       .select("world_id,storage_path")

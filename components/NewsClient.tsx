@@ -1939,6 +1939,154 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      // Logic reused from list view
+                      // We need the 'world' object or reconstruct it from current state
+                      // Ideally 'world' state is available here.
+                      // Yes, 'world' is in scope if we are in 'summary' mode initiated from 'startPlayFromWorld' ?
+                      // Wait, 'step === "summary"' is true.
+                      // If we came from "Create World" -> 'world' might not be set in state if we just jumped to summary?
+                      // Let's check how we get to summary.
+                      // 1. startPlayFromWorld -> sets 'world'.
+                      // 2. useEffect for 'summary' param (auto-open)? -> NOT FULLY IMPLEMENTED to set 'world' from URL params in client-only code shown.
+                      // But 'NewHomeClient' redirects to /news?summary=1.
+                      // Let's check if 'world' is populated there.
+                      // In NewsClient, we read 'vocado-news-current' from localStorage on mount/useEffect?
+                      // I need to check where 'items' and 'summary' come from.
+                      // Ah, 'items' and 'summary' are state. 'world' might be null if loaded from localStorage ONLY into items/summary/title.
+
+                      // So we should construct the world object to save if 'world' is missing.
+
+                      const currentUrl = newsUrl || ""
+                      if (!currentUrl) return
+
+                      try {
+                        const token = await getAuthToken()
+                        if (!token) return
+
+                        const listId = await ensureNewsListId(token)
+
+                        // Construct world object to save
+                        const worldToSave: VocabWorld = world || {
+                          id: buildNewsWorldId(currentUrl),
+                          title: ui.title, // or newsTitle
+                          source_language: sourceLabel,
+                          target_language: targetLabel,
+                          mode: "vocab",
+                          chunking: { itemsPerGame: 8 },
+                          pool: [], // We might need to reconstruct pool from 'items'
+                          news: {
+                            sourceUrl: currentUrl,
+                            title: newsTitle || ui.title,
+                            summary: summary,
+                            summary_source: summarySource,
+                            date: newsDate || new Date().toISOString(),
+                            category: category
+                          }
+                        }
+
+                        // If 'world' was null, we minimally need 'pool' for it to be useful as a saved world?
+                        // If we are just saving "News", maybe pool is optional or we rebuild it from 'items'.
+                        if (!worldToSave.pool || worldToSave.pool.length === 0) {
+                          if (items.length > 0) {
+                            // Rebuild pool from items
+                            worldToSave.pool = items.map((item, idx) => ({
+                              id: `item-${idx}`,
+                              es: item.source,
+                              de: item.target,
+                              pos: item.pos,
+                              image: { type: "emoji", value: item.emoji || "📰" },
+                              explanation: item.explanation,
+                              example: item.example,
+                              conjugation: item.conjugation
+                            })) as any
+                          }
+                        }
+
+                        const normalizedUrl = normalizeNewsUrl(currentUrl)
+                        const isSaved = savedNewsUrls.has(normalizedUrl)
+
+                        if (isSaved) {
+                          // UNSAVE
+                          setSavedNewsUrls((prev) => {
+                            const next = new Set(prev)
+                            next.delete(normalizedUrl)
+                            if (typeof window !== "undefined") {
+                              window.localStorage.setItem(SAVED_NEWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+                              window.localStorage.setItem("vocado-refresh-worlds", "1")
+                            }
+                            return next
+                          })
+
+                          // We don't have queuePendingWorld in this scope? context?
+                          // It seems queuePendingWorld was used in list view but logic was inline?
+                          // Wait, the list view reused 'queuePendingWorld' which is NOT defined in the visible code snippet of NewsClient!
+                          // Ah, I missed 'queuePendingWorld' definition in previous view_file.
+                          // It must be there or I missed it.
+                          // Let's assume I can use specific API calls if helper is missing.
+
+                          // Actually, checking previous view_file... I don't see queuePendingWorld defined in the shown lines.
+                          // It might be defined in lines 456-1600 which I skimmed?
+                          // Wait, I read 456-1600.
+                          // Let me check 'saveNewsWorlds' around line 495.
+                          // 'queuePendingWorld' appeared in the click handler in line 1645.
+                          // I must have missed its definition or it is imported? 
+                          // No imports show it. It must be defined inside component or I missed it.
+
+                          // Safest bet: Re-implement explicit fetch calls here or better yet, verify if queuePendingWorld exists.
+                          // But I am in "Replace" mode. 
+
+                          // Simplified Logic:
+                          // Just do the API calls and state updates.
+
+                          await fetch("/api/storage/worlds/delete", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ worldIds: [worldToSave.id] }),
+                          })
+
+                        } else {
+                          // SAVE
+                          setSavedNewsUrls((prev) => {
+                            const next = new Set(prev)
+                            next.add(normalizedUrl)
+                            if (typeof window !== "undefined") {
+                              window.localStorage.setItem(SAVED_NEWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+                              window.localStorage.setItem("vocado-refresh-worlds", "1")
+                            }
+                            return next
+                          })
+
+                          await fetch("/api/storage/worlds/save", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({
+                              worlds: [worldToSave],
+                              listId,
+                              positions: { [worldToSave.id]: 0 },
+                            }),
+                          })
+                        }
+                      } catch (err) {
+                        console.error(err)
+                      }
+                    }}
+                    className="bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A] px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full border border-[#3A3A3A]/10 shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center gap-2"
+                  >
+                    {newsUrl && savedNewsUrls.has(normalizeNewsUrl(newsUrl)) ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-[rgb(var(--vocado-accent-rgb))]" />
+                        <span>Saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkPlus className="w-3.5 h-3.5 opacity-60" />
+                        <span>Save</span>
+                      </>
+                    )}
+                  </button>
 
                   <button
                     type="button"

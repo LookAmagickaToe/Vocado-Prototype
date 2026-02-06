@@ -1311,7 +1311,19 @@ export default function AppClient({
       if (Array.isArray(parsed)) {
         const sanitized = parsed.map((item) => normalizeUploadedWorld(item, ui)).filter(Boolean) as World[]
         if (sanitized.length) {
-          setUploadedWorlds(sanitized)
+          // Merge local storage with server-provided worlds
+          // Server data (uploadedWorlds) takes precedence if IDs match? 
+          // Actually, we want to keep server data if it's "fresher" or just different.
+          // But strict overwriting is bad.
+          // Let's create a combined list.
+          // We prioritize existing state (server) and append missing ones from local.
+
+          setUploadedWorlds((current) => {
+            const currentIds = new Set(current.map(w => w.id))
+            const newFromLocal = sanitized.filter(w => !currentIds.has(w.id))
+            if (newFromLocal.length === 0) return current
+            return [...current, ...newFromLocal]
+          })
         }
       }
     } catch {
