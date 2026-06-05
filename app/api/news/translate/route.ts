@@ -4,7 +4,7 @@ import { translateNewsTemplate } from "@/lib/news/service"
 export const runtime = "nodejs"
 export const maxDuration = 60 // 1 minute for translation
 
-const DEFAULT_MODEL = "gemini-flash-latest"
+const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 type TranslateNewsRequest = {
     templateId: string

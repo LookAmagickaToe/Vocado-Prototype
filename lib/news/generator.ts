@@ -2,7 +2,7 @@
 import { buildNewsPrompt, buildBatchNewsPrompt, extractJson, stripHtml } from "@/app/api/ai/route"
 
 const TAGESSCHAU_BASE = "https://www.tagesschau.de/api2u/news/"
-const DEFAULT_MODEL = "gemini-flash-latest"
+const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 export async function fetchTagesschau(category: string) {
     const ressort = category === "world" ? "ausland" : category
@@ -159,8 +159,7 @@ export async function generateNewsContentBatch(
     })
 
     const rawModel = process.env.GEMINI_MODEL ?? DEFAULT_MODEL
-    // const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`
-    const model = "models/gemini-2.0-flash-lite-001" // Enforce Flash Lite for speed
+    const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`
 
     // 3. Call Gemini
     try {

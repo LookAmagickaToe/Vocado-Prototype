@@ -8,7 +8,7 @@ export const maxDuration = 300 // 5 minutes for multiple AI calls
 
 const TAGESSCHAU_BASE = "https://www.tagesschau.de/api2u/news/"
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
-const DEFAULT_MODEL = "gemini-flash-latest"
+const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 
 

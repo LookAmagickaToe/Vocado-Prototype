@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-//const DEFAULT_MODEL = "gemini-flash-latest"
-const DEFAULT_MODEL = "gemini-2.0-flash-lite-001"
+const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 type ParseTask = "parse_text" | "parse_image" | "conjugate" | "theme_list" | "news" | "story"
 

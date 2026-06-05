@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin"
 import { buildTranslationPrompt, validateTranslation, extractJson } from "@/lib/news-translation"
 import { buildBatchTranslationPrompt, extractJson as extractJsonAI } from "@/app/api/ai/route"
 
-const DEFAULT_MODEL = "gemini-flash-latest"
+const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 export async function translateNewsTemplate(templateId: string, targetLanguage: string, sourceLanguage: string = "Deutsch") {
     const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
@@ -237,7 +237,7 @@ export async function translateNewsTemplatesBatch(
         targetLabel: targetLanguage
     })
 
-    const rawModel = process.env.GEMINI_MODEL ?? "gemini-flash-latest"
+    const rawModel = process.env.GEMINI_MODEL ?? "gemini-flash-lite-latest"
     const model = rawModel.startsWith("models/") ? rawModel : `models/${rawModel}`
 
     try {
