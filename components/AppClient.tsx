@@ -2655,8 +2655,10 @@ export default function AppClient({
         task: "parse_text",
         text,
         mode: desiredMode,
-        sourceLabel: targetLabel,
-        targetLabel: sourceLabel,
+        // The AI detects that this input is target-language text, but still returns
+        // the configured source → target shape so explanations remain in source.
+        sourceLabel,
+        targetLabel,
         level: profileSettings.level || undefined,
       })
       const items = Array.isArray(result?.items) ? result.items : []
@@ -2666,7 +2668,7 @@ export default function AppClient({
       }
       missingSource.forEach(({ index }, i) => {
         const item = items[i]
-        const source = normalizeText(item?.target)
+        const source = normalizeText(item?.source)
         next[index] = { ...next[index], source }
       })
     }
@@ -3131,7 +3133,10 @@ export default function AppClient({
           if (uploadedWorldIdSet.has(target.id)) {
             const updatedWorld = {
               ...target,
-              pool: [...(target.pool ?? []), ...pool],
+              // The game restarts at level 0 after saving. Put new words first so
+              // the player can practise them immediately rather than having to
+              // finish every pre-existing level before reaching them.
+              pool: [...pool, ...(target.pool ?? [])],
             } as World
             worldsToSave.push(updatedWorld)
             activeId = updatedWorld.id
@@ -3145,7 +3150,9 @@ export default function AppClient({
               description: `Lista extendida: ${target.title}`,
               source_language: (target as any).source_language ?? sourceLabel,
               target_language: (target as any).target_language ?? targetLabel,
-              pool: [...(target.pool ?? []), ...pool],
+              // This is the same immediate-play behavior for built-in worlds,
+              // which are copied to a user-owned extended world before saving.
+              pool: [...pool, ...(target.pool ?? [])],
             } as World
             worldsToSave.push(extendedWorld)
             activeId = extendedWorld.id

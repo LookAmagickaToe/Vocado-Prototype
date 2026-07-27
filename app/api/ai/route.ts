@@ -55,7 +55,7 @@ function buildParsePrompt({
     `{"mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
     "Usage Rules:",
     "1. Even if the input is a single word, you MUST return a valid JSON with an 'items' array containing that single item.",
-    "2. If the input is just one word/phrase, assume it is the SOURCE and translate it to TARGET.",
+    "2. A single word or phrase may be entered in EITHER configured language. Identify which configured language it is written in, then translate it to the other configured language.",
     "3. 'items' array MUST NEVER be empty. Create at least one item from the input.",
     "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 3 sections with titles corresponding to 'Present', 'Simple Past', and 'Perfect' in the TARGET language.",
     "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 3 sections with titles corresponding to 'Present', 'Simple Past', and 'Perfect' in the TARGET language.",
@@ -63,14 +63,14 @@ function buildParsePrompt({
     "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language (e.g. 'yo', 'tú' for Spanish; 'ich', 'du' for German). Do NOT use source language pronouns.",
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
-    "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
-    "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
+    `Every item's 'source' MUST be written in ${sourceLabel}; every item's 'target' MUST be written in ${targetLabel}. Never swap these fields, even when the input is written in ${targetLabel}.`,
+    `explanation is required: 1-2 sentences describing the word in ${sourceLabel}, never in ${targetLabel}.`,
     // example removed per user request
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
-    "If the input provides only one language, translate into the other language.",
-    "If the input already provides pairs, keep the same pairing and order.",
+    "If the input provides only one language, translate into the other configured language while preserving the configured source/target field order.",
+    "If the input already provides pairs, normalize them to source → target order and keep the same pairing and order.",
     "Input:",
     rawText,
   ].join("\n")
@@ -101,14 +101,14 @@ function buildImagePrompt({
     `{"title":"...","mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":""}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
-    "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
-    "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
+    `Every item's 'source' MUST be written in ${sourceLabel}; every item's 'target' MUST be written in ${targetLabel}. Never swap these fields.`,
+    `explanation is required: 1-2 sentences describing the word in ${sourceLabel}, never in ${targetLabel}.`,
     // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Return items in the same order as the input lines. Do not drop items.",
     "Use lemma ONLY for verbs when the target word is not already the infinitive/base form.",
     "Generate a short, descriptive title based on the image content.",
-    "If the image only contains one language, translate into the other language.",
+    "The image may contain either configured language. Normalize every result to the configured source → target order.",
   ].join("\n")
 }
 
@@ -171,8 +171,8 @@ function buildThemePrompt({
     `{"title":"...","mode":"vocab|conjugation","items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
-    "Correct capitalization, accents, and spacing.",
-    "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
+    `Every item's 'source' MUST be written in ${sourceLabel}; every item's 'target' MUST be written in ${targetLabel}. Never swap these fields.`,
+    `explanation is required: 1-2 sentences describing the word in ${sourceLabel}, never in ${targetLabel}.`,
     // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 4 sections with titles for 'Present', 'Simple Past', 'Perfect', and 'Future' in the TARGET language.",
@@ -207,6 +207,7 @@ function buildStoryPrompt({
     "story: The content of the story, split into an array of paragraphs (strings).",
     "story_source: The same story translated into the SOURCE language (for reference), split into paragraphs.",
     "items: Extract 10-15 vocabulary items from the story.",
+    `For every vocabulary item, 'source' must be ${sourceLabel} and 'target' must be ${targetLabel}; never reverse them.`,
     "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 4 sections with titles for 'Present', 'Simple Past', 'Perfect', and 'Future' in the TARGET language.",
     "Structure: {\"infinitive\":\"...\",\"translation\":\"...\",\"sections\":[{\"title\":\"(Present)\",\"rows\":[[\"(pronoun)\",\"...\"],...]},{\"title\":\"(Past)\",\"rows\":[...] }, etc.]}.",
     "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language. Do NOT use source language pronouns.",
@@ -243,7 +244,7 @@ export function buildNewsPrompt({
   return [
     "You are summarizing a news article and extracting vocabulary.",
     `Summary language must be: "${targetLabel}" (the target language that the user is learning).`,
-    `Vocabulary pairs must use source language "${sourceLabel}" and target language "${targetLabel}".`,
+    `Vocabulary pairs must use source language "${sourceLabel}" and target language "${targetLabel}". This order is mandatory: each item's 'source' is ${sourceLabel}; each item's 'target' is ${targetLabel}.`,
     levelLine,
     "Return ONLY valid JSON with this shape:",
     `{"title":"...","summary":["..."],"summary_source":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null}]}`,
@@ -260,7 +261,7 @@ export function buildNewsPrompt({
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (strictly one of: \"verb\", \"noun\", \"adj\", or \"other\"). Do not use capital letters.",
     "Correct capitalization, accents, and spacing in source/target text while preserving meaning.",
-    "explanation is required: 1-2 sentences describing the word in the SOURCE language.",
+    `explanation is required: 1-2 sentences describing the word in ${sourceLabel}, never in ${targetLabel}.`,
     // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
     "Select vocabulary based on the user's level. Be generous: extract MORE words rather than fewer, to ensure the text is easy to understand. Include even moderately common words if they are relevant to the context.",
@@ -285,8 +286,9 @@ export function buildBatchNewsPrompt({
 
   return [
     "You are simplifying and summarizing multiple German news articles.",
-    `Output language: "${targetLabel}" (German).`,
-    `Explanation/Source Context: "${sourceLabel}" (German).`,
+    "These are German-language source templates; do not translate them in this step.",
+    `Template language: "${targetLabel}".`,
+    `Explanation/Source Context: "${sourceLabel}".`,
     levelLine,
     "Return ONLY a JSON array where each element corresponds to one input article.",
     "Order MUST match the input order.",
@@ -298,7 +300,7 @@ export function buildBatchNewsPrompt({
   {
     "id": "(original id)",
     "title": "(original title)",
-    "summary": ["(paragraph 1 in German, simplified)", ...],
+    "summary": ["(paragraph 1 in the template language, simplified)", ...],
     "summary_source": ["(same as summary, for now)"],
     "items": [
        { "source": "(word in German)", "target": "(same word)", "pos": "...", "emoji": "...", "explanation": "(explanation in German)", "example": "..." }
@@ -307,7 +309,7 @@ export function buildBatchNewsPrompt({
 ]`,
     "Requirements:",
     "- 'summary': Write a comprehensive summary in German, simplified for the requested level (approx 120 words).",
-    "- 'summary_source': Duplicate of 'summary' (since source/target are both German for the template).",
+    "- 'summary_source': Duplicate of 'summary' because this template is German → German.",
     "- 'items': Extract 8-15 vocabulary items relevant to the text.",
     "   - 'source' and 'target' should be the SAME German word.",
     "   - 'explanation': 1-2 sentences explaining the word in German.",
@@ -355,6 +357,8 @@ export function buildBatchTranslationPrompt({
     "- 'items': Extract/Translate vocabulary.",
     `   - 'source' field: Translate to ${sourceLabel}.`,
     `   - 'target' field: Translate to ${targetLabel}.`,
+    `   - The field order is mandatory: source is always ${sourceLabel}, target is always ${targetLabel}; do not retain the German template's field order.`,
+    `   - 'explanation' must always be written in ${sourceLabel}.`,
     "- Ensure 'id' matches the input."
   ].join("\n")
 }

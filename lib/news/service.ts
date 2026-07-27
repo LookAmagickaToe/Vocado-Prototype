@@ -5,6 +5,26 @@ import { buildBatchTranslationPrompt, extractJson as extractJsonAI } from "@/app
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
+/**
+ * Older cached news payloads used the legacy `es`/`de` card fields in reverse.
+ * Rebuild them from the canonical news vocabulary before returning a cache hit.
+ */
+function normalizeCachedNewsPayload(worldData: any, sourceLanguage: string, targetLanguage: string) {
+    const items = worldData?.news?.items
+    if (!worldData || !Array.isArray(items)) return worldData
+
+    worldData.pool = items.map((item: any, index: number) => ({
+        ...item,
+        id: worldData.pool?.[index]?.id || `news-trans-${worldData.id}-${index}`,
+        es: item.source,
+        de: item.target,
+        image: { type: "emoji", value: item.emoji || "🧩" },
+    }))
+    worldData.source_language = sourceLanguage
+    worldData.target_language = targetLanguage
+    return worldData
+}
+
 export async function translateNewsTemplate(templateId: string, targetLanguage: string, sourceLanguage: string = "Deutsch") {
     const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -16,6 +36,7 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         .from("daily_news")
         .select("*")
         .eq("template_id", templateId)
+        .eq("source_language", sourceLanguage)
         .eq("target_language", targetLanguage)
         .maybeSingle()
 
@@ -34,6 +55,7 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         }
 
         if (worldData) {
+            worldData = normalizeCachedNewsPayload(worldData, sourceLanguage, targetLanguage)
             // Hotfix: Ensure title is always from the source (DB column) and not overwritten by translation
             if (worldData.news && existingTranslation.title) {
                 worldData.news.title = existingTranslation.title
@@ -125,9 +147,10 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
         pool: translatedJson.items.map((it: any, idx: number) => ({
             ...it,
             id: `news-trans-${template.id}-${targetLanguage}-${idx}`,
-            // Map for game compatibility
-            es: it.target,
-            de: it.source,
+            // The game uses `es`/`de` as legacy field names: keep them in the
+            // configured source → target order regardless of the actual languages.
+            es: it.source,
+            de: it.target,
             image: { type: "emoji", value: it.emoji || "🧩" }
         })),
         title: `Vocado Diario - ${template.title}`,
@@ -179,6 +202,7 @@ export async function translateNewsTemplatesBatch(
         .from("daily_news")
         .select("*")
         .in("template_id", templateIds)
+        .eq("source_language", sourceLanguage)
         .eq("target_language", targetLanguage)
 
     const cachedMap = new Map()
@@ -194,6 +218,7 @@ export async function translateNewsTemplatesBatch(
                 data.news.title = item.title
                 data.title = `Vocado Diario - ${item.title}`
             }
+            data = normalizeCachedNewsPayload(data, sourceLanguage, targetLanguage)
             if (data) cachedMap.set(item.template_id, data)
         })
     }
@@ -310,8 +335,9 @@ export async function translateNewsTemplatesBatch(
                 pool: (translated.items || []).map((it: any, idx: number) => ({
                     ...it,
                     id: `news-trans-${template.id}-${targetLanguage}-${idx}`,
-                    es: it.target,
-                    de: it.source,
+                    // Keep the legacy card fields in configured source → target order.
+                    es: it.source,
+                    de: it.target,
                     image: { type: "emoji", value: it.emoji || "🧩" }
                 })),
                 title: `Vocado Diario - ${template.title}`,

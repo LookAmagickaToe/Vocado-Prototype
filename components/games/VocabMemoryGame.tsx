@@ -123,6 +123,12 @@ export default function VocabMemoryGame({
   }, [world, levelIndex])
 
   const baseDeck = useMemo(() => buildDeck(VOCAB), [VOCAB])
+  // A world can receive new pairs while keeping the same id (when users add
+  // words to an existing list). Reset the board for that updated deck too.
+  const deckIdentity = useMemo(
+    () => VOCAB.map((pair) => `${pair.id}\u0000${pair.es}\u0000${pair.de}`).join("\u0001"),
+    [VOCAB]
+  )
 
   const [pendingResolution, setPendingResolution] = useState<{
     keys: [string, string]
@@ -188,8 +194,10 @@ export default function VocabMemoryGame({
     setPendingResolution(null)
     setHasReportedWin(false)
     setAwardSummary(null)
+    setIsWon(false)
+    setShowWinOverlay(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world.id, levelIndex])
+  }, [world.id, levelIndex, deckIdentity])
 
 
   useEffect(() => {

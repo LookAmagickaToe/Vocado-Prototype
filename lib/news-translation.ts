@@ -16,6 +16,7 @@ CRITICAL RULES:
    - "source" field: Translate from German to ${sourceLanguage}
    - "target" field: Translate from German to ${targetLanguage}
    - "explanation": Translate to ${sourceLanguage}
+   - Never swap "source" and "target", even if the original German template is closer to one language.
 5. Maintain emoji fields unchanged
 6. Keep examples contextually appropriate
 7. "summary": Translate to ${targetLanguage}
