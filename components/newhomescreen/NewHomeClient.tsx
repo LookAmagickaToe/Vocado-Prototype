@@ -598,8 +598,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 } catch { }
             }
 
-            // 4. Update Seeds (Server wins for seeds typically, but we sync)
-            if (dbRow?.seeds && typeof dbRow.seeds === "number") {
+            // 4. The profile score is authoritative, including a valid score of zero.
+            // Never restore an older browser-cache score here: it can belong to a
+            // profile that has since been reset or deleted.
+            if (typeof dbRow?.seeds === "number") {
                 setSeeds(dbRow.seeds)
             }
 
@@ -694,20 +696,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
             }
         }
         loadWorlds()
-    }, [])
-
-    useEffect(() => {
-        if (typeof window === "undefined") return
-        try {
-            const raw = window.localStorage.getItem("vocado-seeds")
-            if (!raw) return
-            const localSeeds = Number(raw)
-            if (Number.isFinite(localSeeds)) {
-                setSeeds((prev) => Math.max(prev, localSeeds))
-            }
-        } catch {
-            // ignore
-        }
     }, [])
 
     // Load daily challenges from profile
