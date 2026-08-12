@@ -1,7 +1,31 @@
 /**
+ * Splits a word that is too long for one line into hyphenated chunks.
+ * Chunks are balanced so a 22-character word becomes two ~11-character lines
+ * rather than a full line plus a stub. Every chunk but the last ends in "-".
+ */
+function breakLongWord(word: string, maxChars: number): string[] {
+    // One character of the budget is spent on the hyphen itself.
+    const budget = Math.max(2, maxChars - 1)
+    if (word.length <= maxChars) return [word]
+
+    const chunkCount = Math.ceil(word.length / budget)
+    const chunkSize = Math.ceil(word.length / chunkCount)
+
+    const chunks: string[] = []
+    for (let i = 0; i < word.length; i += chunkSize) {
+        const chunk = word.slice(i, i + chunkSize)
+        const isLast = i + chunkSize >= word.length
+        chunks.push(isLast ? chunk : `${chunk}-`)
+    }
+    return chunks
+}
+
+/**
  * Formats a string to fit within a memory card.
  * Inserts line breaks (\n) at spaces or special characters if the current line exceeds maxChars.
- * Words themselves are not broken unless there is no break point available.
+ * Words that are still too long on their own are hyphenated across lines, so a
+ * compound like "Menstruationsschmerzen" wraps instead of being shrunk to an
+ * unreadable size.
  */
 export function formatCardText(text: string, maxChars: number = 13): string {
     if (!text) return "";
@@ -38,5 +62,6 @@ export function formatCardText(text: string, maxChars: number = 13): string {
         lines.push(currentLine.trim());
     }
 
-    return lines.join("\n");
+    // A single word can still be wider than the card — hyphenate those.
+    return lines.flatMap((line) => breakLongWord(line, maxChars)).join("\n");
 }

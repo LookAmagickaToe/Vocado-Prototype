@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-
-async function getUserId(req: Request) {
-  const auth = req.headers.get("authorization") || ""
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""
-  if (!token) return null
-  const { data } = await supabaseAdmin.auth.getUser(token)
-  return data.user?.id ?? null
-}
+import { getRequestContext } from "@/lib/track-server"
+import { trackColumns } from "@/lib/track"
 
 export async function POST(req: Request) {
   try {
@@ -17,21 +11,30 @@ export async function POST(req: Request) {
         { status: 500 }
       )
     }
-    const userId = await getUserId(req)
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
 
     const body = await req.json()
+    const context = await getRequestContext(req, {
+      source: body?.sourceLanguage,
+      target: body?.targetLanguage,
+      variant: body?.variant,
+    })
+    if (!context) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const { userId, track } = context
+
     const lists = Array.isArray(body?.lists) ? body.lists : []
     const worlds = Array.isArray(body?.worlds) ? body.worlds : []
 
     if (lists.length > 0) {
+      // A list belongs to the track it was created in, or worlds/list would
+      // filter it out and its worlds would look orphaned.
       const payload = lists.map((list: any, index: number) => ({
         id: list.id,
         user_id: userId,
         name: list.name,
         position: typeof list.position === "number" ? list.position : index,
+        ...trackColumns(track),
       }))
       const { error } = await supabaseAdmin.from("lists").upsert(payload)
       if (error) {
@@ -72,6 +75,7 @@ export async function POST(req: Request) {
             list_id: world.listId ?? null,
             position: typeof world.position === "number" ? world.position : index,
             hidden: !!world.hidden,
+            ...trackColumns(track),
           }
         })
         .filter(Boolean)

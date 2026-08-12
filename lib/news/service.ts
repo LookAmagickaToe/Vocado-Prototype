@@ -2,6 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { buildTranslationPrompt, validateTranslation, extractJson } from "@/lib/news-translation"
 import { buildBatchTranslationPrompt, extractJson as extractJsonAI } from "@/app/api/ai/route"
+import { variantLabel } from "@/lib/languages"
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
@@ -25,20 +26,41 @@ function normalizeCachedNewsPayload(worldData: any, sourceLanguage: string, targ
     return worldData
 }
 
-export async function translateNewsTemplate(templateId: string, targetLanguage: string, sourceLanguage: string = "Deutsch") {
+/**
+ * Narrow a daily_news query to one regional variety. PostgREST needs `.is` for
+ * NULL rather than `.eq`, so the standard form cannot share a code path with a
+ * named variety.
+ */
+function withVariant<T extends { eq: (c: string, v: unknown) => T; is: (c: string, v: unknown) => T }>(
+    query: T,
+    variant: string | null
+): T {
+    return variant ? query.eq("variant", variant) : query.is("variant", null)
+}
+
+export async function translateNewsTemplate(
+    templateId: string,
+    targetLanguage: string,
+    sourceLanguage: string = "Deutsch",
+    variant: string | null = null
+) {
     const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
     if (!apiKey) {
         throw new Error("Missing GEMINI_API_KEY_NEWS (or fallback GEMINI_API_KEY)")
     }
 
     // 1. Check if translation already exists in daily_news
-    const { data: existingTranslation } = await supabaseAdmin
-        .from("daily_news")
-        .select("*")
-        .eq("template_id", templateId)
-        .eq("source_language", sourceLanguage)
-        .eq("target_language", targetLanguage)
-        .maybeSingle()
+    // The variety is part of the cache key: a Bayerisch learner must not be
+    // served the standard-German translation of the same template.
+    const { data: existingTranslation } = await withVariant(
+        supabaseAdmin
+            .from("daily_news")
+            .select("*")
+            .eq("template_id", templateId)
+            .eq("source_language", sourceLanguage)
+            .eq("target_language", targetLanguage),
+        variant
+    ).maybeSingle()
 
     if (existingTranslation) {
         console.log(`[translate] Cache hit for ${templateId} -> ${targetLanguage}`)
@@ -170,6 +192,7 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
             level: template.level,
             source_language: sourceLanguage,
             target_language: targetLanguage,
+            variant,
             source_url: template.source_url,
             title: template.title,
             template_id: template.id,
@@ -190,7 +213,8 @@ export async function translateNewsTemplate(templateId: string, targetLanguage: 
 export async function translateNewsTemplatesBatch(
     templateIds: string[],
     targetLanguage: string,
-    sourceLanguage: string = "Deutsch"
+    sourceLanguage: string = "Deutsch",
+    variant: string | null = null
 ) {
     const apiKey = process.env.GEMINI_API_KEY_NEWS || process.env.GEMINI_API_KEY
     if (!apiKey) throw new Error("Missing GEMINI_API_KEY")
@@ -198,12 +222,15 @@ export async function translateNewsTemplatesBatch(
     if (templateIds.length === 0) return { success: true, results: [] }
 
     // 1. Check cache for all requested templates
-    const { data: cachedItems } = await supabaseAdmin
-        .from("daily_news")
-        .select("*")
-        .in("template_id", templateIds)
-        .eq("source_language", sourceLanguage)
-        .eq("target_language", targetLanguage)
+    const { data: cachedItems } = await withVariant(
+        supabaseAdmin
+            .from("daily_news")
+            .select("*")
+            .in("template_id", templateIds)
+            .eq("source_language", sourceLanguage)
+            .eq("target_language", targetLanguage),
+        variant
+    )
 
     const cachedMap = new Map()
     if (cachedItems) {
@@ -259,7 +286,8 @@ export async function translateNewsTemplatesBatch(
     const prompt = buildBatchTranslationPrompt({
         articles: articlesInput,
         sourceLabel: sourceLanguage,
-        targetLabel: targetLanguage
+        targetLabel: targetLanguage,
+        variantName: variantLabel(variant, targetLanguage),
     })
 
     const rawModel = process.env.GEMINI_MODEL ?? "gemini-flash-lite-latest"
@@ -355,6 +383,7 @@ export async function translateNewsTemplatesBatch(
                 level: template.level,
                 source_language: sourceLanguage,
                 target_language: targetLanguage,
+                variant,
                 source_url: template.source_url,
                 title: template.title,
                 template_id: template.id,

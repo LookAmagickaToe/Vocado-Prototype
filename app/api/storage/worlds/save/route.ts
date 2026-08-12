@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase/admin"
+import { indexUserWords, shouldIndexWorld } from "@/lib/user-words"
+import { getRequestContext } from "@/lib/track-server"
+import { trackColumns } from "@/lib/track"
 
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
 const UUID_REGEX =
@@ -14,22 +17,23 @@ function safeSegment(value: string) {
   return cleaned || "world"
 }
 
-async function getUserId(req: Request) {
-  const auth = req.headers.get("authorization") || ""
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""
-  if (!token) return null
-  const { data } = await supabaseAdmin.auth.getUser(token)
-  return data.user?.id ?? null
-}
-
 export async function POST(req: Request) {
   try {
-    const userId = await getUserId(req)
-    if (!userId) {
+    const body = await req.json()
+
+    // A world belongs to whichever track was active when it was created. The
+    // client may pass that track explicitly — a switch that has not yet reached
+    // `profiles` must not file new content under the previous language.
+    const context = await getRequestContext(req, {
+      source: body?.sourceLanguage,
+      target: body?.targetLanguage,
+      variant: body?.variant,
+    })
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+    const { userId, track } = context
 
-    const body = await req.json()
     const worlds = Array.isArray(body?.worlds) ? body.worlds : []
     const rawListId = typeof body?.listId === "string" ? body.listId : null
     const trimmedListId = rawListId && rawListId.trim().length > 0 ? rawListId.trim() : null
@@ -43,7 +47,10 @@ export async function POST(req: Request) {
     const saved: Array<{ worldId: string; path: string }> = []
 
     for (let i = 0; i < worlds.length; i += 1) {
-      const world = worlds[i]
+      // Stamp the track into the blob as well as onto the row. The blob is the
+      // source of truth that survives a re-import, and AppClient filters worlds
+      // client-side by reading these fields off it.
+      const world = { ...worlds[i], ...trackColumns(track) }
       const worldId = world?.id ?? `world-${Date.now()}-${i + 1}`
       const title = world?.title ?? worldId
       const filename = `${Date.now()}-${safeSegment(title)}.json`
@@ -76,6 +83,7 @@ export async function POST(req: Request) {
             list_id: listId,
             position,
             hidden: false,
+            ...trackColumns(track),
           },
           { onConflict: "user_id,world_id" }
         )
@@ -85,6 +93,12 @@ export async function POST(req: Request) {
           { error: "Metadata upsert failed", details: error.message },
           { status: 500 }
         )
+      }
+
+      // Mirror the pool into the queryable word index so later generations can
+      // avoid repeating these words. Best effort: never fails the save.
+      if (shouldIndexWorld(world)) {
+        await indexUserWords(userId, world.pool ?? [], "theme", worldId, track)
       }
 
       saved.push({ worldId, path })

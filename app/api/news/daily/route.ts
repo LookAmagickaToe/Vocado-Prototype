@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { translateNewsTemplatesBatch } from "@/lib/news/service"
+import { languageLabel, slugifyVariant } from "@/lib/languages"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,33 +18,12 @@ export async function GET(req: Request) {
 
     console.log(`[/api/news/daily] Request started - category: ${category}, source: ${sourceParam}, level: ${level}, date: ${today}`)
 
-    const LANGUAGES: Record<string, string> = {
-        es: "Español",
-        en: "English",
-        fr: "Français",
-        pt: "Português",
-        de: "Deutsch",
-        deutsch: "Deutsch",
-        english: "English",
-        español: "Español",
-        français: "Français",
-        português: "Português",
-        spanish: "Español",
-        german: "Deutsch",
-        french: "Français",
-        portuguese: "Português",
-        aleman: "Deutsch",
-        alemán: "Deutsch",
-        spanisch: "Español"
-    }
-    const targetParam = (searchParams.get("target_language") || "de").toLowerCase()
-
-    // approximate matching for codes like 'en-US'
-    const shortCode = sourceParam.split("-")[0].toLowerCase()
-    const sourceLabel = LANGUAGES[shortCode] || "Español"
-
-    const targetShortCode = targetParam.split("-")[0].toLowerCase()
-    const targetLabel = LANGUAGES[targetShortCode] || "Deutsch"
+    const targetParam = searchParams.get("target_language") || "de"
+    // Language resolution (codes, native names, English/German names, "en-US"
+    // style tags) lives in lib/languages so a new language is declared once.
+    const sourceLabel = languageLabel(sourceParam, "Español")
+    const targetLabel = languageLabel(targetParam, "Deutsch")
+    const variant = slugifyVariant(searchParams.get("variant"))
 
     try {
         // 1. Fetch templates for today (limit 5)
@@ -104,7 +84,7 @@ export async function GET(req: Request) {
 
         // 2. Batch Translate (handles caching internally)
         const templateIds = templates.map(t => t.id)
-        const batchResults = await translateNewsTemplatesBatch(templateIds, targetLabel, sourceLabel)
+        const batchResults = await translateNewsTemplatesBatch(templateIds, targetLabel, sourceLabel, variant)
 
         const items = batchResults.results.map(r => r.data).filter(Boolean)
 

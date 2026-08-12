@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
+import { languageLabel, slugifyVariant } from "@/lib/languages"
 
 export const runtime = "nodejs"
 
@@ -29,49 +30,34 @@ export async function POST(req: Request) {
         // We want to avoid duplicates.
 
         // We'll trust the client provided level/languages for now, or extract from world
-        const LANGUAGES: Record<string, string> = {
-            es: "Español",
-            en: "English",
-            fr: "Français",
-            pt: "Português",
-            de: "Deutsch",
-            deutsch: "Deutsch",
-            english: "English",
-            español: "Español",
-            français: "Français",
-            português: "Português",
-            spanish: "Español",
-            german: "Deutsch",
-            french: "Français",
-            portuguese: "Português",
-            aleman: "Deutsch",
-            alemán: "Deutsch",
-            spanisch: "Español"
-        }
-
         const level = (body.level || "A2").toUpperCase()
 
-        const rawSource = (world.source_language || "Español").toLowerCase().split("-")[0]
-        const sourceLabel = LANGUAGES[rawSource] || "Español"
-
-        const rawTarget = (world.target_language || "Alemán").toLowerCase().split("-")[0]
-        const targetLabel = LANGUAGES[rawTarget] || "Deutsch"
+        // Language resolution lives in lib/languages; this route used to carry
+        // its own copy of the alias table.
+        const sourceLabel = languageLabel(world.source_language, "Español")
+        const targetLabel = languageLabel(world.target_language, "Deutsch")
+        const variant = slugifyVariant(world.variant)
 
         // Check if exists first to avoid overwriting with potentially slightly different AI variation?
         // Or just upsert. Let's insert if not exists (ignore duplicates).
         // Since Supabase simple insert doesn't support "ON CONFLICT DO NOTHING" easily without a constraint,
         // we check existence first.
 
-        const { data: existing } = await supabaseAdmin
+        const existingQuery = supabaseAdmin
             .from("daily_news")
             .select("id")
             .eq("date", today)
             .eq("category", news.category)
             .eq("source_language", sourceLabel)
             .eq("level", level)
-            .filter("json->>target_language", "eq", targetLabel)
-            .filter("json->news->>sourceUrl", "eq", news.sourceUrl)
-            .maybeSingle()
+            .eq("target_language", targetLabel)
+            .eq("source_url", news.sourceUrl)
+
+        // The variety is part of the identity of an article: the Bayerisch
+        // rendering of a story is not the same row as the standard one.
+        const { data: existing } = await (
+            variant ? existingQuery.eq("variant", variant) : existingQuery.is("variant", null)
+        ).maybeSingle()
 
         if (existing) {
             return NextResponse.json({ status: "already_exists" })
@@ -83,18 +69,24 @@ export async function POST(req: Request) {
                 date: today,
                 category: news.category,
                 source_language: sourceLabel,
-                level: level,  // Add the level field
+                level: level,
                 target_language: targetLabel,
+                variant,
                 source_url: news.sourceUrl,
                 title: news.title || world.title,
                 json: JSON.stringify({
                     ...world,
                     source_language: sourceLabel,
-                    target_language: targetLabel
+                    target_language: targetLabel,
+                    variant
                 })
             })
 
         if (error) {
+            // Handle unique constraint violation gracefully if race condition occurs
+            if (error.code === '23505') {
+                return NextResponse.json({ status: "already_exists" })
+            }
             console.error("Share error:", error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }

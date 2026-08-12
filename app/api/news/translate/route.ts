@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { translateNewsTemplate } from "@/lib/news/service"
+import { slugifyVariant } from "@/lib/languages"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // 1 minute for translation
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
     try {
         const body: TranslateNewsRequest = await req.json()
         const { templateId, targetLanguage, sourceLanguage = "Deutsch" } = body
+        const variant = slugifyVariant((body as any).variant)
 
         if (!templateId || !targetLanguage) {
             return NextResponse.json(
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Delegate to service
-        const result = await translateNewsTemplate(templateId, targetLanguage, sourceLanguage)
+        const result = await translateNewsTemplate(templateId, targetLanguage, sourceLanguage, variant)
 
         return NextResponse.json(result)
 

@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
+import { getUserId } from "@/lib/track-server"
 
 const BUCKET = process.env.SUPABASE_WORLDS_BUCKET ?? "worlds"
 
-async function getUserId(req: Request) {
-  const auth = req.headers.get("authorization") || ""
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""
-  if (!token) return null
-  const { data } = await supabaseAdmin.auth.getUser(token)
-  return data.user?.id ?? null
-}
-
+// Deliberately NOT track-scoped. Deletion targets explicit world ids the user
+// already owns, and scoping the lookup would silently no-op if the client's
+// track drifted from the profile's — leaving the world on screen but unowned.
 export async function POST(req: Request) {
   try {
     const userId = await getUserId(req)
