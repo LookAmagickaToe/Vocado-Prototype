@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import { getUiSettings } from "@/lib/ui-settings"
+import LanguageTracksPanel from "@/components/newhomescreen/LanguageTracksPanel"
 
 const LANGUAGES = ["Español", "Deutsch", "English", "Français", "Português"]
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -365,59 +366,14 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                     )}
                 </div>
 
+                <LanguageTracksPanel
+                    labels={{
+                        sourceLabel: ui.sourceLabel,
+                        targetLabel: ui.targetLabel,
+                        levelLabel: ui.levelLabel,
+                    }}
+                />
                 <div className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/5 p-4 shadow-sm space-y-4">
-                    <div>
-                        <label className="text-[12px] font-medium text-[#3A3A3A]/60">
-                            {ui.sourceLabel}
-                        </label>
-                        <select
-                            value={draft.sourceLanguage}
-                            onChange={(e) => setDraft((prev) => ({ ...prev, sourceLanguage: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
-                        >
-                            <option value="">{ui.autoLabel}</option>
-                            {LANGUAGES.map((lang) => (
-                                <option key={lang} value={lang}>
-                                    {lang}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[12px] font-medium text-[#3A3A3A]/60">
-                            {ui.targetLabel}
-                        </label>
-                        <select
-                            value={draft.targetLanguage}
-                            onChange={(e) => setDraft((prev) => ({ ...prev, targetLanguage: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
-                        >
-                            <option value="">{ui.autoLabel}</option>
-                            {LANGUAGES.map((lang) => (
-                                <option key={lang} value={lang}>
-                                    {lang}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[12px] font-medium text-[#3A3A3A]/60">
-                            {ui.levelLabel}
-                        </label>
-                        <select
-                            value={draft.level}
-                            onChange={(e) => setDraft((prev) => ({ ...prev, level: e.target.value }))}
-                            className="mt-2 w-full rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-[14px] text-[#3A3A3A]"
-                        >
-                            {LEVELS.map((level) => (
-                                <option key={level} value={level}>
-                                    {level}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
 
                     {saveError && (
                         <div className="text-[11px] text-[#B45353]">{saveError}</div>

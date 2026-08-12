@@ -7,6 +7,8 @@ import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabPair, VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
+import { buildTrack, matchesTrack } from "@/lib/track"
+import { vocablesCacheKey } from "@/lib/cache-keys"
 import { formatTemplate } from "@/lib/ui"
 import AutoFitText from "@/components/ui/auto-fit-text"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
@@ -136,10 +138,18 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
     [uiSettings]
   )
 
-  const cacheKey = useMemo(
-    () => `${VOCABLES_CACHE_PREFIX}:${sourceLabel}:${targetLabel}`,
-    [sourceLabel, targetLabel]
+  // The variety is part of the identity of a vocabulary set, not just the pair:
+  // a Bayerisch session resolves to a different word list than standard Deutsch.
+  const track = useMemo(
+    () => buildTrack({
+      source: sourceLabel,
+      target: targetLabel,
+      variant: (profile as any).variant,
+    }),
+    [sourceLabel, targetLabel, (profile as any).variant]
   )
+
+  const cacheKey = useMemo(() => vocablesCacheKey(track), [track])
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false)
@@ -221,10 +231,16 @@ export default function VocablesClient({ profile }: { profile: ProfileSettings }
             const normalized = { ...json, id: item.worldId } as VocabWorld
             if (item.title) normalized.title = item.title
             const pool = Array.isArray(normalized.pool) ? normalized.pool : []
-            normalized.pool = pool.map((pair) => ({
-              ...pair,
-              srs: pair.srs ?? initializeSRS(),
-            }))
+            // Variety filtering happens per word, not per world: a Bayerisch
+            // article is mostly ordinary German, so the standard words in it stay
+            // visible in standard Deutsch and only the dialect ones are hidden.
+            normalized.pool = pool
+              .filter((pair) => matchesTrack({ variant: (pair as any).variant ?? null }, track))
+              .map((pair) => ({
+                ...pair,
+                srs: pair.srs ?? initializeSRS(),
+              }))
+            if (normalized.pool.length === 0) return null
             return {
               worldId: item.worldId,
               title: item.title,

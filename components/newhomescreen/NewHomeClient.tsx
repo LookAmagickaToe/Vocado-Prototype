@@ -11,8 +11,11 @@ import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import type { VocabWorld } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
+import { buildTrack } from "@/lib/track"
+import { worldsCacheKey, pendingWorldsKey, savedNewsKey, newsCacheKey, purgeLegacyCaches } from "@/lib/cache-keys"
 import { formatTemplate } from "@/lib/ui"
 import { calculateNextReview, initializeSRS } from "@/lib/srs"
+import { normalizeWord, wordKey } from "@/lib/words"
 import TutorialOverlay from "@/components/tutorial/TutorialOverlay"
 
 // --- THEME CONSTANTS ---
@@ -27,7 +30,6 @@ const COLORS = {
 
 const LAST_PLAYED_STORAGE_KEY = "vocado-last-played"
 const FALLBACK_AVATAR = "/profilepictures/happy_vocado.png"
-const PENDING_WORLDS_KEY = "vocado-pending-worlds"
 
 const getLastPlayedKey = (source?: string, target?: string) => {
     const src = source?.trim() || "auto"
@@ -439,6 +441,17 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         () => getUiSettings(profileSettings.sourceLanguage),
         [profileSettings.sourceLanguage]
     )
+
+    // The language pair (and variety) currently being learned. Everything cached
+    // on this screen is scoped to it.
+    const track = useMemo(
+        () => buildTrack({
+            source: profileSettings.sourceLanguage,
+            target: profileSettings.targetLanguage,
+            variant: (profileSettings as any).variant,
+        }),
+        [profileSettings.sourceLanguage, profileSettings.targetLanguage, (profileSettings as any).variant]
+    )
     const ui = useMemo(
         () => ({
             translateTitle: uiSettings?.home?.translateTitle ?? "Translate",
@@ -548,6 +561,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 uiSettings?.overlay?.generateMoreLoading ??
                 uiSettings?.upload?.processing ??
                 "Generating...",
+            generateMoreShortfall:
+                uiSettings?.overlay?.generateMoreShortfall ??
+                "Only {count} new words found for this theme",
             saveLabel:
                 uiSettings?.overlay?.save ?? "Save",
             playNowLabel:
@@ -639,6 +655,31 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 window.history.replaceState({}, "", "/")
             }
         }
+    }, [])
+
+    // Words the user already has across every world. Used to keep generation from
+    // repeating vocabulary the user has seen before.
+    const [knownWords, setKnownWords] = useState<string[]>([])
+
+    const loadKnownWords = async () => {
+        try {
+            const session = await supabase.auth.getSession()
+            const token = session.data.session?.access_token
+            if (!token) return
+            const response = await fetch("/api/storage/words/known", {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!response.ok) return
+            const data = await response.json()
+            const words = Array.isArray(data?.words) ? data.words : []
+            setKnownWords(words.map((w: any) => String(w?.target ?? "")).filter(Boolean))
+        } catch {
+            // Non-critical: generation still dedups against the current list.
+        }
+    }
+
+    useEffect(() => {
+        loadKnownWords()
     }, [])
 
     useEffect(() => {
@@ -872,7 +913,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         if (typeof window === "undefined") return null
         try {
             const sessionKey = `${categoryValue}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
-            const cacheKey = `vocado-news-cache:${sessionKey}`
+            const cacheKey = newsCacheKey(track, categoryValue, profileSettings.level || "")
             const raw = window.localStorage.getItem(cacheKey)
             if (!raw) return null
             const parsed = JSON.parse(raw)
@@ -906,7 +947,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         if (typeof window === "undefined") return
         try {
             const sessionKey = `${categoryValue}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
-            const cacheKey = `vocado-news-cache:${sessionKey}`
+            const cacheKey = newsCacheKey(track, categoryValue, profileSettings.level || "")
             window.localStorage.setItem(cacheKey, JSON.stringify({ worlds, updatedAt: Date.now() }))
         } catch {
             // ignore
@@ -919,7 +960,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         if (storedWorlds.some((world) => world.news?.sourceUrl === url)) return true
         if (typeof window !== "undefined") {
             const sessionKey = `${activeNewsTab}|${profileSettings.level}|${profileSettings.sourceLanguage}|${profileSettings.targetLanguage}`
-            const cacheKey = `vocado-news-cache:${sessionKey}`
+            const cacheKey = newsCacheKey(track, activeNewsTab, profileSettings.level || "")
             const raw = window.localStorage.getItem(cacheKey)
             if (raw) {
                 try {
@@ -1218,7 +1259,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
 
     useEffect(() => {
         if (typeof window === "undefined") return
-        const raw = window.localStorage.getItem("vocado-saved-news")
+        const raw = window.localStorage.getItem(savedNewsKey(track))
         if (!raw) return
         try {
             const parsed = JSON.parse(raw)
@@ -1623,6 +1664,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 level: profileSettings.level || "A2",
                 sourceLabel: profileSettings.sourceLanguage || "Español",
                 targetLabel: profileSettings.targetLanguage || "Alemán",
+                exclude: knownWords.slice(0, 400),
             })
             const items = Array.isArray(result?.items) ? result.items : []
             const reviewItems = buildReviewItemsFromAi(items)
@@ -1839,24 +1881,76 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         saveOverlayWorld(words, worldId, title, true)
     }
 
+    // Prompt budget for the exclusion list. Words from the current list come first
+    // — repeating those is the most visible failure — then globally known words.
+    const MAX_EXCLUDE = 400
+    const GENERATE_ROUNDS = 3
+
     const handleGenerateMoreWords = async (count: number, existingWords: ReviewWord[]): Promise<ReviewWord[]> => {
         const theme = lastPromptTheme || generatedTitle || "Vocabulary"
-        const exclude = existingWords
-            .map((word) => word.source?.trim())
-            .filter((word): word is string => Boolean(word))
-        const result = await callAi({
-            task: "theme_list",
-            theme,
-            count,
-            level: profileSettings.level || "A2",
-            sourceLabel: profileSettings.sourceLanguage || "Español",
-            targetLabel: profileSettings.targetLanguage || "Alemán",
-            exclude,
+
+        const excludeSet = new Set<string>()
+        // Split so that words from the current list and from previous rounds are
+        // never truncated away by a large global vocabulary.
+        const priorityExclude: string[] = []
+        const globalExclude: string[] = []
+        const addExclude = (value: unknown, priority = true) => {
+            const text = String(value ?? "").trim()
+            const norm = normalizeWord(text)
+            if (!text || !norm || excludeSet.has(norm)) return
+            excludeSet.add(norm)
+            ;(priority ? priorityExclude : globalExclude).push(text)
+        }
+        existingWords.forEach((word) => {
+            addExclude(word.source)
+            addExclude(word.target)
         })
-        const items = Array.isArray(result?.items) ? result.items : []
-        const reviewItems = buildReviewItemsFromAi(items)
-        const words = buildReviewWordsFromItems(reviewItems)
-        return words
+        knownWords.forEach((word) => addExclude(word, false))
+        const buildExclude = () =>
+            [...priorityExclude, ...globalExclude].slice(0, MAX_EXCLUDE)
+
+        // Keys of everything we must not return, matched on the full source::target pair.
+        const seenKeys = new Set(
+            existingWords.map((word) => wordKey(word.source, word.target)).filter(Boolean)
+        )
+        const knownTargets = new Set(knownWords.map(normalizeWord).filter(Boolean))
+
+        const collected: ReviewWord[] = []
+
+        // Gemini repeats itself even with a hard exclusion rule, so ask for a few
+        // extra and top up over several rounds until we hit the requested count.
+        for (let round = 0; round < GENERATE_ROUNDS && collected.length < count; round += 1) {
+            const missing = count - collected.length
+            const result = await callAi({
+                task: "theme_list",
+                theme,
+                count: missing + 5,
+                level: profileSettings.level || "A2",
+                sourceLabel: profileSettings.sourceLanguage || "Español",
+                targetLabel: profileSettings.targetLanguage || "Alemán",
+                exclude: buildExclude(),
+            })
+            const items = Array.isArray(result?.items) ? result.items : []
+            const words = buildReviewWordsFromItems(buildReviewItemsFromAi(items))
+            if (words.length === 0) break
+
+            for (const word of words) {
+                if (collected.length >= count) break
+                const key = wordKey(word.source, word.target)
+                if (!key || seenKeys.has(key)) continue
+                if (knownTargets.has(normalizeWord(word.target))) continue
+                seenKeys.add(key)
+                collected.push(word)
+            }
+
+            // Feed this round's output back in so the next round cannot repeat it.
+            words.forEach((word) => {
+                addExclude(word.source)
+                addExclude(word.target)
+            })
+        }
+
+        return collected
     }
 
     const updateLocalWorldsCache = (
@@ -1867,8 +1961,9 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
         if (typeof window === "undefined") return
         const storedUserId = window.localStorage.getItem("vocado-user-id")
         const resolvedUserId = userId || storedUserId || "anon"
-        const key = `vocado-worlds-cache:${resolvedUserId}`
-        const fallbackKey = "vocado-worlds-cache"
+        // Same key builder WorldsClient reads from — they used to assemble it
+        // independently, which is how the unscoped fallback key crept in.
+        const key = worldsCacheKey(track, resolvedUserId)
         try {
             const payload = JSON.stringify({
                 lists: nextLists,
@@ -1876,7 +1971,6 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 updatedAt: Date.now(),
             })
             window.localStorage.setItem(key, payload)
-            window.localStorage.setItem(fallbackKey, payload)
         } catch {
             // ignore cache write errors
         }
@@ -1885,11 +1979,11 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
     const queuePendingWorld = (world: VocabWorld, listId: string, remove = false) => {
         if (typeof window === "undefined") return
         try {
-            const raw = window.localStorage.getItem(PENDING_WORLDS_KEY)
+            const raw = window.localStorage.getItem(pendingWorldsKey(track))
             const parsed = raw ? JSON.parse(raw) : []
             const next = Array.isArray(parsed) ? parsed : []
             next.push({ world, listId, remove })
-            window.localStorage.setItem(PENDING_WORLDS_KEY, JSON.stringify(next))
+            window.localStorage.setItem(pendingWorldsKey(track), JSON.stringify(next))
         } catch {
             // ignore
         }
@@ -1916,7 +2010,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     const next = new Set(prev)
                     next.delete(normalizedSource)
                     if (typeof window !== "undefined") {
-                        window.localStorage.setItem("vocado-saved-news", JSON.stringify(Array.from(next)))
+                        window.localStorage.setItem(savedNewsKey(track), JSON.stringify(Array.from(next)))
                         window.localStorage.setItem("vocado-refresh-worlds", "1")
                     }
                     return next
@@ -1955,7 +2049,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                     const next = new Set(prev)
                     next.add(normalizedSource)
                     if (typeof window !== "undefined") {
-                        window.localStorage.setItem("vocado-saved-news", JSON.stringify(Array.from(next)))
+                        window.localStorage.setItem(savedNewsKey(track), JSON.stringify(Array.from(next)))
                         window.localStorage.setItem("vocado-refresh-worlds", "1")
                     }
                     return next
@@ -2092,6 +2186,10 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                 return update
             })
 
+            // The server just indexed these words; pull the fresh set so the next
+            // generation excludes them.
+            loadKnownWords()
+
             setIsOverlayOpen(false)
             if (playNow) {
                 router.push(`/play?world=${encodeURIComponent(world.id)}&level=0`)
@@ -2223,7 +2321,7 @@ export default function NewHomeClient({ profile }: { profile: ProfileSettings })
                         <div className="relative flex items-center gap-2 p-2.5">
                             <input
                                 type="text"
-                                className="bg-transparent border-none outline-none text-[15px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/30 font-normal pr-8 w-[75%]"
+                                className="bg-transparent border-none outline-none text-[15px] text-[#3A3A3A] placeholder:text-[#3A3A3A]/30 font-normal pr-8 flex-1 min-w-0"
                                 placeholder={
                                     translateMode
                                         ? ui.translatePlaceholder

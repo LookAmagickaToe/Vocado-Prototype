@@ -12,6 +12,7 @@ import VocabMemoryGame from "@/components/games/VocabMemoryGame"
 import PhraseMemoryGame from "@/components/games/PhraseMemoryGame"
 import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
+import { buildTrack, matchesTrack } from "@/lib/track"
 import pointsConfig from "@/data/ui/points.json"
 import { supabase } from "@/lib/supabase/client"
 import NavFooter from "@/components/ui/NavFooter"
@@ -1554,25 +1555,35 @@ export default function AppClient({
     window.localStorage.setItem(WORLD_LISTS_STORAGE_KEY, JSON.stringify(worldLists))
   }, [worldLists])
 
+  // The language pair and variety currently being learned.
+  const activeTrack = useMemo(
+    () => buildTrack({
+      source: profileSettings.sourceLanguage,
+      target: profileSettings.targetLanguage,
+      variant: (profileSettings as any).variant,
+    }),
+    [profileSettings.sourceLanguage, profileSettings.targetLanguage, (profileSettings as any).variant]
+  )
+
   const languageFilteredWorlds = useMemo(() => {
     if (!profileSettings.sourceLanguage && !profileSettings.targetLanguage) {
       return allWorlds
     }
-    return allWorlds.filter((world) => {
-      const source = (world as any).source_language || ""
-      const target = (world as any).target_language || ""
-      if (profileSettings.sourceLanguage && source !== profileSettings.sourceLanguage) {
-        return false
-      }
-      if (profileSettings.targetLanguage && target && target !== profileSettings.targetLanguage) {
-        return false
-      }
-      if (profileSettings.targetLanguage && !target) {
-        return false
-      }
-      return true
-    })
-  }, [allWorlds, profileSettings.sourceLanguage, profileSettings.targetLanguage])
+    // matchesTrack also applies variety inheritance: a Bayerisch session sees
+    // standard German worlds plus Bavarian ones, standard sees only the former.
+    // Worlds saved before language columns existed carry no pair and stay
+    // visible rather than vanishing.
+    return allWorlds.filter((world) =>
+      matchesTrack(
+        {
+          source_language: (world as any).source_language || null,
+          target_language: (world as any).target_language || null,
+          variant: (world as any).variant ?? null,
+        },
+        activeTrack
+      )
+    )
+  }, [allWorlds, activeTrack, profileSettings.sourceLanguage, profileSettings.targetLanguage])
 
   const visibleWorlds = useMemo(
     () => languageFilteredWorlds.filter((w) => !hiddenWorldIds.includes(w.id)),

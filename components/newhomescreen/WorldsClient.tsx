@@ -7,6 +7,8 @@ import { Search, Plus, BookOpen, Upload, X, ChevronDown, ChevronRight, Play, Mor
 import NavFooter from "@/components/ui/NavFooter"
 import type { World } from "@/types/worlds"
 import { getUiSettings } from "@/lib/ui-settings"
+import { buildTrack } from "@/lib/track"
+import { worldsCacheKey, pendingWorldsKey, purgeLegacyCaches } from "@/lib/cache-keys"
 import { formatTemplate } from "@/lib/ui"
 import { supabase } from "@/lib/supabase/client"
 
@@ -53,7 +55,6 @@ type PendingWorldEntry = {
     remove?: boolean
 }
 
-const PENDING_WORLDS_KEY = "vocado-pending-worlds"
 const NEWS_LIST_NAME = "Vocado Diario"
 
 const generateUuid = () => {
@@ -87,7 +88,19 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
     const [promptError, setPromptError] = useState<string | null>(null)
     const [cachedLists, setCachedLists] = useState<WorldList[]>(lists)
     const [cachedWorlds, setCachedWorlds] = useState<World[]>(worlds)
-    const [cacheKey, setCacheKey] = useState("vocado-worlds-cache")
+    const [cacheKey, setCacheKey] = useState<string | null>(null)
+
+    // Everything on this screen belongs to the language pair currently being
+    // learned; a switch re-keys the cache and refetches rather than showing the
+    // previous language's worlds.
+    const track = useMemo(
+        () => buildTrack({
+            source: profile.sourceLanguage,
+            target: profile.targetLanguage,
+            variant: (profile as any).variant,
+        }),
+        [profile.sourceLanguage, profile.targetLanguage, (profile as any).variant]
+    )
     const cachedListsRef = useRef<WorldList[]>(lists)
     const cachedWorldsRef = useRef<World[]>(worlds)
 
@@ -198,7 +211,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
 
     const applyPendingWorlds = useCallback(() => {
         if (typeof window === "undefined") return
-        const raw = window.localStorage.getItem(PENDING_WORLDS_KEY)
+        const raw = window.localStorage.getItem(pendingWorldsKey(track))
         if (!raw) return
         let pending: PendingWorldEntry[] = []
         try {
@@ -208,7 +221,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             pending = []
         }
         if (!pending.length) {
-            window.localStorage.removeItem(PENDING_WORLDS_KEY)
+            window.localStorage.removeItem(pendingWorldsKey(track))
             return
         }
         setCachedWorlds((prev) => {
@@ -258,8 +271,8 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             })
             return nextLists
         })
-        window.localStorage.removeItem(PENDING_WORLDS_KEY)
-    }, [])
+        window.localStorage.removeItem(pendingWorldsKey(track))
+    }, [track])
 
     useEffect(() => {
         const hydrateCache = async () => {
@@ -267,11 +280,12 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             const storedUserId =
                 typeof window !== "undefined" ? window.localStorage.getItem("vocado-user-id") : null
             const userId = session.data.session?.user?.id || storedUserId || "anon"
-            const key = `vocado-worlds-cache:${userId}`
-            const fallbackKey = "vocado-worlds-cache"
+            const key = worldsCacheKey(track, userId)
             setCacheKey(key)
             if (typeof window === "undefined") return
-            const raw = window.localStorage.getItem(key) ?? window.localStorage.getItem(fallbackKey)
+            // No cross-track fallback: hydrating an English session from a German
+            // cache is exactly the bug this scoping exists to prevent.
+            const raw = window.localStorage.getItem(key)
             if (!raw) return
             try {
                 const parsed = JSON.parse(raw)
@@ -286,7 +300,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             }
         }
         hydrateCache()
-    }, [])
+    }, [track])
 
     useEffect(() => {
         applyPendingWorlds()
@@ -301,7 +315,6 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
             updatedAt: Date.now(),
         })
         window.localStorage.setItem(cacheKey, payload)
-        window.localStorage.setItem("vocado-worlds-cache", payload)
     }, [cacheKey, cachedLists, cachedWorlds])
 
     const fetchLatest = useCallback(async () => {
@@ -448,7 +461,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                     // ignore
                 }
             }
-            if (event.key === PENDING_WORLDS_KEY) {
+            if (event.key === pendingWorldsKey(track)) {
                 applyPendingWorlds()
             }
             if (event.key === "vocado-refresh-worlds") {
@@ -662,6 +675,24 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
 
             const sourceLabel = profile.sourceLanguage || "Español"
             const targetLabel = profile.targetLanguage || "Deutsch"
+
+            // Keep the new world from repeating vocabulary the user already has.
+            let exclude: string[] = []
+            try {
+                const knownResponse = await fetch("/api/storage/words/known", {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                if (knownResponse.ok) {
+                    const known = await knownResponse.json()
+                    exclude = (Array.isArray(known?.words) ? known.words : [])
+                        .map((w: any) => String(w?.target ?? ""))
+                        .filter(Boolean)
+                        .slice(0, 400)
+                }
+            } catch {
+                // Non-critical — generation proceeds without the exclusion list.
+            }
+
             const response = await fetch("/api/ai", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -672,6 +703,7 @@ export default function WorldsClient({ profile, lists = [], worlds = [] }: World
                     level: profile.level || "A2",
                     sourceLabel,
                     targetLabel,
+                    exclude,
                 }),
             })
             const data = await response.json().catch(() => ({}))

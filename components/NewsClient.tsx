@@ -5,6 +5,8 @@ import { BookmarkPlus, Check, Plus, RefreshCw, Sparkles } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 import { getUiSettings } from "@/lib/ui-settings"
+import { buildTrack } from "@/lib/track"
+import { worldsCacheKey, newsCacheKey, savedNewsKey } from "@/lib/cache-keys"
 import pointsConfig from "@/data/ui/points.json"
 import type { VocabWorld } from "@/types/worlds"
 import VocabMemoryGame from "@/components/games/VocabMemoryGame"
@@ -12,6 +14,8 @@ import { formatTemplate } from "@/lib/ui"
 import NavFooter from "@/components/ui/NavFooter"
 import { supabase } from "@/lib/supabase/client"
 import { initializeSRS } from "@/lib/srs"
+import { normalizeWord } from "@/lib/words"
+import InterlinearAccordionReader from "@/components/news/InterlinearAccordionReader"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
@@ -157,6 +161,25 @@ const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
     conjugation: pair.conjugation // ✅ NEW
   }))
 
+// News pools key their words by language code, so the field names depend on the
+// user's language pair — they are NOT always the es=source / de=target pair that
+// VocabPair uses. Always resolve through these helpers.
+const LANG_CODES: Record<string, string> = {
+  "Español": "es",
+  "English": "en",
+  "Deutsch": "de",
+  "Français": "fr",
+  "Português": "pt",
+}
+
+const langCode = (label: string, fallback: string) => LANG_CODES[label] || fallback
+
+/** Pull the source/target words out of a news pool pair for a given language pair. */
+const readPoolPair = (pair: any, sourceLabel: string, targetLabel: string) => ({
+  source: String(pair?.[langCode(sourceLabel, "es")] ?? pair?.es ?? ""),
+  target: String(pair?.[langCode(targetLabel, "de")] ?? pair?.de ?? ""),
+})
+
 const buildWorldFromItems = (
   items: ReviewItem[],
   sourceLabel: string,
@@ -166,16 +189,8 @@ const buildWorldFromItems = (
 ): VocabWorld => {
   const id = idOverride || `news-${Date.now()}`
 
-  // Map language labels to codes
-  const langMap: Record<string, string> = {
-    "Español": "es",
-    "English": "en",
-    "Deutsch": "de",
-    "Français": "fr",
-    "Português": "pt"
-  }
-  const sourceCode = langMap[sourceLabel] || "es"
-  const targetCode = langMap[targetLabel] || "de"
+  const sourceCode = langCode(sourceLabel, "es")
+  const targetCode = langCode(targetLabel, "de")
 
   const pool = items.map((item, index) => {
     const baseSrs = initializeSRS()
@@ -239,6 +254,10 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [step, setStep] = useState<"input" | "loading" | "play" | "summary">("input")
   const [newsWorlds, setNewsWorlds] = useState<VocabWorld[]>([])
   const [savedNewsUrls, setSavedNewsUrls] = useState<Set<string>>(new Set())
+  // Normalized target words the user already has. News templates are cached
+  // globally, so known words are still extracted (the article has to stay
+  // readable) but are marked and skipped when saving.
+  const [knownTargets, setKnownTargets] = useState<Set<string>>(new Set())
   const [isLoadingHeadlines, setIsLoadingHeadlines] = useState(false)
   const [category, setCategory] = useState(profile.newsCategory || "world")
   const [newsTitle, setNewsTitle] = useState("")
@@ -247,10 +266,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [world, setWorld] = useState<VocabWorld | null>(null)
   const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
   const [summarySource, setSummarySource] = useState<string[]>([])
-  const [showTranslation, setShowTranslation] = useState(false)
+  const [showTranslation, setShowTranslation] = useState(true)
 
   // Selection state
   const [selectionText, setSelectionText] = useState("")
+  // Sentence the selected word came from — sent to the AI so a word with several
+  // meanings gets translated in the sense the article actually uses.
+  const [selectionContext, setSelectionContext] = useState("")
   const [selectionPos, setSelectionPos] = useState<{ x: number; y: number } | null>(null)
   const [isAddingSelection, setIsAddingSelection] = useState(false)
   const newsContentRef = useRef<HTMLDivElement>(null)
@@ -287,6 +309,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       // Native menu is usually ABOVE. We place ours BELOW.
       if (rect.width > 0 && rect.height > 0) {
         setSelectionText(text)
+        // A dragged selection is its own context; nothing extra to attach.
+        setSelectionContext("")
         // Position below the selection
         setSelectionPos({
           x: rect.left + rect.width / 2, // Center
@@ -382,6 +406,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const sourceLabel = profileState.sourceLanguage || "Español"
   const targetLabel = profileState.targetLanguage || "Alemán"
 
+  // The language pair and variety this reader session belongs to. Sent with AI
+  // calls so extracted words are filed — and dialect-tagged — correctly.
+  const track = useMemo(
+    () => buildTrack({
+      source: sourceLabel,
+      target: targetLabel,
+      variant: (profileState as any).variant,
+    }),
+    [sourceLabel, targetLabel, (profileState as any).variant]
+  )
+
   const localeForLanguage = (value: string) => {
     const lower = value.toLowerCase()
     if (lower.includes("deutsch") || lower.includes("german")) return "de-DE"
@@ -418,16 +453,16 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const todayKey = new Date().toISOString().slice(0, 10)
   const isSameDay = (value?: string) => (value || "").slice(0, 10) === todayKey
 
-  const newsCacheKey = useMemo(() => {
-    const levelKey = profileState.level || "A2"
-    const sessionKey = `${category}|${levelKey}|${sourceLabel}|${targetLabel}`
-    return `vocado-news-cache:${sessionKey}`
-  }, [category, profileState.level, sourceLabel, targetLabel])
+  // Named to avoid shadowing the newsCacheKey() builder imported from lib.
+  const localNewsCacheKey = useMemo(
+    () => newsCacheKey(track, category, profileState.level || "A2"),
+    [track, category, profileState.level]
+  )
 
   const loadLocalNewsCache = () => {
     if (typeof window === "undefined") return null
     try {
-      const raw = window.localStorage.getItem(newsCacheKey)
+      const raw = window.localStorage.getItem(localNewsCacheKey)
       if (!raw) return null
       const parsed = JSON.parse(raw)
       const worlds = Array.isArray(parsed?.worlds) ? parsed.worlds : []
@@ -442,7 +477,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       if (!validWorlds.length) {
         // Cache is stale (from yesterday), clear it
         console.log(`[NewsClient] Cache contains ${worlds.length} items but none from today - clearing`)
-        window.localStorage.removeItem(newsCacheKey)
+        window.localStorage.removeItem(localNewsCacheKey)
         return null
       }
 
@@ -457,7 +492,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (typeof window === "undefined") return
     try {
       window.localStorage.setItem(
-        newsCacheKey,
+        localNewsCacheKey,
         JSON.stringify({
           updatedAt: Date.now(),
           worlds,
@@ -560,7 +595,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     setNewsDate(patchedWorld.news?.date ?? todayKey)
     setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("summary")
-    setShowTranslation(false)
+    setShowTranslation(true)
     setCurrentLevel(0)
   }
 
@@ -789,6 +824,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       categoryLabel: uiSettings?.news?.categoryLabel ?? "Categoría",
       categoryOptions: uiSettings?.news?.categoryOptions ?? {},
       addToVocab: uiSettings?.news?.addToVocab ?? "Zum Vokabular hinzufügen",
+      alreadyKnownBadge: uiSettings?.news?.alreadyKnownBadge ?? "kennst du schon",
       nav: uiSettings?.nav ?? {},
       tutorial: {
         letsPlay: uiSettings?.tutorial?.letsPlay ?? "Let's Play",
@@ -1001,7 +1037,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     const response = await fetch("/api/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      // The variety rides along on every AI call so generated text is written in
+      // it and each extracted word comes back tagged as dialect or standard.
+      body: JSON.stringify({ variant: track.variant, ...payload }),
     })
     let data: any = null
     try {
@@ -1024,6 +1062,37 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const getAuthToken = async () => {
     const session = await supabase.auth.getSession()
     return session.data.session?.access_token ?? ""
+  }
+
+  const loadKnownTargets = async () => {
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+      const response = await fetch("/api/storage/words/known", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      const words = Array.isArray(data?.words) ? data.words : []
+      setKnownTargets(
+        new Set(
+          words
+            .map((w: any) => String(w?.normTarget ?? "") || normalizeWord(w?.target))
+            .filter(Boolean)
+        )
+      )
+    } catch {
+      // Non-critical: without the set nothing is marked, saving still dedups server-side.
+    }
+  }
+
+  useEffect(() => {
+    loadKnownTargets()
+  }, [])
+
+  const isKnownWord = (target: unknown) => {
+    const norm = normalizeWord(target)
+    return Boolean(norm) && knownTargets.has(norm)
   }
 
   const ensureNewsListId = async (token: string) => {
@@ -1111,10 +1180,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (userId && userId !== "anon") {
       window.localStorage.setItem("vocado-user-id", userId)
     }
-    const key = `vocado-worlds-cache:${userId}`
-    const fallbackKey = "vocado-worlds-cache"
+    const key = worldsCacheKey(track, userId)
     try {
-      const raw = window.localStorage.getItem(key) ?? window.localStorage.getItem(fallbackKey)
+      const raw = window.localStorage.getItem(key)
       const parsed = raw ? JSON.parse(raw) : {}
       const nextWorlds: VocabWorld[] = Array.isArray(parsed?.worlds) ? parsed.worlds : []
       const nextLists: Array<{ id: string; name: string; worldIds?: string[] }> = Array.isArray(parsed?.lists)
@@ -1158,8 +1226,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         updatedAt: Date.now(),
       })
       window.localStorage.setItem(key, payload)
-      window.localStorage.setItem(fallbackKey, payload)
-    } catch {
+          } catch {
       // ignore cache failures
     }
   }
@@ -1334,7 +1401,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
       setNewsDate(patchedWorld.news?.date ?? newsDate)
       setStep("summary")
-      setShowTranslation(false)
+      setShowTranslation(true)
       return
     }
     if (!newsDate) {
@@ -1391,6 +1458,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     if (!text) {
       setSelectionPos(null)
       setSelectionText("")
+      setSelectionContext("")
       return
     }
 
@@ -1407,7 +1475,21 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
 
     setSelectionText(text)
+    setSelectionContext("")
     setSelectionPos({ x, y })
+  }
+
+  // Tapping a single word in the reader opens the same floating "add to vocab"
+  // menu that a text selection does.
+  const handleWordTap = (
+    word: string,
+    position: { x: number; y: number },
+    context: string
+  ) => {
+    if (!word) return
+    setSelectionText(word)
+    setSelectionContext(context)
+    setSelectionPos(position)
   }
 
   const handleAddSelectionToVocab = async () => {
@@ -1418,6 +1500,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const result = await callAi({
         task: "parse_text",
         text: selectionText,
+        context: selectionContext || undefined,
         sourceLabel,
         targetLabel,
         level: profileState.level || undefined,
@@ -1426,23 +1509,23 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const newItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
       if (!newItems.length) return
 
-      // Map language labels to codes
-      const langMap: Record<string, string> = {
-        "Español": "es",
-        "English": "en",
-        "Deutsch": "de",
-        "Français": "fr",
-        "Português": "pt"
-      }
-      const sourceCode = langMap[sourceLabel] || "es"
-      const targetCode = langMap[targetLabel] || "de"
+      const sourceCode = langCode(sourceLabel, "es")
+      const targetCode = langCode(targetLabel, "de")
 
-      // Check for duplicates
-      const existingWords = new Set(((world.pool || []) as any[]).map(p => p[sourceCode]?.toLowerCase()?.trim()))
+      // Skip words already in this article, and words already in the user's
+      // global vocabulary.
+      const existingWords = new Set(
+        ((world.pool || []) as any[])
+          .map(p => normalizeWord(p[sourceCode]))
+          .filter(Boolean)
+      )
 
       const validItems = newItems.filter(item => {
-        const w = item.source?.toLowerCase()?.trim()
-        return w && !existingWords.has(w)
+        const w = normalizeWord(item.source)
+        if (!w || existingWords.has(w)) return false
+        if (isKnownWord(item.target)) return false
+        existingWords.add(w)
+        return true
       })
 
       if (validItems.length === 0) return
@@ -1492,6 +1575,84 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     } finally {
       setIsAddingSelection(false)
       setSelectionText("")
+      setSelectionContext("")
+    }
+  }
+
+
+  const handleSaveArticle = async () => {
+    const currentUrl = newsUrl || ""
+    if (!currentUrl) return
+    try {
+      const token = await getAuthToken()
+      if (!token) return
+      const listId = await ensureNewsListId(token)
+      const worldToSave: VocabWorld = world || {
+        id: buildNewsWorldId(currentUrl),
+        title: newsTitle || ui.title,
+        source_language: sourceLabel,
+        target_language: targetLabel,
+        mode: "vocab",
+        chunking: { itemsPerGame: 8 },
+        pool: [],
+        news: {
+          sourceUrl: currentUrl,
+          title: newsTitle || ui.title,
+          summary,
+          summary_source: summarySource,
+          date: newsDate || new Date().toISOString(),
+          category,
+        },
+      }
+      if (!worldToSave.pool || worldToSave.pool.length === 0) {
+        if (items.length > 0) {
+          worldToSave.pool = items.map((item, idx) => ({
+            id: `item-${idx}`,
+            es: item.source,
+            de: item.target,
+            pos: item.pos,
+            image: { type: "emoji", value: item.emoji || "📰" },
+            explanation: item.explanation,
+            example: item.example,
+            conjugation: item.conjugation,
+          })) as any
+        }
+      }
+      const normalizedUrl = normalizeNewsUrl(currentUrl)
+      const alreadySaved = savedNewsUrls.has(normalizedUrl)
+      if (alreadySaved) {
+        setSavedNewsUrls((prev) => {
+          const next = new Set(prev)
+          next.delete(normalizedUrl)
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(SAVED_NEWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+            window.localStorage.setItem("vocado-refresh-worlds", "1")
+          }
+          return next
+        })
+        await fetch("/api/storage/worlds/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ worldIds: [worldToSave.id] }),
+        })
+      } else {
+        setSavedNewsUrls((prev) => {
+          const next = new Set(prev)
+          next.add(normalizedUrl)
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(SAVED_NEWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+            window.localStorage.setItem("vocado-refresh-worlds", "1")
+          }
+          return next
+        })
+        await fetch("/api/storage/worlds/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ worlds: [worldToSave], listId, positions: { [worldToSave.id]: 0 } }),
+        })
+      }
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -1573,8 +1734,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 type="button"
                 onClick={async () => {
                   if (typeof window !== "undefined") {
-                    const sessionKey = `${category}|${profileState.level}|${profileState.sourceLanguage}|${profileState.targetLanguage}`
-                    const cacheKey = `${LOCAL_NEWS_CACHE_PREFIX}:${sessionKey}`
+                    const cacheKey = newsCacheKey(track, category, profileState.level || "")
                     window.localStorage.removeItem(cacheKey)
                   }
                   setNewsWorlds([])
@@ -1860,19 +2020,35 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         <button
                           type="button"
                           onClick={async () => {
-                            // SAVE VOCAB LOGIC
-                            // We will call the new API endpoint
+                            // Only words the user does not already have — the pool
+                            // deliberately still contains known words so the article
+                            // stays readable. Normalise to es=source / de=target so
+                            // the stored rows do not depend on the language pair.
+                            const newPool = (world.pool || [])
+                              .map((pair) => {
+                                const { source, target } = readPoolPair(pair, sourceLabel, targetLabel)
+                                return { ...pair, es: source, de: target }
+                              })
+                              .filter((pair) => pair.es && pair.de && !isKnownWord(pair.de))
                             const session = await supabase.auth.getSession()
                             const token = session.data.session?.access_token
-                            if (token) {
+                            if (token && newPool.length > 0) {
                               await fetch("/api/storage/vocables/save", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({
-                                  items: world.pool,
+                                  items: newPool,
                                   sourceLayout: sourceLabel, // e.g. "Español"
                                   targetLayout: targetLabel
                                 }),
+                              })
+                              setKnownTargets((prev) => {
+                                const next = new Set(prev)
+                                newPool.forEach((pair) => {
+                                  const norm = normalizeWord(pair.de)
+                                  if (norm) next.add(norm)
+                                })
+                                return next
                               })
                             }
                             closeWin()
@@ -2098,20 +2274,26 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                 </div>
               </div>
               <div
-                className="mt-3 space-y-2 text-sm text-[#3A3A3A]/70 flex-1 relative select-text touch-callout-none break-words"
-                style={{ WebkitTouchCallout: "none" }}
+                className="mt-3 flex-1 relative break-words"
                 ref={newsContentRef}
                 onContextMenu={handleContextMenu}
-                onTouchStart={(e) => {
-                  // For mobile: use a timer to simulate long press if contextmenu doesn't fire nicely
-                  // but standard contextmenu event usually works on high-end browsers.
-                }}
               >
-                {(showTranslation ? (summarySource.length > 0 ? summarySource : [sourceLabel === "Deutsch" ? "(Übersetzung nicht verfügbar)" : sourceLabel === "English" ? "(Translation not available)" : "(Traducción no disponible)"]) : summary).map((line, index) => (
-                  <div key={`${line}-${index}`} className="leading-relaxed">
-                    {line}
+                {summarySource.length > 0 ? (
+                  <InterlinearAccordionReader
+                    sourceParagraphs={summarySource}
+                    targetParagraphs={summary}
+                    onWordTap={handleWordTap}
+                    highlightActive={selectionPos !== null}
+                  />
+                ) : (
+                  <div className="space-y-2 text-sm text-[#3A3A3A]/70">
+                    {summary.map((line, index) => (
+                      <div key={`${line}-${index}`} className="leading-relaxed">
+                        {line}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
               {newsUrl && (
                 <div className="mt-6 pt-4 border-t border-[#3A3A3A]/5 text-xs text-[#3A3A3A]/50">
@@ -2168,6 +2350,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       <span className="text-[#3A3A3A]/50">{targetLabel}:</span>{" "}
                       <span className="font-semibold">{currentItem.target}</span>
                     </div>
+                    {isKnownWord(currentItem.target) && (
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#3A3A3A]/10 bg-white px-2 py-0.5 text-[10px] text-[#3A3A3A]/50">
+                        <Check className="h-3 w-3" />
+                        {ui.alreadyKnownBadge}
+                      </div>
+                    )}
                   </div>
                   {currentItem.explanation && (
                     <div className="text-xs text-[#3A3A3A]/70">{currentItem.explanation}</div>

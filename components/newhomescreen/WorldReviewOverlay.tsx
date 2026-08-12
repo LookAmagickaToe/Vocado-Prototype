@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Play } from "lucide-react"
+import { wordKey } from "@/lib/words"
+import { formatTemplate } from "@/lib/ui"
 
 
 // Design system colors
@@ -60,6 +62,7 @@ type ReviewOverlayLabels = {
     generateMorePlaceholder: string
     generateMoreButton: string
     generateMoreLoading: string
+    generateMoreShortfall: string
     saveLabel: string
     playNowLabel: string
 }
@@ -105,6 +108,7 @@ const DEFAULT_LABELS: ReviewOverlayLabels = {
     generateMorePlaceholder: "Count",
     generateMoreButton: "Generate",
     generateMoreLoading: "Generating...",
+    generateMoreShortfall: "Only {count} new words found for this theme",
     saveLabel: "Save",
     playNowLabel: "Play now",
 }
@@ -129,6 +133,7 @@ export default function WorldReviewOverlay({
     const [isNewWorld, setIsNewWorld] = useState(true)
     const [generateCount, setGenerateCount] = useState(10)
     const [isGenerating, setIsGenerating] = useState(false)
+    const [generateNotice, setGenerateNotice] = useState<string | null>(null)
 
     // Sync props to state when overlay opens with new data
     useEffect(() => {
@@ -139,6 +144,7 @@ export default function WorldReviewOverlay({
             setIsNewWorld(true)
             setGenerateCount(10)
             setIsGenerating(false)
+            setGenerateNotice(null)
         }
     }, [isOpen, initialWords, initialTitle])
 
@@ -165,14 +171,24 @@ export default function WorldReviewOverlay({
     const handleGenerateMore = async () => {
         if (!onGenerateMore || isGenerating) return
         setIsGenerating(true)
+        setGenerateNotice(null)
         try {
             const newWords = await onGenerateMore(generateCount, words)
-            // Filter out duplicates by source word
-            const existingSources = new Set(words.map(w => w.source.toLowerCase()))
-            const uniqueNewWords = newWords.filter(
-                w => !existingSources.has(w.source.toLowerCase())
-            )
+            // Last line of defence: onGenerateMore already filters against the
+            // user's global vocabulary, this only guards the current list.
+            const existingKeys = new Set(words.map(w => wordKey(w.source, w.target)))
+            const uniqueNewWords = newWords.filter(w => {
+                const key = wordKey(w.source, w.target)
+                if (!key || existingKeys.has(key)) return false
+                existingKeys.add(key)
+                return true
+            })
             setWords(prev => [...prev, ...uniqueNewWords])
+            if (uniqueNewWords.length < generateCount) {
+                setGenerateNotice(
+                    formatTemplate(labels.generateMoreShortfall, { count: uniqueNewWords.length })
+                )
+            }
         } catch (e) {
             console.error("Failed to generate more words:", e)
         } finally {
@@ -479,6 +495,11 @@ export default function WorldReviewOverlay({
                                     {isGenerating ? labels.generateMoreLoading : labels.generateMoreButton}
                                 </button>
                             </div>
+                            {generateNotice && (
+                                <p className="mt-2 text-[11px]" style={{ color: COLORS.textMuted }}>
+                                    {generateNotice}
+                                </p>
+                            )}
                         </section>
                     )}
                 </div>

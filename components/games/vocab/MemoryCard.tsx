@@ -5,6 +5,12 @@ import type { CardModel } from "./types"
 import AutoFitText from "@/components/ui/auto-fit-text"
 import { formatCardText } from "@/lib/text-format"
 
+// A memory card is roughly 65px of usable width on a phone, which fits about
+// seven bold characters at a readable size. Measured across the sample words:
+// at 13 chars long compounds are never hyphenated and shrink to 8-10px, at 7
+// they hyphenate and stay at 15-18px.
+const CARD_MAX_CHARS = 7
+
 function ParticleBurst() {
   const particles = Array.from({ length: 18 }, (_, i) => {
     const angle = (i / 18) * Math.PI * 2
@@ -101,10 +107,13 @@ export default function MemoryCard({
             {model.kind === "word" ? (
               <div className="h-full w-full px-2 text-center flex items-center justify-center">
                 <AutoFitText
-                  text={formatCardText(model.front.title || "")}
+                  text={formatCardText(model.front.title || "", CARD_MAX_CHARS)}
                   maxPx={18}
-                  minPx={5}
+                  // Hyphenation now wraps long compounds, so the old 5px floor is
+                  // no longer needed to make them fit — keep it readable instead.
+                  minPx={9}
                   lineHeight={1.05}
+                  wrap
                   className="w-full text-center font-semibold tracking-tight leading-tight"
                 />
               </div>
@@ -124,11 +133,13 @@ export default function MemoryCard({
 
                 {model.front.subtitle ? (
                   <AutoFitText
-                    text={formatCardText(model.front.subtitle || "")}
+                    text={formatCardText(model.front.subtitle || "", CARD_MAX_CHARS)}
                     maxPx={14}
-                    minPx={5}
+                    minPx={7}
                     lineHeight={1.05}
-                    className="w-full max-h-[35%] text-center font-medium leading-tight"
+                    heightRatio={0.35}
+                    wrap
+                    className="w-full text-center font-medium leading-tight"
                   />
                 ) : null}
               </div>
