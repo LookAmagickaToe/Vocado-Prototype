@@ -62,6 +62,20 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
             autoLabel: uiSettings?.profile?.autoLabel ?? "Auto",
             playTutorial: uiSettings?.profile?.playTutorial ?? "Play Tutorial",
             logout: uiSettings?.profile?.logout ?? uiSettings?.home?.logout ?? "Log out",
+            voice: {
+                title: uiSettings?.profile?.voiceTitle ?? "Reading voice",
+                description: uiSettings?.profile?.voiceDescription ?? "Choose a voice for articles in this language.",
+                female: uiSettings?.profile?.voiceFemale ?? "Female",
+                male: uiSettings?.profile?.voiceMale ?? "Male",
+                voice: uiSettings?.profile?.voiceLabel ?? "Voice",
+                preview: uiSettings?.profile?.voicePreview ?? "Preview",
+                standard: uiSettings?.profile?.voiceStandard ?? "Standard pronunciation",
+                fallback: uiSettings?.profile?.voiceFallback ?? "Multilingual fallback",
+                fallbackWarning: uiSettings?.profile?.voiceFallbackWarning ?? "Some voices are not yet verified for this language or accent.",
+                loadError: uiSettings?.profile?.voiceLoadError ?? "Could not load voices.",
+                permissionError: uiSettings?.profile?.voicePermissionError ?? "Enable Voices Read for this ElevenLabs API key.",
+                previewError: uiSettings?.profile?.voicePreviewError ?? "Could not play this voice.",
+            },
             nav: uiSettings?.nav ?? {},
         }),
         [uiSettings]
@@ -73,7 +87,7 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
             const raw = window.localStorage.getItem("vocado-profile-settings")
             if (!raw) return
             const parsed = JSON.parse(raw)
-            const pickString = (value: unknown, fallback?: string) =>
+            const pickString = (value: unknown, fallback = ""): string =>
                 typeof value === "string" && value.trim().length > 0 ? value : fallback
             setDraft((prev) => ({
                 ...prev,
@@ -141,7 +155,15 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                 .select(`${baseSelect},avatar_url`)
                 .eq("id", userId)
                 .maybeSingle()
-            let row = withAvatar.data
+            let row: {
+                level?: string | null
+                source_language?: string | null
+                target_language?: string | null
+                news_category?: string | null
+                seeds?: number | null
+                username?: string | null
+                avatar_url?: string | null
+            } | null = withAvatar.data
             if (withAvatar.error && typeof withAvatar.error.message === "string" && withAvatar.error.message.includes("avatar_url")) {
                 const fallback = await supabase
                     .from("profiles")
@@ -371,6 +393,13 @@ export default function ProfileClient({ profile }: { profile: ProfileSettings })
                         sourceLabel: ui.sourceLabel,
                         targetLabel: ui.targetLabel,
                         levelLabel: ui.levelLabel,
+                        voice: ui.voice,
+                        removeLanguage: uiSettings?.profile?.removeLanguage ?? "Remove language",
+                        removeTitle: uiSettings?.profile?.removeTitle ?? "Remove language?",
+                        removeConfirm: uiSettings?.profile?.removeConfirm ?? "Are you sure you want to remove {language}?",
+                        removeKeepsData: uiSettings?.profile?.removeKeepsData ?? "Your vocabulary is kept and returns if you add the language again.",
+                        cancel: uiSettings?.profile?.removeCancel ?? "Cancel",
+                        confirmRemove: uiSettings?.profile?.removeConfirmAction ?? "Remove",
                     }}
                 />
                 <div className="bg-[#FAF7F2] rounded-2xl border border-[#3A3A3A]/5 p-4 shadow-sm space-y-4">

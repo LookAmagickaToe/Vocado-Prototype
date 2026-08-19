@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { fetchTagesschau, generateNewsContentBatch } from "@/lib/news/generator"
+import { hasCurrentNewsPromptVersion } from "@/lib/news/content"
 
 export const runtime = "nodejs"
 export const maxDuration = 300 // 5 minutes
@@ -22,12 +23,19 @@ export async function POST(req: Request) {
         // 2. Fetch existing templates to avoid duplicates
         const { data: existingTemplates } = await supabaseAdmin
             .from("daily_news_templates")
-            .select("source_url")
+            .select("id,source_url,template_json")
             .eq("date", today)
             .eq("category", category)
             .eq("level", level)
 
-        const existingUrls = new Set(existingTemplates?.map(t => t.source_url) || [])
+        const existingUrls = new Set(
+            (existingTemplates || [])
+                .filter(t => hasCurrentNewsPromptVersion(t.template_json))
+                .map(t => t.source_url)
+        )
+        const existingByUrl = new Map(
+            (existingTemplates || []).map(t => [t.source_url, t.id])
+        )
 
         // 3. Select candidates that aren't already generated
         const candidates = headlines.filter((item: any) => {
@@ -56,7 +64,9 @@ export async function POST(req: Request) {
             if (!res) continue
             const { url, title, generated } = res as { url: string; title: string; generated: any }
             // Save to DB
-            const templateId = crypto.randomUUID()
+            // Reuse the stale row's id when replacing today's old prompt output,
+            // so foreign keys and saved references remain valid.
+            const templateId = existingByUrl.get(url) || crypto.randomUUID()
 
             try {
                 const { error } = await supabaseAdmin

@@ -1,5 +1,18 @@
 # Database Migration Instructions
 
+## Language tracks and TTS
+
+For a fresh or partially migrated database, run these files in the Supabase SQL
+Editor in this order:
+
+1. `add_user_words.sql`
+2. `add_language_tracks.sql`
+3. `add_tts_cache.sql`
+
+Each script is additive and safe to run again. If `add_language_tracks.sql` was
+already run before `user_words` existed, run it again after `add_user_words.sql`
+so the word index receives its language columns.
+
 ## Language tracks (`add_language_tracks.sql`)
 
 Adds per-language separation of learning content, regional varieties, and the

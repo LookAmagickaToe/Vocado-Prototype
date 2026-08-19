@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "voice:design": "node scripts/design-elevenlabs-voice.mjs"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

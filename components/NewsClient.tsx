@@ -1,11 +1,12 @@
 "use client"
 
 import { useRef, useEffect, useMemo, useState } from "react"
-import { BookmarkPlus, Check, Plus, RefreshCw, Sparkles } from "lucide-react"
+import { BookmarkPlus, Check, Languages, Pause, Plus, RefreshCw, Sparkles, Volume2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useSearchParams } from "next/navigation"
 import { getUiSettings } from "@/lib/ui-settings"
 import { buildTrack } from "@/lib/track"
+import { languageCode } from "@/lib/languages"
+import { useArticleAudio } from "@/lib/tts/useArticleAudio"
 import { worldsCacheKey, newsCacheKey, savedNewsKey } from "@/lib/cache-keys"
 import pointsConfig from "@/data/ui/points.json"
 import type { VocabWorld } from "@/types/worlds"
@@ -16,6 +17,11 @@ import { supabase } from "@/lib/supabase/client"
 import { initializeSRS } from "@/lib/srs"
 import { normalizeWord } from "@/lib/words"
 import InterlinearAccordionReader from "@/components/news/InterlinearAccordionReader"
+import {
+  filterVocabularyToSummary,
+  hasCurrentNewsPromptVersion,
+  NEWS_PROMPT_VERSION,
+} from "@/lib/news/content"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
@@ -113,6 +119,7 @@ type ReviewItem = {
   example?: string
   syllables?: string
   conjugation?: any // Using any for now, matches Conjugation type
+  manuallyAdded?: boolean
 }
 
 type NewsPayload = {
@@ -147,6 +154,7 @@ const buildReviewItemsFromAi = (items: any[]) =>
       example: normalizeText(item?.example) || undefined,
       syllables: normalizeText(item?.syllables) || undefined,
       conjugation: item?.conjugation, // ✅ NEW
+      manuallyAdded: Boolean(item?.manuallyAdded),
     } as ReviewItem
   })
 
@@ -158,8 +166,25 @@ const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
     emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
     explanation: pair.explanation,
     example: pair.example,
-    conjugation: pair.conjugation // ✅ NEW
+    conjugation: pair.conjugation, // ✅ NEW
+    manuallyAdded: Boolean((pair as any).manuallyAdded),
   }))
+
+const filterArticleVocabulary = (
+  items: ReviewItem[],
+  targetSummary: string[],
+  sourceSummary: string[]
+) => {
+  const generated = filterVocabularyToSummary(items, targetSummary) as ReviewItem[]
+  const visibleKeys = new Set(generated.map((item) => `${item.source}\u0000${item.target}`))
+  const sourceText = ` ${normalizeWord(sourceSummary.join(" "))} `
+  return items.filter((item) => {
+    if (visibleKeys.has(`${item.source}\u0000${item.target}`)) return true
+    if (!item.manuallyAdded) return false
+    const sourceTerm = normalizeWord(item.source)
+    return Boolean(sourceTerm) && sourceText.includes(` ${sourceTerm} `)
+  })
+}
 
 // News pools key their words by language code, so the field names depend on the
 // user's language pair — they are NOT always the es=source / de=target pair that
@@ -236,11 +261,17 @@ const buildWorldFromItems = (
   }
 }
 
-export default function NewsClient({ profile }: { profile: ProfileSettings }) {
-  const searchParams = useSearchParams()
-  const autoPlay = searchParams.get("auto") === "1"
-  const autoCategory = searchParams.get("category")
-  const autoIndexParam = searchParams.get("index")
+export default function NewsClient({
+  profile,
+  initialQuery,
+}: {
+  profile: ProfileSettings
+  initialQuery?: { auto?: string; category?: string; index?: string; summary?: string }
+}) {
+  const autoPlay = initialQuery?.auto === "1"
+  const autoCategory = initialQuery?.category ?? null
+  const autoIndexParam = initialQuery?.index ?? null
+  const showStoredSummary = initialQuery?.summary === "1"
   const autoStartedRef = useRef(false)
   const autoIndexRef = useRef<number | null>(null)
   const [profileState, setProfileState] = useState(profile)
@@ -267,6 +298,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
   const [summarySource, setSummarySource] = useState<string[]>([])
   const [showTranslation, setShowTranslation] = useState(true)
+  const [readerExpandedAll, setReaderExpandedAll] = useState(false)
 
   // Selection state
   const [selectionText, setSelectionText] = useState("")
@@ -275,7 +307,29 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
   const [selectionContext, setSelectionContext] = useState("")
   const [selectionPos, setSelectionPos] = useState<{ x: number; y: number } | null>(null)
   const [isAddingSelection, setIsAddingSelection] = useState(false)
+  const [selectionAddStatus, setSelectionAddStatus] = useState<{
+    type: "success" | "error"
+    message: string
+  } | null>(null)
   const newsContentRef = useRef<HTMLDivElement>(null)
+  const selectionMenuRef = useRef<HTMLDivElement>(null)
+
+  // A word menu is contextual: any pointer press outside both the menu and a
+  // tappable article word dismisses it and its text highlight.
+  useEffect(() => {
+    const dismissWordMenu = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null
+      if (selectionMenuRef.current?.contains(target)) return
+      if (target?.closest?.("[data-word]")) return
+      setSelectionPos(null)
+      setSelectionText("")
+      setSelectionContext("")
+      setSelectionAddStatus(null)
+      window.getSelection()?.removeAllRanges()
+    }
+    document.addEventListener("pointerdown", dismissWordMenu, true)
+    return () => document.removeEventListener("pointerdown", dismissWordMenu, true)
+  }, [])
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -405,6 +459,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   const sourceLabel = profileState.sourceLanguage || "Español"
   const targetLabel = profileState.targetLanguage || "Alemán"
+  const sourceAbbreviation = languageCode(sourceLabel, sourceLabel.slice(0, 2)).toUpperCase()
+  const targetAbbreviation = languageCode(targetLabel, targetLabel.slice(0, 2)).toUpperCase()
 
   // The language pair and variety this reader session belongs to. Sent with AI
   // calls so extracted words are filed — and dialect-tagged — correctly.
@@ -416,6 +472,42 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }),
     [sourceLabel, targetLabel, (profileState as any).variant]
   )
+
+  // Read-aloud audio for the article currently on screen.
+  //
+  // `summary` is the learning language; `summarySource` is the native/source
+  // language. The language switch must change both the visible paragraphs and
+  // the TTS language. Previously it only moved the switch highlight, leaving
+  // Spanish on screen under the Deutsch tab and asking a German voice to read
+  // those Spanish paragraphs.
+  const displayedSummary = showTranslation ? summarySource : summary
+  const hiddenTranslation = showTranslation ? summary : summarySource
+  const displayedLanguage = showTranslation ? sourceLabel : targetLabel
+  const audioRequest = useMemo(
+    () =>
+      displayedSummary.length
+        ? {
+            paragraphs: displayedSummary,
+            language: displayedLanguage,
+            variant: showTranslation ? null : track.variant,
+          }
+        : null,
+    [displayedSummary, displayedLanguage, showTranslation, track.variant]
+  )
+  const audio = useArticleAudio(audioRequest, world?.news?.audio ?? null)
+
+  /**
+   * Carry the generated narration into a world about to be saved.
+   *
+   * Only the hash and the timing table travel — the audio blob itself is
+   * content-addressed, shared between users and never deleted, so the hash
+   * keeps resolving. Storing the marks inline means a saved article replays
+   * with correct timings without re-deriving anything.
+   */
+  const withAudio = (w: VocabWorld): VocabWorld => {
+    if (!audio.saved || !w.news) return w
+    return { ...w, news: { ...w.news, audio: audio.saved } }
+  }
 
   const localeForLanguage = (value: string) => {
     const lower = value.toLowerCase()
@@ -471,7 +563,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       // Validate that cached news is from today
       const validWorlds = worlds.filter((world: VocabWorld) => {
         const newsDate = world.news?.date
-        return isSameDay(newsDate)
+        return isSameDay(newsDate) && hasCurrentNewsPromptVersion(world)
       })
 
       if (!validWorlds.length) {
@@ -612,6 +704,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       if (world.news?.category !== categoryValue) return false
       // Must be from today
       if (world.news?.date !== today) return false
+      if (!hasCurrentNewsPromptVersion(world)) return false
       // Must have source summary (integrity check)
       if (!Array.isArray(world.news?.summary_source) || world.news.summary_source.length === 0) return false
       return true
@@ -646,7 +739,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       // We should merge.
 
       const merged = apiNews.map((apiWorld: VocabWorld) => {
-        const localMatch = localCached?.find((w) => w.id === apiWorld.id)
+        const localMatch = localCached?.find(
+          (w) => w.id === apiWorld.id && hasCurrentNewsPromptVersion(w)
+        )
         return localMatch ? localMatch : { ...apiWorld, chunking: { itemsPerGame: 8 } }
       })
 
@@ -756,7 +851,9 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             index: (localCached?.length || 0) + worldsToSave.length,
             text: nextText,
             summary_source: nextSummarySource,
+            promptVersion: NEWS_PROMPT_VERSION,
           },
+          promptVersion: NEWS_PROMPT_VERSION,
         }
         worldsToSave.push(newsWorld)
         existing.add(normalizedUrl)
@@ -819,7 +916,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       noNews: uiSettings?.news?.noNews ?? "No se encontraron noticias.",
       backLabel: uiSettings?.news?.backLabel ?? "Back",
       summaryTitle: uiSettings?.news?.summaryTitle ?? "Resumen",
-      vocabTitle: uiSettings?.news?.vocabTitle ?? "Palabras aprendidas",
+      vocabTitle: uiSettings?.news?.vocabTitle ?? "Nuevas palabras",
       sourceLabel: uiSettings?.news?.sourceLabel ?? "Fuente",
       categoryLabel: uiSettings?.news?.categoryLabel ?? "Categoría",
       categoryOptions: uiSettings?.news?.categoryOptions ?? {},
@@ -873,8 +970,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    const shouldShowSummary = searchParams.get("summary") === "1"
-    if (!shouldShowSummary) return
+    if (!showStoredSummary) return
     const raw = window.localStorage.getItem(NEWS_STORAGE_KEY)
     if (!raw) return
     try {
@@ -892,7 +988,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     } catch {
       // ignore
     }
-  }, [sourceLabel, targetLabel, searchParams])
+  }, [sourceLabel, targetLabel, showStoredSummary, ui])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1490,12 +1586,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     setSelectionText(word)
     setSelectionContext(context)
     setSelectionPos(position)
+    setSelectionAddStatus(null)
   }
 
   const handleAddSelectionToVocab = async () => {
-    if (!selectionText || !world) return
+    if (!selectionText || !world || isAddingSelection) return
     setIsAddingSelection(true)
-    setSelectionPos(null) // Close menu immediately
+    setSelectionAddStatus(null)
     try {
       const result = await callAi({
         task: "parse_text",
@@ -1506,17 +1603,26 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         level: profileState.level || undefined,
       })
 
-      const newItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
-      if (!newItems.length) return
+      const parsedItems = buildReviewItemsFromAi(Array.isArray(result?.items) ? result.items : [])
+      if (!parsedItems.length) throw new Error("Die Vokabel konnte nicht erkannt werden.")
 
-      const sourceCode = langCode(sourceLabel, "es")
-      const targetCode = langCode(targetLabel, "de")
+      // If the learner tapped the learning-language side, preserve that exact
+      // visible inflection instead of letting the AI replace it with a lemma.
+      const normalizedTargetText = ` ${normalizeWord(summary.join(" "))} `
+      const normalizedSelection = normalizeWord(selectionText)
+      const selectionIsTarget = Boolean(normalizedSelection)
+        && normalizedTargetText.includes(` ${normalizedSelection} `)
+      const newItems = parsedItems.map((item) => ({
+        ...item,
+        target: selectionIsTarget ? selectionText.trim() : item.target,
+        manuallyAdded: true,
+      }))
 
       // Skip words already in this article, and words already in the user's
       // global vocabulary.
       const existingWords = new Set(
-        ((world.pool || []) as any[])
-          .map(p => normalizeWord(p[sourceCode]))
+        filterArticleVocabulary(items, summary, summarySource)
+          .map(item => normalizeWord(item.source))
           .filter(Boolean)
       )
 
@@ -1528,25 +1634,70 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         return true
       })
 
-      if (validItems.length === 0) return
+      if (validItems.length === 0) {
+        setSelectionAddStatus({
+          type: "error",
+          message: "Diese Vokabel ist bereits im Artikel oder in deinem Vokabular.",
+        })
+        return
+      }
 
       const newPairs = validItems.map((item, idx) => ({
         id: `${world.id}-custom-${Date.now()}-${idx}`,
-        [sourceCode]: item.source,
-        [targetCode]: item.target,
+        // Legacy storage fields always mean configured source -> target here;
+        // they are not literal Spanish/German language codes.
+        es: item.source,
+        de: item.target,
         pos: item.pos,
         image: { type: "emoji", value: item.emoji || "📝" } as any,
         explanation: item.explanation,
         example: item.example,
         conjugation: item.conjugation,
+        manuallyAdded: true,
         srs: initializeSRS(),
       })) as any[]
 
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (!token) throw new Error("Bitte melde dich erneut an und versuche es noch einmal.")
+
+      const vocabResponse = await fetch("/api/storage/vocables/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          items: newPairs,
+          sourceLayout: sourceLabel,
+          targetLayout: targetLabel,
+        }),
+      })
+      if (!vocabResponse.ok) {
+        const body = await vocabResponse.json().catch(() => null)
+        throw new Error(body?.error || "Die Vokabel konnte nicht gespeichert werden.")
+      }
+
       const updatedPool = [...(world.pool || []), ...newPairs]
       const updatedWorld = { ...world, pool: updatedPool }
+      const updatedItems = [...items, ...validItems]
 
       setWorld(updatedWorld)
-      setItems(buildReviewItemsFromWorld(updatedWorld))
+      setItems(updatedItems)
+      setKnownTargets((previous) => {
+        const next = new Set(previous)
+        validItems.forEach((item) => {
+          const normalized = normalizeWord(item.target)
+          if (normalized) next.add(normalized)
+        })
+        return next
+      })
+
+      // Move the carousel to the newly added word immediately. The same list
+      // also drives the inline highlight, so both update in the same render.
+      const nextVisibleItems = filterArticleVocabulary(updatedItems, summary, summarySource)
+      const addedTarget = normalizeWord(validItems[0]?.target)
+      const addedIndex = nextVisibleItems.findIndex(
+        (item) => normalizeWord(item.target) === addedTarget
+      )
+      if (addedIndex >= 0) setCarouselIndex(addedIndex)
 
       // Update local cache
       const localCached = loadLocalNewsCache()
@@ -1559,10 +1710,8 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       setNewsWorlds((prev) => prev.map((w) => (w.id === world.id ? updatedWorld : w)))
 
       // If world is saved in DB, update DB
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
       if (token && (await findExistingNewsWorldByUrl(newsUrl))) {
-        await fetch("/api/storage/worlds/save", {
+        const worldResponse = await fetch("/api/storage/worlds/save", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -1571,11 +1720,17 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             positions: { [updatedWorld.id]: 0 },
           }),
         })
+        if (!worldResponse.ok) {
+          console.warn("Vocabulary saved, but bookmarked news world could not be updated")
+        }
       }
+      setSelectionAddStatus({ type: "success", message: "Vokabel hinzugefügt." })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Die Vokabel konnte nicht gespeichert werden."
+      console.error("Failed to add selected vocabulary:", err)
+      setSelectionAddStatus({ type: "error", message })
     } finally {
       setIsAddingSelection(false)
-      setSelectionText("")
-      setSelectionContext("")
     }
   }
 
@@ -1587,23 +1742,25 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       const token = await getAuthToken()
       if (!token) return
       const listId = await ensureNewsListId(token)
-      const worldToSave: VocabWorld = world || {
-        id: buildNewsWorldId(currentUrl),
-        title: newsTitle || ui.title,
-        source_language: sourceLabel,
-        target_language: targetLabel,
-        mode: "vocab",
-        chunking: { itemsPerGame: 8 },
-        pool: [],
-        news: {
-          sourceUrl: currentUrl,
+      const worldToSave: VocabWorld = withAudio(
+        world || {
+          id: buildNewsWorldId(currentUrl),
           title: newsTitle || ui.title,
-          summary,
-          summary_source: summarySource,
-          date: newsDate || new Date().toISOString(),
-          category,
-        },
-      }
+          source_language: sourceLabel,
+          target_language: targetLabel,
+          mode: "vocab",
+          chunking: { itemsPerGame: 8 },
+          pool: [],
+          news: {
+            sourceUrl: currentUrl,
+            title: newsTitle || ui.title,
+            summary,
+            summary_source: summarySource,
+            date: newsDate || new Date().toISOString(),
+            category,
+          },
+        }
+      )
       if (!worldToSave.pool || worldToSave.pool.length === 0) {
         if (items.length > 0) {
           worldToSave.pool = items.map((item, idx) => ({
@@ -1656,7 +1813,34 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
     }
   }
 
-  const currentItem = items[carouselIndex]
+  // AI extraction may include useful terms from the original article that did
+  // not survive the shortened learning-language summary. The carousel belongs
+  // to this visible text, so keep only exact words/phrases that actually occur
+  // in that summary.
+  const visibleVocabularyItems = useMemo(
+    () => filterArticleVocabulary(items, summary, summarySource),
+    [items, summary, summarySource]
+  )
+
+  useEffect(() => {
+    setCarouselIndex((index) =>
+      Math.min(index, Math.max(0, visibleVocabularyItems.length - 1))
+    )
+  }, [visibleVocabularyItems.length])
+
+  const currentItem = visibleVocabularyItems[carouselIndex]
+  const articleVocabularyWords = useMemo(
+    () => visibleVocabularyItems.flatMap((item) => [item.source, item.target]).filter(Boolean),
+    [visibleVocabularyItems]
+  )
+  const selectedVocabularyItem = useMemo(() => {
+    const selected = normalizeWord(selectionText)
+    if (!selected) return null
+    return visibleVocabularyItems.find(
+      (item) =>
+        normalizeWord(item.source) === selected || normalizeWord(item.target) === selected
+    ) ?? null
+  }, [visibleVocabularyItems, selectionText])
 
   const cardWorlds = useMemo(() => {
     const base = newsWorlds.slice(0, 5)
@@ -2078,10 +2262,13 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
         )}
 
         {step === "summary" && (
-          <div className="grid gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
-            <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 sm:p-5 flex flex-col h-full overflow-hidden">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3 gap-x-2">
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="grid items-start gap-6 md:grid-cols-[1.4fr,1fr] mt-4">
+            <div
+              className="w-full min-h-0 rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-4 sm:p-5 flex flex-col overflow-hidden"
+              style={{ aspectRatio: "10 / 17" }}
+            >
+              <div className="mb-3 flex flex-col gap-2">
+                <div className="flex w-full items-center gap-2 sm:gap-3">
                   <button
                     onClick={() => setStep("input")}
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-[#3A3A3A]/5 hover:bg-[#3A3A3A]/10 text-[#3A3A3A]/70 transition-colors shrink-0"
@@ -2113,8 +2300,15 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                       {sourceLabel}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep("play")}
+                    className="ml-auto bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center whitespace-nowrap"
+                  >
+                    🚀 Jetzt spielen
+                  </button>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex justify-end gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={async () => {
@@ -2145,23 +2339,25 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         const listId = await ensureNewsListId(token)
 
                         // Construct world object to save
-                        const worldToSave: VocabWorld = world || {
-                          id: buildNewsWorldId(currentUrl),
-                          title: ui.title, // or newsTitle
-                          source_language: sourceLabel,
-                          target_language: targetLabel,
-                          mode: "vocab",
-                          chunking: { itemsPerGame: 8 },
-                          pool: [], // We might need to reconstruct pool from 'items'
-                          news: {
-                            sourceUrl: currentUrl,
-                            title: newsTitle || ui.title,
-                            summary: summary,
-                            summary_source: summarySource,
-                            date: newsDate || new Date().toISOString(),
-                            category: category
+                        const worldToSave: VocabWorld = withAudio(
+                          world || {
+                            id: buildNewsWorldId(currentUrl),
+                            title: ui.title, // or newsTitle
+                            source_language: sourceLabel,
+                            target_language: targetLabel,
+                            mode: "vocab",
+                            chunking: { itemsPerGame: 8 },
+                            pool: [], // We might need to reconstruct pool from 'items'
+                            news: {
+                              sourceUrl: currentUrl,
+                              title: newsTitle || ui.title,
+                              summary: summary,
+                              summary_source: summarySource,
+                              date: newsDate || new Date().toISOString(),
+                              category: category
+                            }
                           }
-                        }
+                        )
 
                         // If 'world' was null, we minimally need 'pool' for it to be useful as a saved world?
                         // If we are just saving "News", maybe pool is optional or we rebuild it from 'items'.
@@ -2249,16 +2445,16 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                         console.error(err)
                       }
                     }}
-                    className="bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A] px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full border border-[#3A3A3A]/10 shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center gap-2"
+                    className="h-7 rounded-full border border-[#3A3A3A]/10 bg-[#FAF7F2] px-2.5 text-[10px] font-semibold text-[#3A3A3A] shadow-sm transition-all hover:bg-[#EBE7DF] flex items-center gap-1.5"
                   >
                     {newsUrl && savedNewsUrls.has(normalizeNewsUrl(newsUrl)) ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-[rgb(var(--vocado-accent-rgb))]" />
+                        <Check className="w-3 h-3 text-[rgb(var(--vocado-accent-rgb))]" />
                         <span>Saved</span>
                       </>
                     ) : (
                       <>
-                        <BookmarkPlus className="w-3.5 h-3.5 opacity-60" />
+                        <BookmarkPlus className="w-3 h-3 opacity-60" />
                         <span>Save</span>
                       </>
                     )}
@@ -2266,103 +2462,155 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
 
                   <button
                     type="button"
-                    onClick={() => setStep("play")}
-                    className="bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-3 md:px-4 py-1.5 h-9 md:h-auto rounded-full shadow-sm transition-all text-xs md:text-xs font-semibold flex items-center whitespace-nowrap"
+                    onClick={() => setReaderExpandedAll((open) => !open)}
+                    aria-pressed={readerExpandedAll}
+                    aria-label={readerExpandedAll ? "Übersetzungen schließen" : "Alle Übersetzungen öffnen"}
+                    title={readerExpandedAll ? "Übersetzungen schließen" : "Alle Übersetzungen öffnen"}
+                    className={`w-7 h-7 aspect-square rounded-full border shadow-sm transition-all flex items-center justify-center shrink-0 ${
+                      readerExpandedAll
+                        ? "border-[rgb(var(--vocado-accent-rgb))/0.45] bg-[rgb(var(--vocado-accent-rgb))/0.12] text-[rgb(var(--vocado-accent-dark-rgb))]"
+                        : "border-[#3A3A3A]/10 bg-[#FAF7F2] text-[#3A3A3A]/70 hover:bg-[#EBE7DF]"
+                    }`}
                   >
-                    🚀 Jetzt spielen
+                    <Languages className="h-3.5 w-3.5" />
                   </button>
+
+                  {/* Audio is generated on first press, never on article load. */}
+                  <button
+                    type="button"
+                    onClick={audio.toggleAll}
+                    disabled={audio.status === "generating"}
+                    aria-label={
+                      audio.status === "playing" ? "Pausar lectura" : "Escuchar el artículo"
+                    }
+                    title={audio.error ?? undefined}
+                    className="bg-[#FAF7F2] hover:bg-[#EBE7DF] disabled:opacity-60 text-[#3A3A3A] w-7 h-7 aspect-square rounded-full border border-[#3A3A3A]/10 shadow-sm transition-all flex items-center justify-center shrink-0"
+                  >
+                    {audio.status === "generating" ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin opacity-60" />
+                    ) : audio.status === "playing" ? (
+                      <Pause className="h-3.5 w-3.5" fill="currentColor" />
+                    ) : (
+                      <Volume2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {audio.error && (
+                    <span
+                      role="alert"
+                      className="max-w-[260px] text-[11px] leading-tight text-red-600"
+                    >
+                      {audio.error}
+                    </span>
+                  )}
+
                 </div>
               </div>
               <div
-                className="mt-3 flex-1 relative break-words"
+                className="mt-3 flex-1 min-h-0 relative break-words overflow-y-scroll overscroll-contain touch-pan-y pr-2"
                 ref={newsContentRef}
                 onContextMenu={handleContextMenu}
+                style={{ WebkitOverflowScrolling: "touch", scrollbarGutter: "stable" }}
               >
                 {summarySource.length > 0 ? (
+                  // The selected side is the reading surface; press-and-hold
+                  // reveals the other language underneath it.
                   <InterlinearAccordionReader
-                    sourceParagraphs={summarySource}
-                    targetParagraphs={summary}
+                    sourceParagraphs={displayedSummary}
+                    targetParagraphs={hiddenTranslation}
                     onWordTap={handleWordTap}
                     highlightActive={selectionPos !== null}
+                    onPlayRow={audio.playRow}
+                    activeRow={audio.activeRow}
+                    activeWord={audio.activeWord}
+                    expandedAll={readerExpandedAll}
+                    vocabularyWords={articleVocabularyWords}
                   />
                 ) : (
                   <div className="space-y-2 text-sm text-[#3A3A3A]/70">
-                    {summary.map((line, index) => (
+                    {displayedSummary.map((line, index) => (
                       <div key={`${line}-${index}`} className="leading-relaxed">
                         {line}
                       </div>
                     ))}
                   </div>
                 )}
+                {newsUrl && (
+                  <div className="mt-6 break-all border-t border-[#3A3A3A]/5 pt-4 text-xs text-[#3A3A3A]/50">
+                    {ui.sourceLabel}: {newsUrl}
+                  </div>
+                )}
               </div>
-              {newsUrl && (
-                <div className="mt-6 pt-4 border-t border-[#3A3A3A]/5 text-xs text-[#3A3A3A]/50">
-                  {ui.sourceLabel}: {newsUrl}
-                </div>
-              )}
             </div>
 
             <div className="rounded-2xl border border-[#3A3A3A]/5 bg-[#FAF7F2] p-5">
-              <div className="text-lg font-semibold">{ui.vocabTitle}</div>
               {currentItem ? (
-                <div className="mt-4 space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-4">
+                  <div className="relative flex min-h-10 items-center justify-center px-14">
                     <button
                       type="button"
                       onClick={() => setCarouselIndex((i) => Math.max(0, i - 1))}
                       disabled={carouselIndex === 0}
-                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
+                      className="absolute left-0 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       ←
                     </button>
-                    <div className="text-xs text-[#3A3A3A]/50">
-                      {carouselIndex + 1}/{items.length}
+                    <div className="flex items-baseline justify-center gap-3">
+                      <div className="text-base font-semibold">{ui.vocabTitle}</div>
+                      <div className="text-xs text-[#3A3A3A]/50">
+                        {carouselIndex + 1}/{visibleVocabularyItems.length}
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() =>
-                        setCarouselIndex((i) => Math.min(items.length - 1, i + 1))
+                        setCarouselIndex((i) => Math.min(visibleVocabularyItems.length - 1, i + 1))
                       }
-                      disabled={carouselIndex >= items.length - 1}
-                      className="rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={carouselIndex >= visibleVocabularyItems.length - 1}
+                      className="absolute right-0 rounded-full border border-[#3A3A3A]/10 bg-[#F2F0E9] px-3 py-2 text-sm disabled:opacity-50"
                     >
                       →
                     </button>
                   </div>
-                  <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-center">
-                    <div className="text-4xl">{currentItem.emoji ?? "📰"}</div>
-                    <div className="mt-2 text-sm">
-                      <span className="text-[#3A3A3A]/50">{sourceLabel}:</span>{" "}
-                      <span className="font-semibold">{currentItem.source}</span>
+                  <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-4 text-left">
+                    <div className="flex items-center gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2 text-sm">
+                          <span className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45">
+                            {targetAbbreviation}
+                          </span>
+                          <span className="font-semibold text-[rgb(var(--vocado-accent-dark-rgb))]">
+                            {currentItem.target}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-baseline gap-2 text-sm">
+                          <span className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45">
+                            {sourceAbbreviation}
+                          </span>
+                          <span className="font-semibold">{currentItem.source}</span>
+                        </div>
+                        {isKnownWord(currentItem.target) && (
+                          <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#3A3A3A]/10 bg-white px-2 py-0.5 text-[10px] text-[#3A3A3A]/50">
+                            <Check className="h-3 w-3" />
+                            {ui.alreadyKnownBadge}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 self-center text-right text-4xl leading-none">
+                        {currentItem.emoji ?? "📰"}
+                      </div>
                     </div>
-                    {/* Only show target if it differs or if desired? User complained carousel is empty. 
-                        Maybe previous edit removed it? Screenshot shows "Deutsch: " and "Español: " labels but empty values.
-                        Wait, currentItem.source and currentItem.target might be empty or wrong?
-                        If user learns Spanish (Target), source is German.
-                        Label "Deutsch:" -> currentItem.source (German word)
-                        Label "Español:" -> currentItem.target (Spanish word)
-                        Screenshot shows labels but no values.
-                        This block renders {sourceLabel}: {currentItem.source}.
-                        If sourceLabel is "Deutsch", it should show the German word.
-                        I will add the target line back because user likely wants to see the translation.
-                    */}
-                    <div className="mt-1 text-sm">
-                      <span className="text-[#3A3A3A]/50">{targetLabel}:</span>{" "}
-                      <span className="font-semibold">{currentItem.target}</span>
-                    </div>
-                    {isKnownWord(currentItem.target) && (
-                      <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#3A3A3A]/10 bg-white px-2 py-0.5 text-[10px] text-[#3A3A3A]/50">
-                        <Check className="h-3 w-3" />
-                        {ui.alreadyKnownBadge}
+                    {currentItem.explanation && (
+                      <div className="mt-3 text-xs leading-relaxed text-[#3A3A3A]/70">
+                        {currentItem.explanation}
+                      </div>
+                    )}
+                    {currentItem.example && (
+                      <div className="mt-2 text-xs leading-relaxed text-[#3A3A3A]/60">
+                        {currentItem.example}
                       </div>
                     )}
                   </div>
-                  {currentItem.explanation && (
-                    <div className="text-xs text-[#3A3A3A]/70">{currentItem.explanation}</div>
-                  )}
-                  {currentItem.example && (
-                    <div className="text-xs text-[#3A3A3A]/60">{currentItem.example}</div>
-                  )}
                   {/* CONJUGATION RENDERING */}
                   {currentItem.conjugation && (
                     <div className="mt-4 pt-4 border-t border-[#3A3A3A]/10">
@@ -2386,9 +2634,12 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
                   )}
                 </div>
               ) : (
-                <div className="mt-3 text-sm text-neutral-400">
-                  No hay palabras para mostrar.
-                </div>
+                <>
+                  <div className="text-base font-semibold">{ui.vocabTitle}</div>
+                  <div className="mt-3 text-sm text-neutral-400">
+                    No hay palabras para mostrar.
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -2397,6 +2648,7 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
       <AnimatePresence>
         {selectionPos && (
           <motion.div
+            ref={selectionMenuRef}
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -2407,20 +2659,70 @@ export default function NewsClient({ profile }: { profile: ProfileSettings }) {
             }}
             className="z-[101] bg-white rounded-xl shadow-xl border border-[#3A3A3A]/10 p-1 flex flex-col min-w-[160px] overflow-hidden"
           >
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleAddSelectionToVocab}
-              className="flex items-center gap-2 px-3 py-2 hover:bg-[#F2F0E9] text-[#3A3A3A] transition-colors text-sm font-medium text-left"
-            >
-              <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
-                {isAddingSelection ? (
-                  <div className="w-3 h-3 border-2 border-current border-t-transparent animate-spin rounded-full" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
+            {selectedVocabularyItem ? (
+              <div className="px-3 py-2.5 text-left">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2 text-sm font-semibold text-[rgb(var(--vocado-accent-dark-rgb))]">
+                      <span
+                        title={targetLabel}
+                        className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
+                      >
+                        {targetAbbreviation}
+                      </span>
+                      <span>{selectedVocabularyItem.target}</span>
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-2 text-xs font-medium text-[#3A3A3A]/75">
+                      <span
+                        title={sourceLabel}
+                        className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
+                      >
+                        {sourceAbbreviation}
+                      </span>
+                      <span>{selectedVocabularyItem.source}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 self-center text-right text-4xl leading-none">
+                    {selectedVocabularyItem.emoji ?? "📰"}
+                  </div>
+                </div>
+                {(selectedVocabularyItem.explanation || selectedVocabularyItem.example) && (
+                  <div className="mt-1.5 max-w-[240px] text-[11px] leading-snug text-[#3A3A3A]/55">
+                    {selectedVocabularyItem.explanation ?? selectedVocabularyItem.example}
+                  </div>
                 )}
               </div>
-              {ui.addToVocab ?? "Zum Vokabular hinzufügen"}
-            </button>
+            ) : (
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleAddSelectionToVocab}
+                disabled={isAddingSelection}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-[#F2F0E9] disabled:opacity-60 text-[#3A3A3A] transition-colors text-sm font-medium text-left"
+              >
+                <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
+                  {isAddingSelection ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent animate-spin rounded-full" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                </div>
+                {isAddingSelection
+                  ? "Vokabel wird hinzugefügt..."
+                  : ui.addToVocab ?? "Zum Vokabular hinzufügen"}
+              </button>
+            )}
+            {selectionAddStatus && (
+              <div
+                role="status"
+                className={`border-t px-3 py-2 text-[11px] leading-snug ${
+                  selectionAddStatus.type === "success"
+                    ? "border-[rgb(var(--vocado-accent-rgb))/0.2] bg-[rgb(var(--vocado-accent-rgb))/0.08] text-[rgb(var(--vocado-accent-dark-rgb))]"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {selectionAddStatus.message}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

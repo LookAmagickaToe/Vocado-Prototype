@@ -1,3 +1,5 @@
+import type { NewsAudio } from "@/lib/tts/types"
+
 export type CardImage =
   | { type: "emoji"; value: string }
   | { type: "image"; src: string; alt?: string }
@@ -69,6 +71,12 @@ export type WorldBase = {
     date?: string
     index?: number
     text?: string
+    /**
+     * Generated read-aloud audio, present once the user has played the article
+     * and saved it. Carries its own timing table so a saved article replays
+     * correctly without re-deriving anything.
+     */
+    audio?: NewsAudio
   }
 
   ui?: WorldUI

@@ -60,6 +60,10 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ status: "ok", count: toInsert.length, indexed })
     } catch (e) {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+        console.error("Unexpected error saving vocabulary:", e)
+        return NextResponse.json(
+            { error: e instanceof Error ? e.message : "Internal Server Error" },
+            { status: 500 }
+        )
     }
 }

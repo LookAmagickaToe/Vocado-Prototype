@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Trash2, X } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import {
   LANGUAGE_LABELS,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/languages"
 import { buildTrack } from "@/lib/track"
 import { clearTrackCaches } from "@/lib/cache-keys"
+import VoicePicker, { type VoicePickerLabels } from "@/components/newhomescreen/VoicePicker"
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
@@ -25,6 +27,7 @@ type Track = {
   target_language: string
   variant: string | null
   level: string | null
+  tts_voice_id: string | null
   position: number
 }
 
@@ -39,6 +42,13 @@ type Labels = {
   sourceLabel: string
   targetLabel: string
   levelLabel: string
+  voice: VoicePickerLabels
+  removeLanguage: string
+  removeTitle: string
+  removeConfirm: string
+  removeKeepsData: string
+  cancel: string
+  confirmRemove: string
 }
 
 /**
@@ -61,8 +71,19 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
   const [isAdding, setIsAdding] = useState(false)
   const [newSource, setNewSource] = useState("")
   const [newTarget, setNewTarget] = useState("")
+  const [newLevel, setNewLevel] = useState("A2")
   const [customVariant, setCustomVariant] = useState("")
   const [showCustomVariant, setShowCustomVariant] = useState(false)
+  const [removeCandidate, setRemoveCandidate] = useState<Track | null>(null)
+
+  useEffect(() => {
+    if (!removeCandidate) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isBusy) setRemoveCandidate(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [removeCandidate, isBusy])
 
   // Returns an empty header set rather than null when there is no session, so a
   // missing token surfaces as a 401 the user can see instead of a panel that
@@ -171,11 +192,14 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
     mutate({ action: "switch", trackId: track.id })
   }
 
-  const updateActive = (patch: Record<string, unknown>) => {
+  const updateActive = (patch: Record<string, unknown>, clearCaches = true) => {
     if (!active) return
     // The caches belong to the track as it was *before* the edit — a level or
     // accent change re-keys them.
-    mutate({ action: "update", trackId: active.id, ...patch }, active)
+    mutate(
+      { action: "update", trackId: active.id, ...patch },
+      clearCaches ? active : undefined
+    )
   }
 
   const availableVariants = active ? variantsFor(active.target_language) : []
@@ -247,7 +271,7 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
       {/* Add a language */}
       {isAdding && (
         <div className="rounded-xl border border-[#3A3A3A]/10 bg-[#F2F0E9] p-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             <div>
               <label className="text-[11px] font-medium text-[#3A3A3A]/60">
                 {labels.sourceLabel}
@@ -282,6 +306,22 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="text-[11px] font-medium text-[#3A3A3A]/60">
+                {labels.levelLabel}
+              </label>
+              <select
+                value={newLevel}
+                onChange={(event) => setNewLevel(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-[#3A3A3A]/10 bg-white px-2 py-2 text-[13px]"
+              >
+                {LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <button
             type="button"
@@ -291,10 +331,12 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
                 action: "create",
                 sourceLanguage: newSource,
                 targetLanguage: newTarget,
+                level: newLevel,
               })
               setIsAdding(false)
               setNewSource("")
               setNewTarget("")
+              setNewLevel("A2")
             }}
             className="w-full rounded-lg bg-[rgb(var(--vocado-accent-rgb))] px-3 py-2 text-[13px] font-medium text-white disabled:opacity-50"
           >
@@ -387,26 +429,91 @@ export default function LanguageTracksPanel({ labels }: { labels: Labels }) {
             </p>
           </div>
 
+          <VoicePicker
+            targetLanguage={active.target_language}
+            variant={active.variant}
+            selectedVoiceId={active.tts_voice_id}
+            disabled={isBusy}
+            labels={labels.voice}
+            onSelect={(ttsVoiceId) => updateActive({ ttsVoiceId }, false)}
+          />
+
           {tracks.length > 1 && (
             <button
               type="button"
               disabled={isBusy}
-              onClick={() => {
-                // Removing the tab does not delete the vocabulary behind it —
-                // re-adding the language brings it all back.
-                if (
-                  window.confirm(
-                    `Remove ${active.target_language}? Your ${active.target_language} words are kept and will return if you add it again.`
-                  )
-                ) {
-                  mutate({ action: "delete", trackId: active.id }, active)
-                }
-              }}
-              className="text-[12px] text-red-600/80 hover:text-red-600 disabled:opacity-60"
+              onClick={() => setRemoveCandidate(active)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
             >
-              Remove {active.target_language}
+              <Trash2 className="h-3.5 w-3.5" />
+              {labels.removeLanguage}
             </button>
           )}
+        </div>
+      )}
+
+      {removeCandidate && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !isBusy) setRemoveCandidate(null)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-language-title"
+            aria-describedby="remove-language-description"
+            className="relative w-full max-w-sm rounded-2xl border border-black/5 bg-[#FAF7F2] p-5 shadow-2xl"
+          >
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => setRemoveCandidate(null)}
+              aria-label={labels.cancel}
+              className="absolute right-3 top-3 rounded-full p-1.5 text-[#3A3A3A]/45 hover:bg-black/5 hover:text-[#3A3A3A] disabled:opacity-50"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-700">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <h2 id="remove-language-title" className="mt-4 pr-8 text-[18px] font-semibold text-[#3A3A3A]">
+              {labels.removeTitle}
+            </h2>
+            <p id="remove-language-description" className="mt-2 text-[13px] leading-relaxed text-[#3A3A3A]/70">
+              {labels.removeConfirm.replace("{language}", removeCandidate.target_language)}
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-[#3A3A3A]/50">
+              {labels.removeKeepsData}
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                autoFocus
+                disabled={isBusy}
+                onClick={() => setRemoveCandidate(null)}
+                className="rounded-xl border border-[#3A3A3A]/10 bg-white px-3 py-2.5 text-[13px] font-medium text-[#3A3A3A] hover:bg-[#F2F0E9] disabled:opacity-50"
+              >
+                {labels.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => {
+                  const track = removeCandidate
+                  setRemoveCandidate(null)
+                  mutate({ action: "delete", trackId: track.id }, track)
+                }}
+                className="rounded-xl bg-red-600 px-3 py-2.5 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {labels.confirmRemove}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

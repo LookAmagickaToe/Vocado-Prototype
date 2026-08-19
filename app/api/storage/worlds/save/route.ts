@@ -95,6 +95,20 @@ export async function POST(req: Request) {
         )
       }
 
+      // Saving an article makes its narration permanent for this user. The audio
+      // blob is shared and content-addressed, so pinning the row is enough —
+      // nothing is copied, and a future prune must skip it. Best effort.
+      const audioHash = world?.news?.audio?.hash
+      if (typeof audioHash === "string" && audioHash) {
+        const { error: pinError } = await supabaseAdmin
+          .from("tts_cache")
+          .update({ pinned: true })
+          .eq("hash", audioHash)
+        if (pinError) {
+          console.error("[worlds/save] failed to pin tts_cache row", pinError)
+        }
+      }
+
       // Mirror the pool into the queryable word index so later generations can
       // avoid repeating these words. Best effort: never fails the save.
       if (shouldIndexWorld(world)) {

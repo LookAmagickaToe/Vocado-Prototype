@@ -21,6 +21,9 @@ CRITICAL RULES:
 6. Keep examples contextually appropriate
 7. "summary": Translate to ${targetLanguage}
 8. "summary_source": Translate to ${sourceLanguage}
+9. First translate "summary". Then keep vocabulary items only when their exact
+   "target" word or phrase occurs verbatim in that translated summary. Copy the
+   visible/inflected summary form into "target" and use "lemma" separately.
 
 Template to translate:
 ${JSON.stringify(templateJson, null, 2)}
@@ -47,8 +50,9 @@ export function validateTranslation(original: any, translated: any): boolean {
         return false
     }
 
-    // Check same number of vocabulary items
-    if (original.items.length !== translated.items.length) {
+    // Translation may legitimately drop a template term when no exact visible
+    // equivalent occurs in the translated summary. It must never invent more.
+    if (translated.items.length > original.items.length) {
         return false
     }
 

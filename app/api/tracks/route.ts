@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin"
 import { getUserId } from "@/lib/track-server"
 import { buildTrack } from "@/lib/track"
 import { languageLabel, slugifyVariant } from "@/lib/languages"
+import { listVoiceOptions } from "@/lib/tts/voices"
 
 // The language tabs in Profile.
 //
@@ -17,14 +18,26 @@ type TrackRow = {
   target_language: string
   variant: string | null
   level: string | null
+  tts_voice_id: string | null
   position: number
   last_used_at: string | null
+}
+
+function migrationError(error: unknown): string | null {
+  const message = (error as Error)?.message?.toLowerCase() ?? ""
+  if (message.includes("user_tracks")) {
+    return "Language tracks are not installed. Run supabase/migrations/add_language_tracks.sql in the Supabase SQL Editor first."
+  }
+  if (message.includes("tts_voice_id")) {
+    return "Voice settings are not installed. Run supabase/migrations/add_tts_cache.sql in the Supabase SQL Editor."
+  }
+  return null
 }
 
 async function listTracks(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_tracks")
-    .select("id,source_language,target_language,variant,level,position,last_used_at")
+    .select("id,source_language,target_language,variant,level,tts_voice_id,position,last_used_at")
     .eq("user_id", userId)
     .order("position", { ascending: true })
   if (error) throw new Error(error.message)
@@ -71,8 +84,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ tracks, active })
   } catch (error) {
+    const migrationMessage = migrationError(error)
     return NextResponse.json(
-      { error: "Load failed", details: (error as Error).message },
+      {
+        error: migrationMessage ?? "Load failed",
+        details: (error as Error).message,
+      },
       { status: 500 }
     )
   }
@@ -121,6 +138,7 @@ export async function POST(req: Request) {
           target_language: target,
           variant: slugifyVariant(body?.variant),
           level: typeof body?.level === "string" ? body.level : "A2",
+          tts_voice_id: null,
           position: existing.length,
         })
         .select()
@@ -156,6 +174,30 @@ export async function POST(req: Request) {
       // `variant` is sent explicitly as null to clear it, so presence in the body
       // matters rather than truthiness.
       if ("variant" in body) patch.variant = slugifyVariant(body.variant)
+      if ("ttsVoiceId" in body) {
+        const voiceId = typeof body.ttsVoiceId === "string" ? body.ttsVoiceId : ""
+        const language = target.target_language
+        const variant = "variant" in body ? slugifyVariant(body.variant) : target.variant
+        const apiKey = process.env.ELEVENLABS_API_KEY
+        if (!apiKey) {
+          return NextResponse.json({ error: "Missing ELEVENLABS_API_KEY" }, { status: 500 })
+        }
+        try {
+          const available = await listVoiceOptions(language, variant, apiKey)
+          if (!available.some((voice) => voice.id === voiceId)) {
+            return NextResponse.json(
+              { error: "Choose a voice verified for this language." },
+              { status: 400 }
+            )
+          }
+        } catch (voiceError) {
+          return NextResponse.json(
+            { error: "Could not verify the selected ElevenLabs voice", details: (voiceError as Error).message },
+            { status: 502 }
+          )
+        }
+        patch.tts_voice_id = voiceId
+      }
 
       if (Object.keys(patch).length === 0) {
         return NextResponse.json({ track: target })
@@ -230,8 +272,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   } catch (error) {
+    const migrationMessage = migrationError(error)
     return NextResponse.json(
-      { error: "Request failed", details: (error as Error).message },
+      {
+        error: migrationMessage ?? "Request failed",
+        details: (error as Error).message,
+      },
       { status: 500 }
     )
   }

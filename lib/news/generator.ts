@@ -1,5 +1,6 @@
 
 import { buildNewsPrompt, buildBatchNewsPrompt, extractJson, stripHtml } from "@/app/api/ai/route"
+import { filterVocabularyToSummary, NEWS_PROMPT_VERSION } from "@/lib/news/content"
 
 const TAGESSCHAU_BASE = "https://www.tagesschau.de/api2u/news/"
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
@@ -98,12 +99,14 @@ export async function generateNewsContent(url: string, sourceLabel: string, targ
 
             // Normalize items
             if (parsed && Array.isArray(parsed.items)) {
-                parsed.items = parsed.items.map((item: any) => ({
+                parsed.items = filterVocabularyToSummary(parsed.items.map((item: any) => ({
                     ...item,
                     pos: item.pos?.toLowerCase() || "other",
                     conjugation: item.conjugation || null
-                }))
+                })), parsed.summary)
             }
+
+            parsed.promptVersion = NEWS_PROMPT_VERSION
 
             return parsed
         } catch (err) {
@@ -206,12 +209,13 @@ export async function generateNewsContentBatch(
 
             // Normalize items
             if (item.items && Array.isArray(item.items)) {
-                item.items = item.items.map((it: any) => ({
+                item.items = filterVocabularyToSummary(item.items.map((it: any) => ({
                     ...it,
                     pos: it.pos?.toLowerCase() || "other",
                     conjugation: it.conjugation || null
-                }))
+                })), item.summary)
             }
+            item.promptVersion = NEWS_PROMPT_VERSION
 
             return {
                 url: item.id,

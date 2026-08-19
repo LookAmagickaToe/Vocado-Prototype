@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { translateNewsTemplatesBatch } from "@/lib/news/service"
 import { languageLabel, slugifyVariant } from "@/lib/languages"
+import { hasCurrentNewsPromptVersion } from "@/lib/news/content"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -33,9 +34,11 @@ export async function GET(req: Request) {
             .eq("date", today)
             .eq("category", category)
             .eq("level", level)
-            .limit(5)
 
         if (templateError) throw new Error(templateError.message)
+        templates = (templates || [])
+            .filter((template) => hasCurrentNewsPromptVersion(template.template_json))
+            .slice(0, 5)
 
         // If we have fewer than 5 templates, generate more
         if (!templates || templates.length < 5) {
@@ -66,9 +69,10 @@ export async function GET(req: Request) {
                     .eq("date", today)
                     .eq("category", category)
                     .eq("level", level)
-                    .limit(5)
 
-                templates = newTemplates || templates
+                templates = (newTemplates || [])
+                    .filter((template) => hasCurrentNewsPromptVersion(template.template_json))
+                    .slice(0, 5)
                 console.log(`[/api/news/daily] After generation: ${templates?.length || 0} templates available`)
             } catch (genError) {
                 console.error(`[/api/news/daily] Generation failed:`, genError)

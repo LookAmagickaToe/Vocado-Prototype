@@ -4,7 +4,15 @@ import { createServerClient } from "@supabase/ssr"
 import NewsClient from "@/components/NewsClient"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
-export default async function NewsPage() {
+type NewsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+const firstQueryValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value
+
+export default async function NewsPage({ searchParams }: NewsPageProps) {
+  const query = await searchParams
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -32,6 +40,12 @@ export default async function NewsPage() {
 
   return (
     <NewsClient
+      initialQuery={{
+        auto: firstQueryValue(query?.auto),
+        category: firstQueryValue(query?.category),
+        index: firstQueryValue(query?.index),
+        summary: firstQueryValue(query?.summary),
+      }}
       profile={{
         level: profileRow?.level ?? "",
         sourceLanguage: profileRow?.source_language ?? "",

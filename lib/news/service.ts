@@ -3,6 +3,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin"
 import { buildTranslationPrompt, validateTranslation, extractJson } from "@/lib/news-translation"
 import { buildBatchTranslationPrompt, extractJson as extractJsonAI } from "@/app/api/ai/route"
 import { variantLabel } from "@/lib/languages"
+import {
+    filterVocabularyToSummary,
+    hasCurrentNewsPromptVersion,
+    NEWS_PROMPT_VERSION,
+} from "@/lib/news/content"
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
@@ -62,6 +67,7 @@ export async function translateNewsTemplate(
         variant
     ).maybeSingle()
 
+    let staleTranslationId: string | null = null
     if (existingTranslation) {
         console.log(`[translate] Cache hit for ${templateId} -> ${targetLanguage}`)
 
@@ -76,7 +82,7 @@ export async function translateNewsTemplate(
             }
         }
 
-        if (worldData) {
+        if (worldData && hasCurrentNewsPromptVersion(worldData)) {
             worldData = normalizeCachedNewsPayload(worldData, sourceLanguage, targetLanguage)
             // Hotfix: Ensure title is always from the source (DB column) and not overwritten by translation
             if (worldData.news && existingTranslation.title) {
@@ -92,6 +98,8 @@ export async function translateNewsTemplate(
                 data: worldData
             }
         }
+        staleTranslationId = existingTranslation.id
+        console.log(`[translate] Ignoring stale cache for ${templateId}`)
     }
 
     // 2. Fetch template from daily_news_templates
@@ -142,6 +150,8 @@ export async function translateNewsTemplate(
     if (!validateTranslation(template.template_json, translatedJson)) {
         throw new Error("Translation validation failed")
     }
+    translatedJson.items = filterVocabularyToSummary(translatedJson.items, translatedJson.summary)
+    translatedJson.promptVersion = NEWS_PROMPT_VERSION
 
     // 5. Build full world payload for daily_news
     const payload = {
@@ -157,6 +167,7 @@ export async function translateNewsTemplate(
         mode: "vocab",
         news: {
             ...translatedJson,
+            promptVersion: NEWS_PROMPT_VERSION,
             sourceUrl: template.source_url,
             title: template.title,
             teaser: translatedJson.summary?.[0] || "",
@@ -179,13 +190,12 @@ export async function translateNewsTemplate(
         chunking: { itemsPerGame: 8 },
         description: Array.isArray(translatedJson.summary) ? translatedJson.summary.join(" ") : "",
         source_language: sourceLanguage,
-        target_language: targetLanguage
+        target_language: targetLanguage,
+        promptVersion: NEWS_PROMPT_VERSION,
     }
 
     // 6. Save to daily_news table
-    const { error: insertError } = await supabaseAdmin
-        .from("daily_news")
-        .insert({
+    const cacheRow = {
             id: crypto.randomUUID(),
             date: template.date,
             category: template.category,
@@ -197,7 +207,11 @@ export async function translateNewsTemplate(
             title: template.title,
             template_id: template.id,
             json: JSON.stringify(payload)
-        })
+        }
+    const saveQuery = staleTranslationId
+        ? supabaseAdmin.from("daily_news").update({ ...cacheRow, id: staleTranslationId }).eq("id", staleTranslationId)
+        : supabaseAdmin.from("daily_news").insert(cacheRow)
+    const { error: insertError } = await saveQuery
 
     if (insertError) throw new Error(insertError.message)
 
@@ -233,12 +247,17 @@ export async function translateNewsTemplatesBatch(
     )
 
     const cachedMap = new Map()
+    const staleCacheIds = new Map<string, string>()
     if (cachedItems) {
         cachedItems.forEach(item => {
             // Parse json if needed
             let data = item.json
             if (typeof data === "string") {
                 try { data = JSON.parse(data) } catch (e) { }
+            }
+            if (!hasCurrentNewsPromptVersion(data)) {
+                staleCacheIds.set(item.template_id, item.id)
+                return
             }
             // Apply hotfixes same as in daily/route
             if (data && data.news && item.title) {
@@ -337,6 +356,9 @@ export async function translateNewsTemplatesBatch(
             // Validate? (optional but good)
             // if (!validateTranslation(template.template_json, translated)) ...
 
+            translated.items = filterVocabularyToSummary(translated.items, translated.summary)
+            translated.promptVersion = NEWS_PROMPT_VERSION
+
             // Build payload
             const payload = {
                 id: `news-translated-${template.id}-${targetLanguage}`,
@@ -351,6 +373,7 @@ export async function translateNewsTemplatesBatch(
                 mode: "vocab",
                 news: {
                     ...translated,
+                    promptVersion: NEWS_PROMPT_VERSION,
                     sourceUrl: template.source_url,
                     title: template.title,
                     teaser: translated.summary?.[0] || "",
@@ -372,11 +395,11 @@ export async function translateNewsTemplatesBatch(
                 chunking: { itemsPerGame: 8 },
                 description: Array.isArray(translated.summary) ? translated.summary.join(" ") : "",
                 source_language: sourceLanguage,
-                target_language: targetLanguage
+                target_language: targetLanguage,
+                promptVersion: NEWS_PROMPT_VERSION,
             }
 
-            // Database Insert
-            await supabaseAdmin.from("daily_news").insert({
+            const cacheRow = {
                 id: crypto.randomUUID(),
                 date: template.date,
                 category: template.category,
@@ -388,7 +411,12 @@ export async function translateNewsTemplatesBatch(
                 title: template.title,
                 template_id: template.id,
                 json: JSON.stringify(payload)
-            })
+            }
+            const staleId = staleCacheIds.get(template.id)
+            const { error: saveError } = staleId
+                ? await supabaseAdmin.from("daily_news").update({ ...cacheRow, id: staleId }).eq("id", staleId)
+                : await supabaseAdmin.from("daily_news").insert(cacheRow)
+            if (saveError) throw new Error(saveError.message)
 
             cachedMap.set(template.id, payload)
         }

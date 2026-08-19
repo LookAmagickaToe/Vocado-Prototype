@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { slugifyVariant, variantLabel } from "@/lib/languages"
+import { filterVocabularyToSummary, NEWS_PROMPT_VERSION } from "@/lib/news/content"
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
@@ -371,7 +372,9 @@ export function buildNewsPrompt({
     "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language (e.g. 'yo', 'tú' for Spanish, 'ich', 'du' for German). Do NOT use source language pronouns.",
     `summary: Write a comprehensive summary/article in ${targetLabel}. It MUST be at least 120 words long.`,
     `summary_source: **REQUIRED**: The exact translation of the 'summary' into ${sourceLabel}. It MUST be a parallel text.`,
-    "items: Extract at least 8 relevant vocabulary items from the text. More is better (up to 15).",
+    "WORKFLOW: First write the level-specific 'summary'. Only after that, extract vocabulary from that exact summary.",
+    "items: Extract 8-15 useful vocabulary items whose visible TARGET-language form occurs VERBATIM in 'summary'. Never add a word or phrase that is only present in the original article or only implied by it.",
+    "For every item, 'target' must copy the exact inflected word or phrase as it appears in 'summary'. Put a dictionary form in 'lemma' when useful; do not replace the visible target form with the lemma.",
     "If level is A1/A2: use very short sentences, common words, present tense when possible, no complex clauses.",
     "If level is B1/B2: medium length sentences, limited subordinate clauses, clear connectors.",
     "If level is C1/C2: more natural flow, richer vocabulary, but still concise.",
@@ -381,7 +384,7 @@ export function buildNewsPrompt({
     `explanation is required: 1-2 sentences describing the word in ${sourceLabel}, never in ${targetLabel}.`,
     // example removed
     "For verbs, provide syllable breakdown of the TARGET verb in 'syllables' using mid dots, e.g. 'Ur·be·völ·ker·ung'. Leave empty for non-verbs.",
-    "Select vocabulary based on the user's level. Be generous: extract MORE words rather than fewer, to ensure the text is easy to understand. Include even moderately common words if they are relevant to the context.",
+    "Select vocabulary separately for this requested level: A1/A2 basic and high-frequency terms; B1/B2 intermediate and contextual terms; C1/C2 nuanced and advanced terms. Every selected term must still occur verbatim in this level's summary.",
     ...variantPromptLines(variantName ?? null, targetLabel),
     "Input article text:",
     rawText,
@@ -428,12 +431,15 @@ export function buildBatchNewsPrompt({
     "Requirements:",
     "- 'summary': Write a comprehensive summary in German, simplified for the requested level (approx 120 words).",
     "- 'summary_source': Duplicate of 'summary' because this template is German → German.",
-    "- 'items': Extract 8-15 vocabulary items relevant to the text.",
+    "- WORKFLOW: First write this level's 'summary', then extract vocabulary ONLY from that exact summary.",
+    "- 'items': Extract 8-15 level-appropriate vocabulary items. Every item's German 'target' must occur VERBATIM in 'summary'; never take an item only from the original article.",
     "   - 'source' and 'target' should be the SAME German word.",
+    "   - Copy the exact visible/inflected form from 'summary' into both fields; use 'lemma' separately when needed.",
     "   - 'explanation': 1-2 sentences explaining the word in German.",
     `- Adapt content strictly to Level ${level}.`,
-    "   - A1/A2: Simple sentences, common words, present tense.",
-    "   - B1/B2: Medium complexity, clear connectors.",
+    "   - A1/A2: Simple sentences and basic, high-frequency vocabulary.",
+    "   - B1/B2: Medium complexity and intermediate, contextual vocabulary.",
+    "   - C1/C2: Natural complexity and nuanced, advanced vocabulary.",
     "- Ensure 'id' matches the input."
   ].join("\n")
 }
@@ -474,9 +480,11 @@ export function buildBatchTranslationPrompt({
     "Requirements:",
     `- 'summary': Translate the full article summary to ${targetLabel}.`,
     `- 'summary_source': Translate the full article summary to ${sourceLabel}.`,
-    "- 'items': Extract/Translate vocabulary.",
+    "- WORKFLOW: First translate 'summary'. Then produce vocabulary ONLY from exact words/phrases visible in that translated summary.",
+    "- 'items': Extract/translate vocabulary. Every 'target' value must occur VERBATIM in the translated 'summary'; omit any template item that does not occur there.",
     `   - 'source' field: Translate to ${sourceLabel}.`,
     `   - 'target' field: Translate to ${targetLabel}.`,
+    "   - Copy the exact visible/inflected target form from the translated summary; keep a dictionary form in 'lemma' separately when useful.",
     `   - The field order is mandatory: source is always ${sourceLabel}, target is always ${targetLabel}; do not retain the German template's field order.`,
     `   - 'explanation' must always be written in ${sourceLabel}.`,
     "- Ensure 'id' matches the input.",
@@ -701,6 +709,10 @@ export async function POST(req: NextRequest) {
 
     try {
       const parsed = extractJson(text)
+      if (task === "news" && parsed && typeof parsed === "object") {
+        parsed.items = filterVocabularyToSummary(parsed.items, parsed.summary)
+        parsed.promptVersion = NEWS_PROMPT_VERSION
+      }
       return NextResponse.json(parsed)
     } catch (error) {
       const finishReason = candidate?.finishReason
