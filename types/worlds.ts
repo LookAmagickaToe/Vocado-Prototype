@@ -12,6 +12,8 @@ export type ConjugationSection = {
 export type Conjugation = {
   infinitive?: string
   translation?: string
+  /** Canonical language code after the table has been generated and validated. */
+  targetLanguage?: string
   sections: ConjugationSection[]
 }
 

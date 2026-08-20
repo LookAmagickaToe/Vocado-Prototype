@@ -22,7 +22,9 @@ import {
   hasCurrentNewsPromptVersion,
   NEWS_PROMPT_VERSION,
   resolveNewsPoolPair,
+  vocabularyAppearsInSummary,
 } from "@/lib/news/content"
+import { isConjugationForTarget, targetTenseTitles } from "@/lib/conjugation"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
 const BEST_SCORE_STORAGE_KEY = "vocado-best-scores"
@@ -313,6 +315,8 @@ export default function NewsClient({
   // translation remains one tap away in the language switch.
   const [showTranslation, setShowTranslation] = useState(false)
   const [readerExpandedAll, setReaderExpandedAll] = useState(false)
+  const [repairingConjugationKey, setRepairingConjugationKey] = useState<string | null>(null)
+  const conjugationRepairAttemptsRef = useRef<Set<string>>(new Set())
 
   // Selection state
   const [selectionText, setSelectionText] = useState("")
@@ -1847,6 +1851,140 @@ export default function NewsClient({
   }, [visibleVocabularyItems.length])
 
   const currentItem = visibleVocabularyItems[carouselIndex]
+  const targetConjugationCode = languageCode(
+    targetLabel,
+    targetLabel.slice(0, 2).toLowerCase()
+  ).toLowerCase()
+  const verifiedCurrentConjugation =
+    currentItem?.conjugation?.targetLanguage === targetConjugationCode
+    && isConjugationForTarget(
+      currentItem.conjugation,
+      targetLabel,
+      sourceLabel,
+      currentItem.source
+    )
+      ? currentItem.conjugation
+      : null
+
+  useEffect(() => {
+    if (!currentItem || currentItem.pos !== "verb" || verifiedCurrentConjugation) return
+
+    const originalSource = currentItem.source
+    const originalTarget = currentItem.target
+    const worldId = world?.id ?? "unsaved-news"
+    const repairKey = [
+      worldId,
+      normalizeWord(originalSource),
+      normalizeWord(originalTarget),
+      targetConjugationCode,
+    ].join("|")
+    if (conjugationRepairAttemptsRef.current.has(repairKey)) return
+    conjugationRepairAttemptsRef.current.add(repairKey)
+    setRepairingConjugationKey(repairKey)
+
+    const repairConjugation = async () => {
+      try {
+        const result = await callAi({
+          task: "conjugate",
+          verbs: [{ lemma: originalTarget, translation: originalSource }],
+          sourceLabel,
+          targetLabel,
+        })
+        const generated = Array.isArray(result?.conjugations)
+          ? result.conjugations[0]
+          : null
+        const repairedConjugation = {
+          targetLanguage: targetConjugationCode,
+          infinitive: normalizeText(generated?.verb),
+          translation: originalSource,
+          sections: Array.isArray(generated?.sections) ? generated.sections : [],
+        }
+        if (
+          !repairedConjugation.infinitive
+          || !isConjugationForTarget(
+            repairedConjugation,
+            targetLabel,
+            sourceLabel,
+            originalSource
+          )
+        ) {
+          throw new Error("Generated conjugation does not match the target language")
+        }
+        // Keep an inflected target word when it is visible in the article. Old
+        // mixed cache entries (for example German "gefordert" labelled ES) are
+        // replaced with the repaired target-language infinitive.
+        const repairedTarget = vocabularyAppearsInSummary(
+          { target: originalTarget },
+          summary
+        )
+          ? originalTarget
+          : repairedConjugation.infinitive
+        const matchesCurrentItem = (item: { source?: string; target?: string }) =>
+          normalizeWord(item.source ?? "") === normalizeWord(originalSource)
+          && normalizeWord(item.target ?? "") === normalizeWord(originalTarget)
+        const repairReviewItem = (item: ReviewItem): ReviewItem =>
+          matchesCurrentItem(item)
+            ? { ...item, target: repairedTarget, conjugation: repairedConjugation }
+            : item
+        const repairWorld = (baseWorld: VocabWorld): VocabWorld => {
+          const sourceCode = languageCode(baseWorld.source_language || sourceLabel, "de")
+          const targetCode = languageCode(baseWorld.target_language || targetLabel, "es")
+          return {
+            ...baseWorld,
+            pool: (baseWorld.pool ?? []).map((pair) => {
+              const resolved = resolveNewsPoolPair(
+                pair,
+                baseWorld.source_language || sourceLabel,
+                baseWorld.target_language || targetLabel,
+                baseWorld.news?.summary,
+                baseWorld.news?.summary_source
+              )
+              if (!matchesCurrentItem(resolved)) return pair
+              return {
+                ...pair,
+                source: originalSource,
+                target: repairedTarget,
+                [sourceCode]: originalSource,
+                [targetCode]: repairedTarget,
+                conjugation: repairedConjugation,
+              }
+            }),
+          }
+        }
+
+        setItems((previous) => previous.map(repairReviewItem))
+        setWorld((previous) => (previous ? repairWorld(previous) : previous))
+        setNewsWorlds((previous) =>
+          previous.map((entry) => (entry.id === worldId ? repairWorld(entry) : entry))
+        )
+        const cachedWorlds = loadLocalNewsCache()
+        if (cachedWorlds && worldId !== "unsaved-news") {
+          saveLocalNewsCache(
+            cachedWorlds.map((entry) =>
+              entry.id === worldId ? repairWorld(entry) : entry
+            )
+          )
+        }
+      } catch (repairError) {
+        console.error("Could not repair news conjugation", repairError)
+      } finally {
+        setRepairingConjugationKey((current) =>
+          current === repairKey ? null : current
+        )
+      }
+    }
+
+    void repairConjugation()
+  }, [
+    currentItem,
+    sourceLabel,
+    summary,
+    targetConjugationCode,
+    targetLabel,
+    verifiedCurrentConjugation,
+    world?.id,
+  ])
+
   const articleVocabularyWords = useMemo(
     () => visibleVocabularyItems.map((item) => item.target).filter(Boolean),
     [visibleVocabularyItems]
@@ -2638,24 +2776,33 @@ export default function NewsClient({
                     )}
                   </div>
                   {/* CONJUGATION RENDERING */}
-                  {currentItem.conjugation && (
+                  {currentItem.pos === "verb" && (
                     <div className="mt-4 pt-4 border-t border-[#3A3A3A]/10">
-                      <div className="text-xs font-semibold mb-3">Konjugation ({currentItem.conjugation.infinitive || currentItem.conjugation.verb})</div>
-                      <div className="grid gap-3">
-                        {currentItem.conjugation.sections?.map((section: any) => (
-                          <div key={section.title} className="bg-white rounded-xl border border-[#3A3A3A]/5 p-3 shadow-sm">
-                            <div className="font-medium text-[rgb(var(--vocado-accent-rgb))] mb-2 text-xs uppercase tracking-wide">{section.title}</div>
-                            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-xs">
-                              {section.rows?.map((row: string[], i: number) => (
-                                <div key={i} className="contents text-[#3A3A3A]/80">
-                                  <span className="text-right text-[#3A3A3A]/40 font-medium">{row[0]}</span>
-                                  <span className="font-medium">{row[1]}</span>
+                      <div className="text-xs font-semibold mb-3">Konjugation ({currentItem.source})</div>
+                      {verifiedCurrentConjugation ? (
+                        <div className="grid gap-3">
+                          {verifiedCurrentConjugation.sections.map((section: any, sectionIndex: number) => {
+                            const sectionTitle = targetTenseTitles(targetLabel)[sectionIndex]
+                            return (
+                              <div key={`${sectionIndex}-${sectionTitle}`} className="bg-white rounded-xl border border-[#3A3A3A]/5 p-3 shadow-sm">
+                                <div className="font-medium text-[rgb(var(--vocado-accent-rgb))] mb-2 text-xs uppercase tracking-wide">{sectionTitle}</div>
+                                <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-xs">
+                                  {section.rows?.map((row: string[], i: number) => (
+                                    <div key={i} className="contents text-[#3A3A3A]/80">
+                                      <span className="text-right text-[#3A3A3A]/40 font-medium">{row[0]}</span>
+                                      <span className="font-medium">{row[1]}</span>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : repairingConjugationKey ? (
+                        <div className="flex justify-center py-6 text-[rgb(var(--vocado-accent-rgb))]">
+                          <RefreshCw className="h-5 w-5 animate-spin" aria-hidden="true" />
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>

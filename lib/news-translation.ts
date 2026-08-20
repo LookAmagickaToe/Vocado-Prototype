@@ -24,6 +24,8 @@ CRITICAL RULES:
 9. First translate "summary". Then keep vocabulary items only when their exact
    "target" word or phrase occurs verbatim in that translated summary. Copy the
    visible/inflected summary form into "target" and use "lemma" separately.
+10. Set every vocabulary item's "conjugation" field to null. Conjugation tables
+    are generated separately and validated against ${targetLanguage}.
 
 Template to translate:
 ${JSON.stringify(templateJson, null, 2)}

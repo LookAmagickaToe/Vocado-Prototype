@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { slugifyVariant, variantLabel } from "@/lib/languages"
 import { filterVocabularyToSummary, NEWS_PROMPT_VERSION } from "@/lib/news/content"
+import { targetTenseTitles } from "@/lib/conjugation"
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
 
@@ -165,10 +166,7 @@ function buildParsePrompt({
     "1. Even if the input is a single word, you MUST return a valid JSON with an 'items' array containing that single item.",
     "2. A single word or phrase may be entered in EITHER configured language. Identify which configured language it is written in, then translate it to the other configured language.",
     "3. 'items' array MUST NEVER be empty. Create at least one item from the input.",
-    "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 3 sections with titles corresponding to 'Present', 'Simple Past', and 'Perfect' in the TARGET language.",
-    "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 3 sections with titles corresponding to 'Present', 'Simple Past', and 'Perfect' in the TARGET language.",
-    "Structure: {\"infinitive\":\"...\",\"translation\":\"...\",\"sections\":[{\"title\":\"(Present Tense)\",\"rows\":[[\"(pronoun)\",\"...\"],...]},{\"title\":\"(Past Tense)\",\"rows\":[...] },{\"title\":\"(Perfect Tense)\",\"rows\":[...]}]}.",
-    "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language (e.g. 'yo', 'tú' for Spanish; 'ich', 'du' for German). Do NOT use source language pronouns.",
+    "Set every item's 'conjugation' field to null. Conjugations are generated separately and validated against the target language.",
     "Choose a fitting emoji for each item (emoji is required).",
     "Always set pos for every item (verb, noun, adj, or other).",
     `Every item's 'source' MUST be written in ${sourceLabel}; every item's 'target' MUST be written in ${targetLabel}. Never swap these fields, even when the input is written in ${targetLabel}.`,
@@ -231,15 +229,18 @@ function buildConjugationPrompt({
   targetLabel: string
   verbs: Array<{ lemma: string; translation?: string }>
 }) {
+  const tenseTitles = targetTenseTitles(targetLabel)
   return [
-    "Generate conjugation tables for the following verbs.",
+    `Generate conjugation tables only in ${targetLabel}.`,
     `Source language label: "${sourceLabel}". Target language label: "${targetLabel}".`,
     "Return ONLY valid JSON with this shape:",
-    `{"conjugations":[{"verb":"(target_verb)","translation":"(translation)","sections":[{"title":"(Present)","rows":[["(pronoun)","(verb)"],...]}]}]}`,
-    "Include ONLY these 4 tenses: Simple Present, Simple Past, Present Perfect, and Future.",
-    "Use standard tense names (titles) in the TARGET language.",
-    "CRITICAL: Use pronouns (rows[i][0]) in the TARGET language (e.g. 'yo', 'tú' for Spanish; 'ich', 'du' for German). Do NOT use source language pronouns.",
-    "The conjugated forms (rows[i][1]) must matches the pronoun.",
+    `{"conjugations":[{"verb":"(infinitive in ${targetLabel})","translation":"(meaning in ${sourceLabel})","sections":[{"title":"${tenseTitles[0]}","rows":[["(pronoun in ${targetLabel})","(conjugated form in ${targetLabel})"],...]}]}]}`,
+    `Use exactly these four section titles, in this order: ${JSON.stringify(tenseTitles)}.`,
+    `CRITICAL: Every pronoun and every conjugated verb form MUST be in ${targetLabel}.`,
+    `NEVER conjugate the ${sourceLabel} translation. The "translation" field is reference text only.`,
+    `A supplied lemma may come from ${sourceLabel} because of an old cache. If it is not a ${targetLabel} verb, translate it into ${targetLabel} first, return that target infinitive as "verb", and conjugate only that translated verb.`,
+    `No English is allowed unless ${targetLabel} itself is English.`,
+    "The conjugated form in rows[i][1] must agree with its pronoun.",
     `Verbs: ${JSON.stringify(verbs)}`,
   ].join("\n")
 }
@@ -367,9 +368,7 @@ export function buildNewsPrompt({
     "Return ONLY valid JSON with this shape:",
     `{"title":"...","summary":["..."],"summary_source":["..."],"items":[{"source":"...","target":"...","pos":"verb|noun|adj|other","lemma":"","emoji":"🙂","explanation":"...","example":"...","syllables":"","conjugation":null,"variant":null}]}`,
     "title: Extract the title from the input text. Keep it in its ORIGINAL LANGUAGE (do NOT translate it).",
-    "For verbs, you MUST provide a 'conjugation' object. It MUST have exactly 4 sections with titles corresponding to 'Present', 'Simple Past', 'Perfect', and 'Future' in the TARGET language.",
-    "Structure: {\"infinitive\":\"...\",\"translation\":\"...\",\"sections\":[{\"title\":\"(Present Tense)\",\"rows\":[[\"(pronoun)\",\"...\"],...]},{\"title\":\"(Past Tense)\",\"rows\":[...] }, etc.]}.",
-    "CRITICAL: Pronouns (rows[i][0]) MUST be in the TARGET language (e.g. 'yo', 'tú' for Spanish, 'ich', 'du' for German). Do NOT use source language pronouns.",
+    "Set every item's 'conjugation' field to null. Conjugations are generated separately so the lesson and source languages cannot be mixed.",
     `summary: Write a comprehensive summary/article in ${targetLabel}. It MUST be at least 120 words long.`,
     `summary_source: **REQUIRED**: The exact translation of the 'summary' into ${sourceLabel}. It MUST be a parallel text.`,
     "WORKFLOW: First write the level-specific 'summary'. Only after that, extract vocabulary from that exact summary.",
@@ -487,6 +486,7 @@ export function buildBatchTranslationPrompt({
     "   - Copy the exact visible/inflected target form from the translated summary; keep a dictionary form in 'lemma' separately when useful.",
     `   - The field order is mandatory: source is always ${sourceLabel}, target is always ${targetLabel}; do not retain the German template's field order.`,
     `   - 'explanation' must always be written in ${sourceLabel}.`,
+    "   - Set 'conjugation' to null. It is generated separately and validated against the lesson language.",
     "- Ensure 'id' matches the input.",
     ...variantPromptLines(variantName ?? null, targetLabel),
   ].join("\n")
