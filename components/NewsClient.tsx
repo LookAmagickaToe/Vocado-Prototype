@@ -309,7 +309,9 @@ export default function NewsClient({
   const [world, setWorld] = useState<VocabWorld | null>(null)
   const [readNewsUrls, setReadNewsUrls] = useState<Set<string>>(new Set())
   const [summarySource, setSummarySource] = useState<string[]>([])
-  const [showTranslation, setShowTranslation] = useState(true)
+  // The article always opens in the language being learned. The source/native
+  // translation remains one tap away in the language switch.
+  const [showTranslation, setShowTranslation] = useState(false)
   const [readerExpandedAll, setReaderExpandedAll] = useState(false)
 
   // Selection state
@@ -699,7 +701,7 @@ export default function NewsClient({
     setNewsDate(patchedWorld.news?.date ?? todayKey)
     setItems(buildReviewItemsFromWorld(patchedWorld))
     setStep("summary")
-    setShowTranslation(true)
+    setShowTranslation(false)
     setCurrentLevel(0)
   }
 
@@ -995,6 +997,7 @@ export default function NewsClient({
           setItems(parsed.items)
           setWorld(buildWorldFromItems(parsed.items, sourceLabel, targetLabel, ui, parsed.id))
         }
+        setShowTranslation(false)
         setStep("summary")
       }
     } catch {
@@ -1509,7 +1512,7 @@ export default function NewsClient({
       setNewsTitle(patchedWorld.news?.title ?? patchedWorld.title ?? "")
       setNewsDate(patchedWorld.news?.date ?? newsDate)
       setStep("summary")
-      setShowTranslation(true)
+      setShowTranslation(false)
       return
     }
     if (!newsDate) {
@@ -1552,6 +1555,7 @@ export default function NewsClient({
         },
       }
       setWorld(newsWorld)
+      setShowTranslation(false)
       setStep("summary")
     } catch (err) {
       setError((err as Error).message)
@@ -1844,7 +1848,7 @@ export default function NewsClient({
 
   const currentItem = visibleVocabularyItems[carouselIndex]
   const articleVocabularyWords = useMemo(
-    () => visibleVocabularyItems.flatMap((item) => [item.source, item.target]).filter(Boolean),
+    () => visibleVocabularyItems.map((item) => item.target).filter(Boolean),
     [visibleVocabularyItems]
   )
   const selectedVocabularyItem = useMemo(() => {
@@ -2103,7 +2107,10 @@ export default function NewsClient({
               </div>
               <button
                 type="button"
-                onClick={() => setStep("summary")}
+                onClick={() => {
+                  setShowTranslation(false)
+                  setStep("summary")
+                }}
                 className="flex items-center gap-2 bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A]/70 px-4 py-3 rounded-2xl border border-[#3A3A3A]/5 transition-all text-sm font-medium whitespace-nowrap"
               >
                 <div className="rotate-180">➜</div>
@@ -2174,6 +2181,7 @@ export default function NewsClient({
                 // Since we handled level increment above, this block runs only at FINAL level.
                 // User: "Once all vocab has been played, the user can click read news."
                 // User: "Also when finishing all levels, the user should have a button to save the vocabulary"
+                setShowTranslation(false)
                 setStep("summary")
                 if (typeof window !== "undefined") {
                   const url = new URL(window.location.href)
@@ -2209,6 +2217,7 @@ export default function NewsClient({
                           type="button"
                           onClick={() => {
                             closeWin()
+                            setShowTranslation(false)
                             setStep("summary")
                           }}
                           className="w-full bg-[rgb(var(--vocado-accent-rgb))] hover:bg-[rgb(var(--vocado-accent-dark-rgb))] text-white px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
@@ -2250,6 +2259,7 @@ export default function NewsClient({
                               })
                             }
                             closeWin()
+                            setShowTranslation(false)
                             setStep("summary")
                           }}
                           className="w-full bg-[#FAF7F2] hover:bg-[#EBE7DF] text-[#3A3A3A] border border-[#3A3A3A]/10 px-4 py-3 rounded-xl font-semibold shadow-sm transition-all"
@@ -2538,7 +2548,9 @@ export default function NewsClient({
                     activeRow={audio.activeRow}
                     activeWord={audio.activeWord}
                     expandedAll={readerExpandedAll}
-                    vocabularyWords={articleVocabularyWords}
+                    // Vocabulary belongs to the learning-language article. The
+                    // native/source-language view stays visually clean.
+                    vocabularyWords={showTranslation ? [] : articleVocabularyWords}
                   />
                 ) : (
                   <div className="space-y-2 text-sm text-[#3A3A3A]/70">
@@ -2662,81 +2674,90 @@ export default function NewsClient({
       <AnimatePresence>
         {selectionPos && (
           <motion.div
-            ref={selectionMenuRef}
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
             style={{
               position: "fixed",
-              left: Math.min(selectionPos.x, typeof window !== "undefined" ? window.innerWidth - 160 : 0),
-              top: Math.min(selectionPos.y, typeof window !== "undefined" ? window.innerHeight - 60 : 0),
+              left: 0,
+              right: 0,
+              top: Math.min(
+                selectionPos.y + 8,
+                typeof window !== "undefined" ? window.innerHeight - 72 : selectionPos.y + 8
+              ),
             }}
-            className="z-[101] bg-white rounded-xl shadow-xl border border-[#3A3A3A]/10 p-1 flex flex-col min-w-[160px] overflow-hidden"
+            className="pointer-events-none z-[101] flex justify-center px-3"
           >
-            {selectedVocabularyItem ? (
-              <div className="px-3 py-2.5 text-left">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2 text-sm font-semibold text-[rgb(var(--vocado-accent-dark-rgb))]">
-                      <span
-                        title={targetLabel}
-                        className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
-                      >
-                        {targetAbbreviation}
-                      </span>
-                      <span>{selectedVocabularyItem.target}</span>
+            <div
+              ref={selectionMenuRef}
+              style={{ width: "min(18rem, calc(100vw - 1.5rem))" }}
+              className="pointer-events-auto flex flex-col overflow-hidden rounded-xl border border-[#3A3A3A]/10 bg-white p-1 shadow-xl"
+            >
+              {selectedVocabularyItem ? (
+                <div className="px-3 py-2.5 text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2 text-sm font-semibold text-[rgb(var(--vocado-accent-dark-rgb))]">
+                        <span
+                          title={targetLabel}
+                          className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
+                        >
+                          {targetAbbreviation}
+                        </span>
+                        <span className="min-w-0 break-words">{selectedVocabularyItem.target}</span>
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2 text-xs font-medium text-[#3A3A3A]/75">
+                        <span
+                          title={sourceLabel}
+                          className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
+                        >
+                          {sourceAbbreviation}
+                        </span>
+                        <span className="min-w-0 break-words">{selectedVocabularyItem.source}</span>
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-baseline gap-2 text-xs font-medium text-[#3A3A3A]/75">
-                      <span
-                        title={sourceLabel}
-                        className="w-6 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#3A3A3A]/45"
-                      >
-                        {sourceAbbreviation}
-                      </span>
-                      <span>{selectedVocabularyItem.source}</span>
+                    <div className="shrink-0 self-center text-right text-4xl leading-none">
+                      {selectedVocabularyItem.emoji ?? "📰"}
                     </div>
                   </div>
-                  <div className="shrink-0 self-center text-right text-4xl leading-none">
-                    {selectedVocabularyItem.emoji ?? "📰"}
-                  </div>
-                </div>
-                {(selectedVocabularyItem.explanation || selectedVocabularyItem.example) && (
-                  <div className="mt-1.5 max-w-[240px] text-[11px] leading-snug text-[#3A3A3A]/55">
-                    {selectedVocabularyItem.explanation ?? selectedVocabularyItem.example}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={handleAddSelectionToVocab}
-                disabled={isAddingSelection}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-[#F2F0E9] disabled:opacity-60 text-[#3A3A3A] transition-colors text-sm font-medium text-left"
-              >
-                <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
-                  {isAddingSelection ? (
-                    <div className="w-3 h-3 border-2 border-current border-t-transparent animate-spin rounded-full" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
+                  {(selectedVocabularyItem.explanation || selectedVocabularyItem.example) && (
+                    <div className="mt-1.5 break-words text-[11px] leading-snug text-[#3A3A3A]/55">
+                      {selectedVocabularyItem.explanation ?? selectedVocabularyItem.example}
+                    </div>
                   )}
                 </div>
-                {isAddingSelection
-                  ? "Vokabel wird hinzugefügt..."
-                  : ui.addToVocab ?? "Zum Vokabular hinzufügen"}
-              </button>
-            )}
-            {selectionAddStatus && (
-              <div
-                role="status"
-                className={`border-t px-3 py-2 text-[11px] leading-snug ${
-                  selectionAddStatus.type === "success"
-                    ? "border-[rgb(var(--vocado-accent-rgb))/0.2] bg-[rgb(var(--vocado-accent-rgb))/0.08] text-[rgb(var(--vocado-accent-dark-rgb))]"
-                    : "border-red-200 bg-red-50 text-red-700"
-                }`}
-              >
-                {selectionAddStatus.message}
-              </div>
-            )}
+              ) : (
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleAddSelectionToVocab}
+                  disabled={isAddingSelection}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-[#F2F0E9] disabled:opacity-60 text-[#3A3A3A] transition-colors text-sm font-medium text-left"
+                >
+                  <div className="w-6 h-6 rounded-full bg-[rgb(var(--vocado-accent-rgb))/0.1] flex items-center justify-center text-[rgb(var(--vocado-accent-rgb))]">
+                    {isAddingSelection ? (
+                      <div className="w-3 h-3 border-2 border-current border-t-transparent animate-spin rounded-full" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                  {isAddingSelection
+                    ? "Vokabel wird hinzugefügt..."
+                    : ui.addToVocab ?? "Zum Vokabular hinzufügen"}
+                </button>
+              )}
+              {selectionAddStatus && (
+                <div
+                  role="status"
+                  className={`border-t px-3 py-2 text-[11px] leading-snug ${
+                    selectionAddStatus.type === "success"
+                      ? "border-[rgb(var(--vocado-accent-rgb))/0.2] bg-[rgb(var(--vocado-accent-rgb))/0.08] text-[rgb(var(--vocado-accent-dark-rgb))]"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {selectionAddStatus.message}
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

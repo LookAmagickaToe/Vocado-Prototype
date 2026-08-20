@@ -525,7 +525,12 @@ export default function InterlinearAccordionReader({
           : null
       )
 
-      onWordTap(word, { x: e.clientX, y: e.clientY }, rowEl?.dataset.sentence ?? "")
+      const wordRect = wordEl.getBoundingClientRect()
+      onWordTap(
+        word,
+        { x: wordRect.left + wordRect.width / 2, y: wordRect.bottom },
+        rowEl?.dataset.sentence ?? ""
+      )
     },
     [onWordTap, onPlayRow, chargeRaw]
   )
