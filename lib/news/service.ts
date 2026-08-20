@@ -7,6 +7,7 @@ import {
     filterVocabularyToSummary,
     hasCurrentNewsPromptVersion,
     NEWS_PROMPT_VERSION,
+    resolveNewsPoolPair,
 } from "@/lib/news/content"
 
 const DEFAULT_MODEL = "gemini-flash-lite-latest"
@@ -16,8 +17,22 @@ const DEFAULT_MODEL = "gemini-flash-lite-latest"
  * Rebuild them from the canonical news vocabulary before returning a cache hit.
  */
 function normalizeCachedNewsPayload(worldData: any, sourceLanguage: string, targetLanguage: string) {
-    const items = worldData?.news?.items
-    if (!worldData || !Array.isArray(items)) return worldData
+    if (!worldData) return worldData
+    const newsItems = worldData?.news?.items
+    const items = Array.isArray(newsItems)
+        ? newsItems
+        : Array.isArray(worldData.pool)
+            ? worldData.pool.map((item: any) => ({
+                ...item,
+                ...resolveNewsPoolPair(
+                    item,
+                    sourceLanguage,
+                    targetLanguage,
+                    worldData.news?.summary,
+                    worldData.news?.summary_source
+                ),
+            }))
+            : []
 
     worldData.pool = items.map((item: any, index: number) => ({
         ...item,

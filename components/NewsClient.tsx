@@ -21,6 +21,7 @@ import {
   filterVocabularyToSummary,
   hasCurrentNewsPromptVersion,
   NEWS_PROMPT_VERSION,
+  resolveNewsPoolPair,
 } from "@/lib/news/content"
 
 const SEEDS_STORAGE_KEY = "vocado-seeds"
@@ -159,16 +160,25 @@ const buildReviewItemsFromAi = (items: any[]) =>
   })
 
 const buildReviewItemsFromWorld = (world: VocabWorld): ReviewItem[] =>
-  (world.pool || []).map((pair) => ({
-    source: pair.es,
-    target: pair.de,
-    pos: (pair.pos?.toLowerCase() ?? "other") as "verb" | "noun" | "adj" | "other",
-    emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
-    explanation: pair.explanation,
-    example: pair.example,
-    conjugation: pair.conjugation, // ✅ NEW
-    manuallyAdded: Boolean((pair as any).manuallyAdded),
-  }))
+  (world.pool || []).map((pair) => {
+    const resolved = resolveNewsPoolPair(
+      pair,
+      world.source_language || "Español",
+      world.target_language || "Deutsch",
+      world.news?.summary,
+      world.news?.summary_source
+    )
+    return {
+      source: resolved.source,
+      target: resolved.target,
+      pos: (pair.pos?.toLowerCase() ?? "other") as "verb" | "noun" | "adj" | "other",
+      emoji: pair.image?.type === "emoji" ? pair.image.value : "📰",
+      explanation: pair.explanation,
+      example: pair.example,
+      conjugation: pair.conjugation, // ✅ NEW
+      manuallyAdded: Boolean((pair as any).manuallyAdded),
+    }
+  })
 
 const filterArticleVocabulary = (
   items: ReviewItem[],
@@ -231,6 +241,8 @@ const buildWorldFromItems = (
         : explanation
     return {
       id: `${id}-${index}`,
+      source: item.source,
+      target: item.target,
       [sourceCode]: item.source,
       [targetCode]: item.target,
       image: { type: "emoji", value: item.emoji?.trim() || "📰" } as any,
@@ -1644,6 +1656,8 @@ export default function NewsClient({
 
       const newPairs = validItems.map((item, idx) => ({
         id: `${world.id}-custom-${Date.now()}-${idx}`,
+        source: item.source,
+        target: item.target,
         // Legacy storage fields always mean configured source -> target here;
         // they are not literal Spanish/German language codes.
         es: item.source,

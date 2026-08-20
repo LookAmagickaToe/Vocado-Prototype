@@ -1,11 +1,12 @@
 
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { indexUserWords } from "@/lib/user-words"
+import { saveUserWords } from "@/lib/user-words"
 import { getRequestContext } from "@/lib/track-server"
 
 // Explicit "add these words to my vocabulary" action, used by the news reader.
-// Writes both the legacy `vocables` rows and the queryable `user_words` index.
+// `user_words` is the canonical queryable vocabulary store. Older versions also
+// wrote to a `vocables` table, but that table is not part of this Supabase schema
+// and no reader in the app uses it.
 
 export async function POST(req: NextRequest) {
     try {
@@ -28,37 +29,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ status: "ok", count: 0 })
         }
 
-        const toInsert = items.map((item: any) => ({
-            user_id: userId,
-            es: item.es,
-            de: item.de,
-            image: item.image,
-            explanation: item.explanation,
-            meta: {
-                source: sourceLayout,
-                target: targetLayout,
-                variant: track.variant,
-                pos: item.pos,
-                example: item.example,
-                conjugation: item.conjugation,
-                imported_from: "news",
-                created_at: new Date().toISOString()
-            }
+        const normalizedItems = items.map((item: any) => ({
+            ...item,
+            es: item?.es ?? item?.source,
+            de: item?.de ?? item?.target,
         }))
+        const indexed = await saveUserWords(userId, normalizedItems, "news", null, track)
 
-        // onConflict must not contain spaces — PostgREST rejects them with 42P10.
-        const { error } = await supabaseAdmin
-            .from("vocables")
-            .upsert(toInsert, { onConflict: "user_id,es,de", ignoreDuplicates: true })
-
-        if (error) {
-            console.error("Error saving vocab:", error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
-        }
-
-        const indexed = await indexUserWords(userId, items, "news", null, track)
-
-        return NextResponse.json({ status: "ok", count: toInsert.length, indexed })
+        return NextResponse.json({ status: "ok", count: indexed, indexed })
     } catch (e) {
         console.error("Unexpected error saving vocabulary:", e)
         return NextResponse.json(

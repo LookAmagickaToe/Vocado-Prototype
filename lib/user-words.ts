@@ -93,28 +93,41 @@ export async function indexUserWords(
   worldId: string | null = null,
   track: Track
 ): Promise<number> {
-  if (!Array.isArray(pool) || pool.length === 0) return 0
-  const rows = toRows(userId, pool, origin, worldId, track)
-  if (rows.length === 0) return 0
-
   try {
-    const { error } = await supabaseAdmin
-      .from("user_words")
-      .upsert(rows, {
-        // Scoped to the track, so the same spelling can exist in two languages
-        // the user is learning. `variant` is absent on purpose: re-encountering a
-        // standard word while in a variety session dedupes onto the existing row
-        // instead of forking a copy.
-        onConflict: "user_id,source_language,target_language,norm_source,norm_target",
-        ignoreDuplicates: true,
-      })
-    if (error) {
-      console.error("user_words index failed:", error.message)
-      return 0
-    }
-    return rows.length
+    return await saveUserWords(userId, pool, origin, worldId, track)
   } catch (error) {
     console.error("user_words index threw:", (error as Error).message)
     return 0
   }
+}
+
+/**
+ * Persist an explicit vocabulary action. Unlike the best-effort mirror above,
+ * this throws when Supabase rejects the write so the UI never reports a word as
+ * saved when it only exists in React state.
+ */
+export async function saveUserWords(
+  userId: string,
+  pool: PoolLike[],
+  origin: UserWordOrigin,
+  worldId: string | null = null,
+  track: Track
+): Promise<number> {
+  if (!Array.isArray(pool) || pool.length === 0) return 0
+  const rows = toRows(userId, pool, origin, worldId, track)
+  if (rows.length === 0) return 0
+
+  const { error } = await supabaseAdmin
+    .from("user_words")
+    .upsert(rows, {
+      // Scoped to the track, so the same spelling can exist in two languages
+      // the user is learning. `variant` is absent on purpose: re-encountering a
+      // standard word while in a variety session dedupes onto the existing row
+      // instead of forking a copy.
+      onConflict: "user_id,source_language,target_language,norm_source,norm_target",
+      ignoreDuplicates: true,
+    })
+
+  if (error) throw new Error(error.message)
+  return rows.length
 }

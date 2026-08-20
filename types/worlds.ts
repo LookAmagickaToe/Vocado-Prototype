@@ -29,6 +29,9 @@ export type VocabPair = {
   id: string
   es: string
   de: string
+  /** Canonical language direction for news pools; avoids ambiguous legacy es/de fields. */
+  source?: string
+  target?: string
   image: CardImage
   explanation?: string
   example?: string
